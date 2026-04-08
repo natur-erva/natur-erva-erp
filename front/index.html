@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Natur Erva CRM</title>
+    <!-- Favicon padrão - será atualizado dinamicamente pelo JavaScript -->
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              brand: {
+                50: 'var(--brand-50, #ecfdf5)',
+                100: 'var(--brand-100, #d1fae5)',
+                200: 'var(--brand-200, #a7f3d0)',
+                300: 'var(--brand-300, #6ee7b7)',
+                400: 'var(--brand-400, #34d399)',
+                500: 'var(--brand-500, #10b981)',
+                600: 'var(--brand-600, #059669)',
+                700: 'var(--brand-700, #047857)',
+                800: 'var(--brand-800, #065f46)',
+                900: 'var(--brand-900, #064e3b)',
+              },
+              gray: {
+                750: '#2d3748',
+                850: '#1a202c',
+                900: '#111827',
+                950: '#0B0F19',
+              },
+              surface: {
+                base: 'var(--surface-base)',
+                raised: 'var(--surface-raised)',
+                overlay: 'var(--surface-overlay)',
+              },
+              content: {
+                primary: 'var(--text-primary)',
+                secondary: 'var(--text-secondary)',
+                muted: 'var(--text-muted)',
+              },
+              'border-default': 'var(--border-default)',
+              'border-strong': 'var(--border-strong)',
+              'brand-logo': {
+                dark: '#35A754',
+                light: '#88E032',
+              },
+              semantic: {
+                success: 'var(--color-success)',
+                error: 'var(--color-error)',
+                warning: 'var(--color-warning)',
+                info: 'var(--color-info)',
+              },
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Design tokens - Light (default) */
+      :root {
+        --surface-base: #f3f4f6;
+        --surface-raised: #ffffff;
+        --surface-overlay: #ffffff;
+        --text-primary: #111827;
+        --text-secondary: #4b5563;
+        --text-muted: #6b7280;
+        --border-default: #e5e7eb;
+        --border-strong: #d1d5db;
+        --color-success: #059669;
+        --color-error: #dc2626;
+        --color-warning: #d97706;
+        --color-info: #2563eb;
+        --chart-grid: #e5e7eb;
+        --chart-tick: #6b7280;
+        --chart-tooltip-bg: #1f2937;
+        --chart-tooltip-text: #f9fafb;
+        --brand-logo-dark: #35A754;
+        --brand-logo-light: #88E032;
+      }
+      .dark {
+        --surface-base: #111827;
+        --surface-raised: #1f2937;
+        --surface-overlay: #0B0F19;
+        --text-primary: #f9fafb;
+        --text-secondary: #d1d5db;
+        --text-muted: #9ca3af;
+        --border-default: #374151;
+        --border-strong: #4b5563;
+        --color-success: #34d399;
+        --color-error: #f87171;
+        --color-warning: #fbbf24;
+        --color-info: #60a5fa;
+        --chart-grid: #374151;
+        --chart-tick: #9ca3af;
+        --chart-tooltip-bg: #374151;
+        --chart-tooltip-text: #f9fafb;
+        --brand-logo-dark: #35A754;
+        --brand-logo-light: #88E032;
+      }
+      body {
+        background-color: var(--surface-base);
+        color: var(--text-primary);
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+      .dark ::-webkit-scrollbar-thumb { background: #374151; }
+      .dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      
+      /* Animations */
+      @keyframes fade-in-up {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-in-up {
+        animation: fade-in-up 0.3s ease-out;
+      }
+      
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out;
+      }
+      
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      
+      /* Mobile optimizations */
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Better touch targets for mobile */
+      @media (max-width: 640px) {
+        button, a, input, select, textarea {
+          min-height: 44px;
+        }
+      }
+      
+      /* Prevent text size adjustment on iOS */
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      
+      /* Overlay de modais: blur transparente, tela inteira */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        min-height: 100vh;
+        min-width: 100vw;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        background: rgba(0,0,0,0.04);
+      }
+      /* Só blur/bg para overlays filhos (absolute) */
+      .modal-overlay-bg {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        background: rgba(0,0,0,0.04);
+      }
+
+      /* Esconder setas dos inputs numéricos */
+      .input-number-simple::-webkit-inner-spin-button,
+      .input-number-simple::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .input-number-simple {
+        -moz-appearance: textfield;
+      }
+    </style>
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

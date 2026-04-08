@@ -1,0 +1,1889 @@
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { Product, ProductVariant, OrderItem, Customer, UserRole, OrderStatus, DeliveryZone } from '../../core/types/types';
+import { authService } from '../../auth/services/authService';
+import { deliveryService } from '../../sales/services/deliveryService';
+import { productService } from '../../products/services/productService';
+import { orderService } from '../../sales/services/orderService';
+import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClient';
+import { trackingService } from '../../core/services/trackingService';
+import { useShopTracking } from '../../core/hooks/useShopTracking';
+import { useMobile } from '../../core/hooks/useMobile';
+import { ShoppingCart, Search, User, LogIn, LogOut, Package, Plus, Minus, X, MapPin, Phone, Mail, Settings, Moon, Sun, Bell, CheckCircle, Eye, EyeOff, Loader2, Filter, ChevronRight, ChevronDown, Instagram, Facebook } from 'lucide-react';
+import { User as UserType } from '../../core/types/types';
+import { Logo } from '../../core/components/ui/Logo';
+import { ToastContainer, Toast } from '../../core/components/ui/Toast';
+import { DeliveryZoneSelector } from '../../core/components/forms/DeliveryZoneSelector';
+import { CustomerProfile } from '../../customers/pages/CustomerProfile';
+import { ForgotPasswordModal } from '../../core/components/modals/ForgotPasswordModal';
+import { SignUpModal } from '../../core/components/modals/SignUpModal';
+import { LoginModal } from '../../core/components/modals/LoginModal';
+import { ProductCard, ProductCardSkeleton } from '../../products/components/ui/ProductCard';
+import { getSystemSettings, SystemSettings } from '../../core/services/systemSettingsService';
+import { useShopContext } from '../../../contexts/ShopContext';
+import { isUUID } from '../../core/utils/slugUtils';
+import { normalizeForSearch } from '../../core/services/serviceUtils';
+
+// Base path para deploy na raiz
+const BASE_PATH = '/';
+
+interface CartItem {
+  productId: string;
+  productName: string;
+  variantId?: string;
+  variantName?: string;
+  quantity: number;
+  price: number;
+  unit: string;
+  image?: string;
+}
+
+interface ShopProps {
+  currentUser?: UserType | null;
+  onLogin?: (user: UserType) => void;
+  onLogout?: () => void;
+  /** Exigir login para aceder (loja/series). Se false, página acessível mas pode mostrar popup. */
+  requireAuth?: boolean;
+  /** Mostrar popup de login ao carregar (home acessível mas com prompt) */
+  showLoginPrompt?: boolean;
+}
+
+export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogin, onLogout, requireAuth = true, showLoginPrompt = false }) => {
+  const location = useLocation();
+  const params = useParams();
+  const navigate = useNavigate();
+  const isMobile = useMobile(768);
+
+  // Usar contexto do Shop para compartilhar estado com Header
+  // Sempre disponível dentro do ShopProvider
+  const shopContext = useShopContext();
+
+  // Ref para evitar dependências desnecessárias em useEffects
+  const shopContextRef = useRef(shopContext);
+  shopContextRef.current = shopContext;
+
+  // Estados básicos primeiro - TODOS os estados necessários para os callbacks
+  const [showLogin, setShowLogin] = useState((requireAuth || showLoginPrompt) && !propCurrentUser);
+  const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserType | null>(propCurrentUser || null);
+
+  // Ref para currentUser para usar em callbacks sem dependências
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+
+  // Definir handleLoginClick IMEDIATAMENTE (antes de qualquer useEffect)
+  // Isso garante que o callback esteja disponível o mais cedo possível
+  const handleLoginClick = useCallback(() => {
+    setShowLogin(true);
+  }, []);
+
+  // Definir callbacks ANTES dos useEffects para garantir disponibilidade imediata
+  const handleCartClick = useCallback(() => {
+    setShowCart(true);
+  }, []);
+
+  // handleProfileClick - será atualizado depois que setActiveBottomNav estiver disponível
+  // Usar ref para setActiveBottomNav para evitar dependência circular
+  const setActiveBottomNavRef = useRef<((nav: 'shop' | 'categories' | 'cart' | 'profile') => void) | null>(null);
+
+  const handleProfileClick = useCallback(() => {
+    if (currentUserRef.current) {
+      setShowProfile(true);
+      // setActiveBottomNav será atualizado via ref quando disponível
+      if (setActiveBottomNavRef.current) {
+        setActiveBottomNavRef.current('profile');
+      }
+    } else {
+      setShowLogin(true);
+    }
+  }, []);
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [priceRange, setPriceRange] = useState<string>('');
+
+  const [showCategoryFilters, setShowCategoryFilters] = useState(false);
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+
+  // Determinar activeBottomNav e selectedSeriesId baseado na rota
+  const getActiveNavFromRoute = (): { nav: 'shop' | 'categories' | 'cart' | 'profile', seriesId: string | null, chapterId: string | null } => {
+    const path = location.pathname;
+    if (path === '/loja' || path === '/') {
+      return { nav: 'shop', seriesId: null, chapterId: null };
+    }
+    return { nav: 'shop', seriesId: null, chapterId: null };
+  };
+
+  const routeState = getActiveNavFromRoute();
+  const [activeBottomNav, setActiveBottomNav] = useState<'shop' | 'categories' | 'cart' | 'profile'>(routeState.nav);
+  const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(routeState.seriesId);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(routeState.chapterId);
+
+  // Atualizar ref para setActiveBottomNav quando disponível
+  useEffect(() => {
+    setActiveBottomNavRef.current = setActiveBottomNav;
+  }, []);
+
+  // Sincronizar estado com rota quando rota mudar - memoizado
+  useEffect(() => {
+    const state = getActiveNavFromRoute();
+    setActiveBottomNav(state.nav);
+    setSelectedSeriesId(state.seriesId);
+    setSelectedChapterId(state.chapterId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, params.id, params.seriesId, params.chapterId, params.seriesSlug, params.chapterSlug]);
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [darkMode, setDarkMode] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
+  const [pendingAddToCart, setPendingAddToCart] = useState<{ product: Product; variant?: ProductVariant } | null>(null);
+  const [loginMessage, setLoginMessage] = useState<string | null>(null);
+  const [showCompleteProfile, setShowCompleteProfile] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [settings, setSettings] = useState<SystemSettings>({});
+
+  // Estados para checkout
+  const [deliveryInfo, setDeliveryInfo] = useState({
+    isDelivery: false,
+    address: '',
+    phone: '',
+    email: '',
+    name: '',
+    deliveryZoneId: '',
+    deliveryZoneName: '',
+    deliveryFee: 0
+  });
+
+  // Inicializar dark mode - apenas uma vez
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const isDark = savedTheme === 'dark' || (!savedTheme && false); // Default light para loja
+    setDarkMode(isDark);
+    if (shopContextRef.current) {
+      shopContextRef.current.setDarkMode(isDark);
+    }
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Executar apenas uma vez na montagem
+
+  const toggleTheme = useCallback(() => {
+    setDarkMode(prev => {
+      const newMode = !prev;
+      // Não atualizar contexto aqui - será feito no useEffect abaixo
+      localStorage.setItem('theme', newMode ? 'dark' : 'light');
+      if (newMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      return newMode;
+    });
+  }, []);
+
+  // Callbacks já definidos acima para garantir disponibilidade imediata
+
+  // Memoizar cartItemCount cedo (é usado nos efeitos abaixo)
+  const cartItemCount = useMemo(() => {
+    return cart.reduce((count, item) => count + item.quantity, 0);
+  }, [cart]);
+
+  // Sincronizar estado com contexto - usando refs para evitar loops infinitos
+  const prevSearchTermRef = useRef(searchTerm);
+  const prevCartLengthRef = useRef(cartItemCount);
+  const prevDarkModeRef = useRef(darkMode);
+
+  useEffect(() => {
+    if (!shopContext) return;
+
+    // Só atualizar se realmente mudou
+    if (prevSearchTermRef.current !== searchTerm) {
+      prevSearchTermRef.current = searchTerm;
+      shopContext.setSearchTerm(searchTerm);
+    }
+  }, [searchTerm, shopContext]);
+
+  useEffect(() => {
+    if (!shopContext) return;
+
+    // Só atualizar se o count mudou
+    if (prevCartLengthRef.current !== cartItemCount) {
+      prevCartLengthRef.current = cartItemCount;
+      shopContext.setCartItemCount(cartItemCount);
+    }
+  }, [cartItemCount, shopContext]);
+
+  useEffect(() => {
+    if (!shopContext) return;
+
+    // Só atualizar se realmente mudou
+    if (prevDarkModeRef.current !== darkMode) {
+      prevDarkModeRef.current = darkMode;
+      shopContext.setDarkMode(darkMode);
+    }
+  }, [darkMode, shopContext]);
+
+  // Atualizar currentUserRef quando currentUser mudar
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!shopContext) return;
+    const active = selectedCategory !== 'all' || priceRange !== '';
+    shopContext.setHasActiveFilters(active);
+  }, [selectedCategory, priceRange, shopContext]);
+
+  // DEFINIR CALLBACKS IMEDIATAMENTE usando useLayoutEffect
+  // useLayoutEffect executa de forma síncrona antes da pintura, garantindo que
+  // os callbacks estejam disponíveis antes do Header renderizar novamente
+  useLayoutEffect(() => {
+    if (!shopContext) return;
+
+    // Definir callbacks imediatamente - isso vai atualizar o contexto e forçar
+    // re-render do PublicLayout e Header
+    shopContext.setOnCartClick(handleCartClick);
+    shopContext.setOnProfileClick(handleProfileClick);
+    shopContext.setOnLoginClick(handleLoginClick);
+    shopContext.setToggleTheme(toggleTheme);
+    shopContext.setOnFilterClick(() => setShowFiltersPanel(true));
+  }, [shopContext, handleCartClick, handleProfileClick, handleLoginClick, toggleTheme]);
+
+  // Também garantir que os callbacks sejam atualizados quando mudarem
+  useEffect(() => {
+    if (!shopContext) return;
+
+    shopContext.setOnCartClick(handleCartClick);
+    shopContext.setOnProfileClick(handleProfileClick);
+    shopContext.setOnLoginClick(handleLoginClick);
+    shopContext.setToggleTheme(toggleTheme);
+    shopContext.setOnFilterClick(() => setShowFiltersPanel(true));
+  }, [shopContext, handleCartClick, handleProfileClick, handleLoginClick, toggleTheme]);
+
+  // Funçéo para mostrar toast
+  const showToast = (message: string, type: Toast['type'] = 'info', duration?: number) => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    setToasts(prev => [...prev, { id, message, type, duration }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Usar ref para onLogin para evitar que checkAuth mude constantemente
+  const onLoginRef = useRef(onLogin);
+  useEffect(() => {
+    onLoginRef.current = onLogin;
+  }, [onLogin]);
+
+  // Declarar todas as funções antes de serem usadas no useEffect
+  const loadSettings = useCallback(async () => {
+    try {
+      const loadedSettings = await getSystemSettings();
+      setSettings(loadedSettings);
+    } catch (error) {
+      console.error('Erro ao carregar configurações:', error);
+    }
+  }, []);
+
+  const loadCartFromStorage = useCallback(() => {
+    const savedCart = localStorage.getItem('shop_cart');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (e) {
+        console.error('Erro ao carregar carrinho:', e);
+      }
+    }
+  }, []);
+
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Usar getProducts() normal - stock já está atualizado automaticamente nas ações (pedidos/compras)
+      const allProducts = await productService.getProducts();
+
+      // Filtrar apenas produtos visíveis na loja (showInShop !== false) e com stock (fonte: product.variants[].stock)
+      const visibleProducts = allProducts.filter(p => {
+        if (p.showInShop === false) return false;
+        if (p.variants && p.variants.length > 0) {
+          return p.variants.some(v => (v.stock ?? 0) > 0);
+        }
+        return false;
+      });
+      setProducts(visibleProducts);
+
+      // Extrair categorias únicas
+      const uniqueCategories = Array.from(new Set(allProducts.map(p => p.category || 'Geral'))).filter(Boolean);
+      setCategories(uniqueCategories);
+
+      // Inicializar filteredProducts
+      setFilteredProducts(allProducts);
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error);
+      // Usar setToasts diretamente para evitar dependência de showToast
+      setToasts(prev => [...prev, {
+        id: `toast-${Date.now()}-${Math.random()}`,
+        message: 'Erro ao carregar produtos. Tente novamente.',
+        type: 'error' as const
+      }]);
+      setProducts([]);
+      setFilteredProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Declarar checkAuth antes de ser usado no useEffect
+  const checkAuth = useCallback(async () => {
+    const user = await authService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+      if (onLoginRef.current) {
+        onLoginRef.current(user);
+      }
+      setDeliveryInfo(prev => ({
+        ...prev,
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || ''
+      }));
+    }
+  }, []);
+
+  // Refs para evitar múltiplas execuções do useEffect inicial
+  const lastProcessedUserId = useRef<string | null>(null);
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    const currentUserId = propCurrentUser?.id || null;
+
+    // Só executar se o usuário mudou ou se é a primeira execução
+    if (lastProcessedUserId.current === currentUserId && hasInitialized.current) {
+      return;
+    }
+
+    lastProcessedUserId.current = currentUserId;
+    hasInitialized.current = true;
+
+    loadProducts();
+    if (!propCurrentUser) {
+      checkAuth();
+    } else {
+      setCurrentUser(propCurrentUser);
+      setDeliveryInfo(prev => ({
+        ...prev,
+        name: propCurrentUser.name || '',
+        email: propCurrentUser.email || '',
+        phone: propCurrentUser.phone || ''
+      }));
+    }
+    loadCartFromStorage();
+    loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propCurrentUser?.id]); // Usar apenas o ID do usuário para evitar loops
+
+  // Verificar sessão existente ao carregar (sem login automático)
+  // Usar ref para onLogin para evitar loops
+  const onLoginRefForSession = useRef(onLogin);
+  useEffect(() => {
+    onLoginRefForSession.current = onLogin;
+  }, [onLogin]);
+
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      // Só verificar uma vez e apenas se não houver usuário
+      if (autoLoginAttempted || currentUser || propCurrentUser) return;
+
+      setAutoLoginAttempted(true);
+
+      // Verificar se já existe sessão
+      const user = await authService.getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+        if (onLoginRefForSession.current) {
+          onLoginRefForSession.current(user);
+        }
+        setDeliveryInfo(prev => ({
+          ...prev,
+          name: user.name || '',
+          email: user.email || '',
+          phone: user.phone || ''
+        }));
+        setShowWelcome(true);
+      }
+    };
+
+    // Aguardar um pouco antes de verificar para não bloquear carregamento
+    const timer = setTimeout(() => {
+      checkExistingSession();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [autoLoginAttempted, currentUser, propCurrentUser]);
+
+  // Mostrar mensagem de boas-vindas quando usuário fizer login
+  useEffect(() => {
+    if (currentUser && !propCurrentUser) {
+      setShowWelcome(true);
+      // Esconder apé³s 4 segundos
+      const timer = setTimeout(() => {
+        setShowWelcome(false);
+      }, 4000);
+
+      // Esconder ao scrollar
+      const handleScroll = () => {
+        if (window.scrollY > 50) {
+          setShowWelcome(false);
+        }
+      };
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [currentUser, propCurrentUser]);
+
+  // Hook de tracking da loja
+  const {
+    trackProductView,
+    trackAddToCart: trackAddToCartAction,
+    trackCheckoutStart,
+    trackOrderComplete,
+    trackSearch
+  } = useShopTracking({ enabled: true, trackPageChanges: true });
+
+  // Expor funçéµes de tracking globalmente para uso em componentes filhos
+  // Usar ref para evitar dependência que muda constantemente
+  const trackProductViewRef = useRef(trackProductView);
+  useEffect(() => {
+    trackProductViewRef.current = trackProductView;
+  }, [trackProductView]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__trackProductView = (...args: any[]) => trackProductViewRef.current(...args);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).__trackProductView;
+      }
+    };
+  }, []); // Executar apenas uma vez
+
+  // Inicializar filteredProducts quando products mudar (apenas uma vez)
+  const hasInitializedFiltered = useRef(false);
+  const lastProductsLengthRef = useRef(0);
+
+  useEffect(() => {
+    // Só inicializar se products mudou de 0 para > 0
+    if (products.length > 0 && lastProductsLengthRef.current === 0 && !hasInitializedFiltered.current) {
+      hasInitializedFiltered.current = true;
+      lastProductsLengthRef.current = products.length;
+      setFilteredProducts(products);
+    } else if (products.length !== lastProductsLengthRef.current) {
+      lastProductsLengthRef.current = products.length;
+    }
+  }, [products.length, products]);
+
+  // Debounce da pesquisa (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Helper: preço mínimo de um produto (variants ou price)
+  const getProductMinPrice = (p: Product): number => {
+    if (p.variants && p.variants.length > 0) {
+      return Math.min(...p.variants.map(v => v.price ?? p.price ?? 0));
+    }
+    return p.price ?? 0;
+  };
+
+  // Memoizar filterProducts usando useMemo para evitar recriação e re-renders
+  const filteredProductsMemo = useMemo(() => {
+    let filtered = [...products];
+
+    // Filtrar por categoria
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(p => (p.category || 'Geral') === selectedCategory);
+    }
+
+    // Filtrar por termo de busca (usar debounced)
+    if (debouncedSearchTerm) {
+      const term = normalizeForSearch(debouncedSearchTerm);
+      filtered = filtered.filter(p =>
+        normalizeForSearch(p.name).includes(term) ||
+        normalizeForSearch(p.category || '').includes(term)
+      );
+    }
+
+    // Filtrar por preço
+    if (priceRange) {
+      const [min, max] = priceRange.split('-').map(Number);
+      filtered = filtered.filter(p => {
+        const price = getProductMinPrice(p);
+        if (max !== undefined && !isNaN(max)) return price >= min && price < max;
+        return price >= min; // "500+" => max é NaN
+      });
+    }
+
+    return filtered;
+  }, [products, debouncedSearchTerm, selectedCategory, priceRange]);
+
+  // Rastrear busca em um useEffect separado para evitar loops
+  // Usar refs para evitar dependências que mudam constantemente
+  const trackSearchRef = useRef(trackSearch);
+  const lastTrackedSearchRef = useRef<string>('');
+
+  useEffect(() => {
+    trackSearchRef.current = trackSearch;
+  }, [trackSearch]);
+
+  useEffect(() => {
+    // Só rastrear se o termo de busca realmente mudou
+    if (debouncedSearchTerm && lastTrackedSearchRef.current !== debouncedSearchTerm) {
+      lastTrackedSearchRef.current = debouncedSearchTerm;
+      // Usar setTimeout para evitar chamadas síncronas que podem causar loops
+      setTimeout(() => {
+        trackSearchRef.current(debouncedSearchTerm, filteredProductsMemo.length);
+      }, 0);
+    }
+  }, [debouncedSearchTerm, filteredProductsMemo.length]);
+
+  // Atualizar estado apenas quando o resultado filtrado mudar
+  // Usar ref para rastrear o último valor e evitar atualizações desnecessárias
+  const lastFilteredProductsRef = useRef<string>('');
+
+  useEffect(() => {
+    // Criar uma string única baseada nos IDs dos produtos para comparação
+    const newIds = filteredProductsMemo.map(p => p.id).sort().join(',');
+
+    // Só atualizar se realmente mudou
+    if (lastFilteredProductsRef.current !== newIds) {
+      lastFilteredProductsRef.current = newIds;
+      setFilteredProducts(filteredProductsMemo);
+    }
+  }, [filteredProductsMemo]);
+
+  const saveCartToStorage = (cartItems: CartItem[]) => {
+    localStorage.setItem('shop_cart', JSON.stringify(cartItems));
+  };
+
+  const addToCart = useCallback(async (product: Product, variant?: ProductVariant) => {
+    // Verificar se usuário está logado
+    if (!currentUser) {
+      // Salvar produto pendente e mostrar modal de login
+      setPendingAddToCart({ product, variant });
+      setLoginMessage('É necessário iniciar sessão para uma melhor experiência de compra. Você pode fazer login com Google ou criar uma conta.');
+      setShowLogin(true);
+      return;
+    }
+
+    const variantToUse = variant || (product.variants?.find(v => v.isDefault) || product.variants?.[0]);
+    const price = variantToUse?.price || product.price;
+    const stock = variantToUse?.stock ?? 0;
+    const unit = variantToUse?.unit || product.unit;
+    const variantId = variantToUse?.id;
+    const variantName = variantToUse?.name;
+
+    if (stock <= 0) {
+      showToast('Produto sem stock disponível', 'warning');
+      return;
+    }
+
+    const existingItem = cart.find(
+      item => item.productId === product.id && item.variantId === variantId
+    );
+
+    if (existingItem) {
+      if (existingItem.quantity >= stock) {
+        showToast('Stock insuficiente para adicionar mais unidades', 'warning');
+        return;
+      }
+      const updatedCart = cart.map(item =>
+        item.productId === product.id && item.variantId === variantId
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      );
+      setCart(updatedCart);
+      saveCartToStorage(updatedCart);
+      const displayName = variantName ? `${product.name} - ${variantName}` : product.name;
+      showToast(`${displayName} adicionado ao carrinho`, 'success');
+    } else {
+      const newItem: CartItem = {
+        productId: product.id,
+        productName: product.name,
+        variantId,
+        variantName,
+        quantity: 1,
+        price,
+        unit,
+        image: product.image
+      };
+      const updatedCart = [...cart, newItem];
+      setCart(updatedCart);
+      saveCartToStorage(updatedCart);
+      const displayName = variantName ? `${product.name} - ${variantName}` : product.name;
+      showToast(`${displayName} adicionado ao carrinho`, 'success');
+    }
+
+    // Rastrear açéo de adicionar ao carrinho usando o hook
+    trackAddToCartAction(
+      product.id,
+      variantName ? `${product.name} - ${variantName}` : product.name,
+      existingItem ? existingItem.quantity + 1 : 1,
+      price
+    );
+  }, [currentUser, showToast, trackAddToCartAction, cart, saveCartToStorage]);
+
+  const updateCartQuantity = useCallback((productId: string, variantId: string | undefined, delta: number) => {
+    const updatedCart = cart.map(item => {
+      if (item.productId === productId && item.variantId === variantId) {
+        const newQuantity = item.quantity + delta;
+        if (newQuantity <= 0) return null;
+
+        // Verificar stock
+        const product = products.find(p => p.id === productId);
+        const variant = variantId ? product?.variants?.find(v => v.id === variantId) : null;
+        const stock = variant?.stock ?? product?.variants?.[0]?.stock ?? 0;
+
+        if (newQuantity > stock) {
+          showToast('Stock insuficiente', 'warning');
+          return item;
+        }
+
+        return { ...item, quantity: newQuantity };
+      }
+      return item;
+    }).filter(Boolean) as CartItem[];
+
+    setCart(updatedCart);
+    saveCartToStorage(updatedCart);
+  }, [cart, products, saveCartToStorage, showToast]);
+
+  const removeFromCart = useCallback((productId: string, variantId: string | undefined) => {
+    const updatedCart = cart.filter(
+      item => !(item.productId === productId && item.variantId === variantId)
+    );
+    setCart(updatedCart);
+    saveCartToStorage(updatedCart);
+  }, [cart, saveCartToStorage]);
+
+  const getCartTotal = () => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  // Atualizar activeBottomNav quando carrinho é fechado
+  useEffect(() => {
+    if (!showCart && activeBottomNav === 'cart') {
+      setActiveBottomNav('home');
+    }
+  }, [showCart, activeBottomNav]);
+
+  // Atualizar activeBottomNav quando perfil é© aberto/fechado
+  useEffect(() => {
+    if (showProfile && currentUser) {
+      setActiveBottomNav('profile');
+    } else if (!showProfile && activeBottomNav === 'profile') {
+      setActiveBottomNav('home');
+    }
+  }, [showProfile, currentUser, activeBottomNav]);
+
+  // Pré-preencher dados do checkout quando abrir e usuário estiver logado
+  useEffect(() => {
+    if (showCheckout && currentUser) {
+      setDeliveryInfo(prev => ({
+        ...prev,
+        name: currentUser.name || prev.name,
+        email: currentUser.email || prev.email,
+        phone: currentUser.phone || prev.phone
+      }));
+    }
+  }, [showCheckout, currentUser]);
+
+  // Funçéo para verificar se perfil precisa ser completado (telefone obrigaté³rio)
+  const needsProfileCompletion = (user: UserType | null): boolean => {
+    if (!user) return false;
+    const cleanPhone = user.phone?.replace(/\D/g, '') || '';
+    return cleanPhone.length < 8;
+  };
+
+  // Funçéo para abrir checkout (verifica login e perfil primeiro)
+  const openCheckout = () => {
+    if (!currentUser) {
+      setLoginMessage('É necessário iniciar sessão para finalizar o pedido. Você pode fazer login com Google ou criar uma conta.');
+      setShowLogin(true);
+      setPendingCheckout(true);
+      return;
+    }
+
+    // Verificar se precisa completar perfil
+    if (needsProfileCompletion(currentUser)) {
+      setShowCompleteProfile(true);
+      setPendingCheckout(true);
+      return;
+    }
+
+    // Tudo ok, abrir checkout
+    setShowCheckout(true);
+    setPendingCheckout(false);
+  };
+
+  const handleLogin = async (emailOrPhone: string, password: string) => {
+    const { user, error } = await authService.signIn(emailOrPhone, password);
+    if (user) {
+      setCurrentUser(user);
+      setShowLogin(false);
+      setLoginMessage(null);
+      setDeliveryInfo(prev => ({
+        ...prev,
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || ''
+      }));
+
+      // Notificar componente pai sobre login
+      if (onLogin) {
+        onLogin(user);
+      }
+
+      // Se havia produto pendente, adicionar ao carrinho agora
+      if (pendingAddToCart) {
+        await addToCart(pendingAddToCart.product, pendingAddToCart.variant);
+        setPendingAddToCart(null);
+      }
+
+      // Verificar se precisa completar perfil (telefone obrigaté³rio)
+      if (needsProfileCompletion(user)) {
+        setShowCompleteProfile(true);
+      } else if (pendingCheckout) {
+        // Se checkout estava pendente e perfil está completo, abrir checkout
+        setShowCheckout(true);
+        setPendingCheckout(false);
+      }
+
+      // Permanece na loja independente do role
+      // Admins podem acessar a loja normalmente
+    } else {
+      showToast(error || 'Erro ao fazer login', 'error');
+    }
+  };
+
+  const handleLogout = async () => {
+    await authService.signOut();
+    setCurrentUser(null);
+    setDeliveryInfo(prev => ({
+      ...prev,
+      name: '',
+      email: '',
+      phone: ''
+    }));
+
+    // Notificar componente pai sobre logout
+    if (onLogout) {
+      onLogout();
+    }
+  };
+
+  const handleCheckout = async () => {
+    // Verificar se usuário está logado
+    if (!currentUser) {
+      openCheckout();
+      return;
+    }
+
+    // Verificar se precisa completar perfil
+    if (needsProfileCompletion(currentUser)) {
+      setShowCompleteProfile(true);
+      setPendingCheckout(true);
+      return;
+    }
+
+    if (cart.length === 0) {
+      showToast('Adicione produtos ao carrinho', 'info');
+      return;
+    }
+
+    // Usar dados do perfil do usuário
+    const userName = currentUser.name || '';
+    const userEmail = currentUser.email || '';
+    const userPhone = currentUser.phone || '';
+
+    if (!userPhone) {
+      showToast('Telefone é© obrigaté³rio. Complete seu perfil primeiro.', 'warning');
+      setShowCompleteProfile(true);
+      return;
+    }
+
+    if (deliveryInfo.isDelivery && (!deliveryInfo.deliveryZoneId || !deliveryInfo.address)) {
+      showToast('Selecione a zona de entrega e informe o endereço', 'warning');
+      return;
+    }
+
+    // Usar customerId do usuário logado se disponível
+    const customerId = currentUser?.customerId || '';
+
+    // Gerar número do pedido automaticamente se não fornecido
+    const orderNumber = await orderService.getNextOrderNumber();
+
+    // Criar pedido
+    const orderItems: OrderItem[] = cart.map(item => ({
+      productId: item.productId,
+      productName: item.variantName ? `${item.productName} - ${item.variantName}` : item.productName,
+      quantity: item.quantity,
+      unit: item.unit,
+      priceAtTime: item.price
+    }));
+
+    const totalAmount = getCartTotal() + (deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0);
+
+    const order = {
+      id: '',
+      customerId: customerId || '',
+      customerName: userName,
+      customerPhone: userPhone,
+      items: orderItems,
+      totalAmount,
+      status: OrderStatus.PENDING,
+      createdAt: new Date().toISOString(),
+      source: 'Direct' as any,
+      isDelivery: deliveryInfo.isDelivery,
+      deliveryLocation: deliveryInfo.address,
+      deliveryFee: deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0,
+      deliveryZoneId: deliveryInfo.deliveryZoneId || undefined,
+      deliveryZoneName: deliveryInfo.deliveryZoneName || undefined,
+      orderNumber: orderNumber
+    };
+
+    try {
+      const result = await orderService.createOrder(order);
+      if (result.order) {
+        // Rastrear conclusão de pedido
+        trackOrderComplete(result.order.id, totalAmount, orderItems);
+
+        // Perfil já está completo (telefone foi verificado antes)
+
+        // Limpar carrinho
+        setCart([]);
+        saveCartToStorage([]);
+        setShowCheckout(false);
+        setShowCart(false);
+        showToast('Pedido criado com sucesso! Entraremos em contacto em breve.', 'success', 6000);
+      } else {
+        showToast('Erro ao criar pedido. Por favor, verifique os dados e tente novamente.', 'error', 8000);
+      }
+    } catch (error: any) {
+      console.error('Erro ao criar pedido:', error);
+
+      // Detectar erro de configuraçéo RLS
+      if (error.message?.includes('RLS_CONFIG_REQUIRED') || error.message?.includes('row-level security') || error.message?.includes('permission denied')) {
+        const isAuthenticated = !!currentUser;
+        const errorMsg = isAuthenticated
+          ? 'Erro de permissão: As polé­ticas de segurança do banco estéo bloqueando a criaçéo do pedido. Execute o script SQL no Supabase: sql/fixes/FIX_CUSTOMERS_ORDERS_PUBLIC_INSERT.sql'
+          : 'Erro de configuraçéo: é‰ necessé¡rio configurar as permisséµes do banco de dados. Execute o script sql/fixes/FIX_CUSTOMERS_ORDERS_PUBLIC_INSERT.sql no Supabase SQL Editor.';
+
+        showToast(errorMsg, 'error', 12000);
+        console.error('ðŸ“‹ INSTRUé‡é•ES PARA CORRIGIR:');
+        console.error('1. Acesse: https://supabase.com/dashboard');
+        console.error('2. Selecione seu projeto');
+        console.error('3. Vé¡ em SQL Editor â†’ New query');
+        console.error('4. Abra o arquivo: sql/fixes/FIX_CUSTOMERS_ORDERS_PUBLIC_INSERT.sql');
+        console.error('5. Copie todo o conteéºdo e cole no SQL Editor');
+        console.error('6. Clique em Run (ou Ctrl+Enter)');
+        console.error('7. Aguarde a confirmaçéo de sucesso');
+        console.error('8. Tente criar o pedido novamente');
+      } else {
+        showToast(`Erro ao criar pedido: ${error.message || 'Erro desconhecido. Tente novamente.'}`, 'error', 8000);
+      }
+    }
+  };
+
+  const effectiveUser = currentUser || propCurrentUser;
+
+  if (requireAuth && !effectiveUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-green-50/30 to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex flex-col items-center justify-center p-8 relative z-10">
+        <div className="max-w-md text-center space-y-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Natur Erva</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Inicie sessão para aceder à loja. Pode fazer login com Google ou criar uma conta.
+          </p>
+          <button
+            onClick={() => setShowLogin(true)}
+            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+          >
+            Iniciar Sessão
+          </button>
+        </div>
+        {showLogin && (
+          <LoginModal
+            onLogin={handleLogin}
+            onClose={() => setShowLogin(false)}
+            message="É necessário iniciar sessão para aceder à loja."
+            onUserLogin={async (user) => {
+              setCurrentUser(user);
+              setShowLogin(false);
+              if (onLogin) onLogin(user);
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-green-50/30 to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 transition-colors duration-300 relative overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-400/10 dark:bg-green-500/5 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-green-300/10 dark:bg-green-600/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute -bottom-40 right-1/4 w-80 h-80 bg-green-500/10 dark:bg-green-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+      </div>
+
+      {/* Renderizar Perfil do Cliente se showProfile for true */}
+      {showProfile && currentUser ? (
+        <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 relative z-10">
+          <CustomerProfile
+            user={currentUser}
+            onBack={() => {
+              setShowProfile(false);
+              setActiveBottomNav('home');
+            }}
+            onLogout={handleLogout}
+            showToast={showToast}
+          />
+        </main>
+      ) : (
+        <>
+          {/* Mensagem de Boas-Vindas */}
+          {currentUser && showWelcome && (
+            <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 pt-4 pb-2 animate-fadeIn">
+              <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 shadow-lg flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-white/20 rounded-full p-2">
+                    <User className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold text-sm sm:text-base">
+                      Olé¡, {currentUser.name.split(' ')[0]}! ðŸ‘‹
+                    </p>
+                    <p className="text-white/90 text-xs sm:text-sm">
+                      Bem-vindo de volta à Natur Erva
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowWelcome(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                  aria-label="Fechar mensagem"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Produtos */}
+          <main className={`max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 ${currentUser && showWelcome ? 'py-2' : 'pt-2'} pb-4 sm:pb-8 relative z-10`}>
+
+            {/* Painel de filtros (modal/drawer) */}
+            {showFiltersPanel && (
+              <>
+                <div className="fixed inset-0 min-h-screen min-w-full z-50 modal-overlay" onClick={() => setShowFiltersPanel(false)} />
+                <div className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-white dark:bg-gray-900 shadow-xl animate-slide-in-up">
+                  <div className="sticky top-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">Filtros</span>
+                    <button
+                      onClick={() => setShowFiltersPanel(false)}
+                      className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Categoria</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setSelectedCategory('all')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+                            selectedCategory === 'all' ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          Todos
+                        </button>
+                        {categories.map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+                              selectedCategory === cat ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Preço</p>
+                      <select
+                        value={priceRange}
+                        onChange={(e) => setPriceRange(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Qualquer</option>
+                        <option value="0-100">0 - 100 MT</option>
+                        <option value="100-300">100 - 300 MT</option>
+                        <option value="300-500">300 - 500 MT</option>
+                        <option value="500-10000">500+ MT</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {loading ? (
+              <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} ${isMobile ? 'gap-2' : 'gap-4 sm:gap-6'}`}>
+                {Array.from({ length: isMobile ? 6 : 8 }).map((_, index) => (
+                  <ProductCardSkeleton key={index} isMobile={isMobile} />
+                ))}
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="inline-block p-4 rounded-full bg-white/60 dark:bg-gray-800/60 backdrop-blur-md mb-4">
+                  <Package className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                </div>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">Nenhum produto encontrado</p>
+              </div>
+            ) : (
+              <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} ${isMobile ? 'gap-2' : 'gap-4 sm:gap-6'}`}>
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAddToCart={addToCart}
+                    onNotify={() => showToast('Será notificado quando este produto estiver disponível!', 'info', 4000)}
+                    isMobile={isMobile}
+                  />
+                ))}
+              </div>
+            )}
+          </main>
+        </>
+      )}
+
+      {/* Modal de Login */}
+      {showLogin && (
+        <LoginModal
+          onLogin={handleLogin}
+          onClose={() => {
+            setShowLogin(false);
+            setLoginMessage(null);
+          }}
+          message={loginMessage}
+          onUserLogin={async (user) => {
+            setCurrentUser(user);
+            setShowLogin(false);
+            setLoginMessage(null);
+            setDeliveryInfo(prev => ({
+              ...prev,
+              name: user.name || '',
+              email: user.email || '',
+              phone: user.phone || ''
+            }));
+            if (onLogin) {
+              onLogin(user);
+            }
+            // Se havia produto pendente, adicionar ao carrinho agora
+            if (pendingAddToCart) {
+              await addToCart(pendingAddToCart.product, pendingAddToCart.variant);
+              setPendingAddToCart(null);
+            }
+            // Verificar se precisa completar perfil (telefone obrigaté³rio)
+            if (needsProfileCompletion(user)) {
+              setShowCompleteProfile(true);
+            } else if (pendingCheckout) {
+              // Se checkout estava pendente e perfil está completo, abrir checkout
+              setShowCheckout(true);
+              setPendingCheckout(false);
+            }
+          }}
+        />
+      )}
+
+      {/* Carrinho */}
+      {showCart && (
+        <CartSidebar
+          cart={cart}
+          onUpdateQuantity={updateCartQuantity}
+          onRemove={removeFromCart}
+          onClose={() => {
+            setShowCart(false);
+            setActiveBottomNav('home');
+          }}
+          onCheckout={() => {
+            setShowCart(false);
+            setActiveBottomNav('home');
+            // Rastrear iné­cio de checkout
+            trackCheckoutStart(cart, getCartTotal());
+            // Abrir checkout (verifica login e perfil primeiro)
+            openCheckout();
+          }}
+          total={getCartTotal()}
+          isMobile={isMobile}
+        />
+      )}
+
+      {/* Modal de Completar Perfil */}
+      {showCompleteProfile && currentUser && (
+        <CompleteProfileModal
+          currentUser={currentUser}
+          onClose={() => {
+            setShowCompleteProfile(false);
+            setPendingCheckout(false);
+          }}
+          onSuccess={async () => {
+            // Atualizar usuário local
+            const updatedUser = await authService.getCurrentUser();
+            if (updatedUser) {
+              setCurrentUser(updatedUser);
+              if (onLogin) {
+                onLogin(updatedUser);
+              }
+            }
+            // Se checkout estava pendente, abrir agora
+            if (pendingCheckout) {
+              setShowCheckout(true);
+              setPendingCheckout(false);
+            }
+          }}
+          showToast={showToast}
+        />
+      )}
+
+      {/* Checkout */}
+      {showCheckout && (
+        <CheckoutModal
+          deliveryInfo={deliveryInfo}
+          onUpdateDeliveryInfo={setDeliveryInfo}
+          onConfirm={handleCheckout}
+          onClose={() => {
+            setShowCheckout(false);
+          }}
+          total={getCartTotal()}
+          cart={cart}
+          currentUser={currentUser}
+          onEditProfile={() => {
+            setShowCheckout(false);
+            setShowProfile(true);
+          }}
+        />
+      )}
+
+      {/* Footer agora é compartilhado via PublicLayout */}
+
+
+
+      {/* Drawer de Filtros de Categoria Mobile */}
+      {isMobile && showCategoryFilters && (
+        <div className="fixed inset-0 min-h-screen min-w-full z-50 flex">
+          <div
+            className="absolute inset-0 modal-overlay-bg"
+            onClick={() => setShowCategoryFilters(false)}
+          />
+          <div
+            className="relative ml-auto w-full max-w-sm h-full backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 shadow-2xl flex flex-col animate-slide-in-right border-l border-white/20 dark:border-gray-700/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-white/20 dark:border-gray-700/50">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Categorias</h2>
+              <button
+                onClick={() => setShowCategoryFilters(false)}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setSelectedCategory('all');
+                    setShowCategoryFilters(false);
+                  }}
+                  className={`w-full px-4 py-3 rounded-xl text-left font-medium transition-all ${selectedCategory === 'all'
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
+                    : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80'
+                    }`}
+                >
+                  Todos
+                </button>
+                {categories.map(category => (
+                  <button
+                    key={category}
+                    onClick={() => {
+                      setSelectedCategory(category);
+                      setShowCategoryFilters(false);
+                    }}
+                    className={`w-full px-4 py-3 rounded-xl text-left font-medium transition-all ${selectedCategory === category
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
+                      : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80'
+                      }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
+
+      {/* CSS Animations */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+        .animate-scaleIn {
+          animation: scaleIn 0.3s ease-out;
+        }
+      `}} />
+    </div>
+  );
+};
+
+// Componente de Carrinho Lateral/Bottom Sheet - Moderno e Minimalista
+const CartSidebar: React.FC<{
+  cart: CartItem[];
+  onUpdateQuantity: (productId: string, variantId: string | undefined, delta: number) => void;
+  onRemove: (productId: string, variantId: string | undefined) => void;
+  onClose: () => void;
+  onCheckout: () => void;
+  total: number;
+  isMobile?: boolean;
+}> = ({ cart, onUpdateQuantity, onRemove, onClose, onCheckout, total, isMobile = false }) => {
+  return (
+    <div
+      className={`fixed inset-0 min-h-screen min-w-full ${isMobile ? 'z-[60]' : 'z-50'} flex`}
+      onClick={onClose}
+    >
+      {/* Overlay */}
+      <div className="absolute inset-0 modal-overlay-bg" />
+
+      {/* Carrinho - Sidebar no desktop, Bottom Sheet no mobile */}
+      <div
+        className={`relative ${isMobile ? 'ml-0 mt-auto w-full max-h-[90vh] rounded-t-2xl border-t border-b-0 animate-slide-in-up' : 'ml-auto w-full max-w-md h-full border-l border-t-0 animate-slide-in-right'} backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 shadow-2xl flex flex-col ${isMobile ? '' : 'border-l'} border-white/20 dark:border-gray-700/50`}
+        onClick={(e) => e.stopPropagation()}
+        style={isMobile ? {
+          maxHeight: '90vh',
+          height: '90vh'
+        } : {
+          height: '100%'
+        }}
+      >
+        {/* Header - Fixo no topo */}
+        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-white/20 dark:border-gray-700/50 flex-shrink-0">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+              Carrinho
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              {cart.length} {cart.length === 1 ? 'item' : 'itens'}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="Fechar carrinho"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Conteúdo - Scrollável com altura controlada */}
+        <div
+          className="flex-1 overflow-y-auto overscroll-contain"
+          style={{
+            minHeight: 0, // Importante para flex funcionar corretamente
+            WebkitOverflowScrolling: 'touch' // Scroll suave no iOS
+          }}
+        >
+          {cart.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full px-6 py-12">
+              <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                <ShoppingCart className="h-10 w-10 text-gray-400 dark:text-gray-500" />
+              </div>
+              <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                Carrinho vazio
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-xs">
+                Adicione produtos ao carrinho para começar suas compras
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 sm:p-6 space-y-3">
+              {cart.map((item, index) => (
+                <div
+                  key={index}
+                  className="group backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all border border-white/20 dark:border-gray-700/30 shadow-sm hover:shadow-md"
+                >
+                  <div className="flex gap-4">
+                    {/* Imagem */}
+                    <div className="flex-shrink-0">
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.productName}
+                          className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                          <Package className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Informações */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base line-clamp-2 mb-1">
+                        {item.productName}
+                      </h3>
+                      {item.variantName && (
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">
+                          {item.variantName}
+                        </p>
+                      )}
+                      <p className="text-sm sm:text-base font-semibold text-green-600 dark:text-green-400 mb-3">
+                        {item.price.toFixed(2)} MT
+                      </p>
+
+                      {/* Controles de quantidade */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <button
+                            onClick={() => onUpdateQuantity(item.productId, item.variantId, -1)}
+                            className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 rounded-l-lg transition-colors"
+                            aria-label="Diminuir quantidade"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="w-8 sm:w-10 text-center font-semibold text-gray-900 dark:text-white text-sm sm:text-base">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => onUpdateQuantity(item.productId, item.variantId, 1)}
+                            className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 rounded-r-lg transition-colors"
+                            aria-label="Aumentar quantidade"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => onRemove(item.productId, item.variantId)}
+                          className="p-2 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          aria-label="Remover item"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer com total e botão - Sempre fixo na parte inferior */}
+        {cart.length > 0 && (
+          <div
+            className="border-t border-white/20 dark:border-gray-700/50 backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 p-5 sm:p-6 space-y-4 flex-shrink-0"
+            style={isMobile ? {
+              paddingBottom: `max(1.5rem, calc(env(safe-area-inset-bottom) + 1.5rem))`,
+              boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'
+            } : {}}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                Total
+              </span>
+              <span className="text-2xl font-bold bg-gradient-to-r from-green-500 to-green-600 bg-clip-text text-transparent">
+                {total.toFixed(2)} MT
+              </span>
+            </div>
+            <button
+              onClick={onCheckout}
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3.5 sm:py-4 rounded-xl font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl shadow-green-500/30 transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              Finalizar Pedido
+            </button>
+          </div>
+        )}
+      </div>
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes slide-in-right {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+        @keyframes slide-in-up {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-in-right {
+          animation: slide-in-right 0.3s ease-out;
+        }
+        .animate-slide-in-up {
+          animation: slide-in-up 0.3s ease-out;
+        }
+      `}} />
+    </div>
+  );
+};
+
+// Componente de Completar Perfil
+const CompleteProfileModal: React.FC<{
+  currentUser: UserType;
+  onClose: () => void;
+  onSuccess: () => void;
+  showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info', duration?: number) => void;
+}> = ({ currentUser, onClose, onSuccess, showToast }) => {
+  const [name, setName] = useState(currentUser.name || '');
+  const [phone, setPhone] = useState(currentUser.phone || '');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validar telefone
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (!phone || cleanPhone.length < 8) {
+      showToast('Telefone é© obrigaté³rio e deve ter pelo menos 8 dé­gitos', 'warning');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await authService.updateProfile(currentUser.id, {
+        name: name.trim() || currentUser.name,
+        phone: phone.trim()
+      });
+
+      if (result.success) {
+        showToast('Perfil atualizado com sucesso!', 'success');
+        onSuccess();
+        onClose();
+      } else {
+        showToast(result.error || 'Erro ao atualizar perfil', 'error');
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Erro ao atualizar perfil', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 min-h-screen min-w-full modal-overlay z-50 flex items-center justify-center p-4 animate-fadeIn">
+      <div className="backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 rounded-2xl max-w-md w-full shadow-2xl border border-white/20 dark:border-gray-700/50 animate-scaleIn">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Completar Perfil</h2>
+            <button onClick={onClose} className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-800/60 backdrop-blur-md transition-all">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <p className="text-sm text-green-800 dark:text-green-300">
+              Para finalizar seu pedido, precisamos do seu número de telefone/WhatsApp. Nossa equipe precisa entrar em contato com você.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                Nome
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-2.5 border-2 border-white/20 dark:border-gray-700/50 rounded-xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-md text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-green-500/50 dark:focus:ring-green-400/50 focus:border-green-500/50 dark:focus:border-green-400/50 transition-all shadow-sm"
+                placeholder="Seu nome completo"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                Telefone/WhatsApp <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-4 py-2.5 border-2 border-white/20 dark:border-gray-700/50 rounded-xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-md text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-green-500/50 dark:focus:ring-green-400/50 focus:border-green-500/50 dark:focus:border-green-400/50 transition-all shadow-sm"
+                placeholder="+258 84 123 4567"
+                required
+                pattern="[+]?[\d\s()\-]{8,}"
+                minLength={8}
+              />
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Nossa equipe precisa entrar em contato com você para confirmar o pedido
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Salvar e Continuar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Componente de Checkout
+const CheckoutModal: React.FC<{
+  deliveryInfo: any;
+  onUpdateDeliveryInfo: (info: any) => void;
+  onConfirm: () => void;
+  onClose: () => void;
+  total: number;
+  cart: CartItem[];
+  currentUser?: UserType | null;
+  onEditProfile?: () => void;
+}> = ({ deliveryInfo, onUpdateDeliveryInfo, onConfirm, onClose, total, cart, currentUser, onEditProfile }) => {
+  return (
+    <div className="fixed inset-0 min-h-screen min-w-full modal-overlay z-50 flex items-center justify-center p-4 animate-fadeIn">
+      <div className="backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20 dark:border-gray-700/50 animate-scaleIn">
+        <div className="p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Finalizar Pedido</h2>
+            <button onClick={onClose} className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-800/60 backdrop-blur-md transition-all">
+              <X className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+          </div>
+
+          <div className="space-y-5 sm:space-y-6">
+            {/* Informações de Contacto - Somente Leitura */}
+            {currentUser && (
+              <div className="backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 sm:p-5 border border-white/20 dark:border-gray-700/50 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-white flex items-center">
+                    <User className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
+                    Seus dados de contato
+                  </h3>
+                  {onEditProfile && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onEditProfile();
+                      }}
+                      className="text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium"
+                    >
+                      Editar no perfil
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Nome
+                    </label>
+                    <div className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700/50 text-gray-900 dark:text-white">
+                      {currentUser.name || 'Não informado'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Telefone/WhatsApp
+                    </label>
+                    <div className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700/50 text-gray-900 dark:text-white">
+                      {currentUser.phone || 'Não informado'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Email
+                    </label>
+                    <div className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700/50 text-gray-900 dark:text-white">
+                      {currentUser.email || 'Néo informado'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Opções de Entrega */}
+            <div className="backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 sm:p-5 border border-white/20 dark:border-gray-700/50 shadow-sm">
+              <label className="flex items-start space-x-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={deliveryInfo.isDelivery}
+                  onChange={(e) => onUpdateDeliveryInfo({ ...deliveryInfo, isDelivery: e.target.checked })}
+                  className="mt-1 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500 dark:focus:ring-green-400"
+                />
+                <div className="flex-1">
+                  <span className="font-semibold text-base text-gray-900 dark:text-white block flex items-center">
+                    <MapPin className="h-4 w-4 mr-2 text-green-600 dark:text-green-400" />
+                    Preciso de entrega
+                  </span>
+                  <span className="text-xs text-gray-600 dark:text-gray-400 mt-1 block">
+                    {deliveryInfo.deliveryFee > 0
+                      ? `Taxa de entrega: ${deliveryInfo.deliveryFee.toFixed(2)} MT`
+                      : 'Selecione a zona de entrega para ver o preço'
+                    }
+                  </span>
+                </div>
+              </label>
+              {deliveryInfo.isDelivery && (
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                  {/* Seletor de Zona */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                      Zona de Entrega <span className="text-red-500">*</span>
+                    </label>
+                    <DeliveryZoneSelector
+                      key={`zone-selector-${deliveryInfo.isDelivery}`} // Força remontagem quando delivery é ativado
+                      selectedZoneId={deliveryInfo.deliveryZoneId}
+                      selectedZoneName={deliveryInfo.deliveryZoneName}
+                      onZoneSelect={(zone) => {
+                        if (zone) {
+                          onUpdateDeliveryInfo({
+                            ...deliveryInfo,
+                            deliveryZoneId: zone.id,
+                            deliveryZoneName: zone.name,
+                            deliveryFee: zone.price
+                          });
+                        } else {
+                          onUpdateDeliveryInfo({
+                            ...deliveryInfo,
+                            deliveryZoneId: '',
+                            deliveryZoneName: '',
+                            deliveryFee: 0
+                          });
+                        }
+                      }}
+                      showPrice={true}
+                    />
+                  </div>
+
+                  {/* Campo de Endereço Texto */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                      Endereço de Entrega <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={deliveryInfo.address}
+                      onChange={(e) => onUpdateDeliveryInfo({ ...deliveryInfo, address: e.target.value })}
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400 transition-colors resize-none"
+                      rows={3}
+                      placeholder="Digite o endereço completo (rua, bairro, cidade)..."
+                      required={deliveryInfo.isDelivery}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Resumo do Pedido */}
+            <div className="backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 sm:p-5 border border-white/20 dark:border-gray-700/50 shadow-sm">
+              <h3 className="font-semibold text-base sm:text-lg mb-4 text-gray-900 dark:text-white flex items-center">
+                <ShoppingCart className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
+                Resumo do Pedido
+              </h3>
+              <div className="space-y-3 mb-4">
+                {cart.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {item.productName} {item.variantName && `- ${item.variantName}`}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        Quantidade: {item.quantity} {item.unit}
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white ml-4">
+                      {(item.price * item.quantity).toFixed(2)} MT
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {deliveryInfo.isDelivery && deliveryInfo.deliveryFee > 0 && (
+                <div className="flex justify-between items-center py-2 border-t border-gray-200 dark:border-gray-700 mb-2">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Taxa de Entrega {deliveryInfo.deliveryZoneName && `(${deliveryInfo.deliveryZoneName})`}
+                  </span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {deliveryInfo.deliveryFee.toFixed(2)} MT
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300 dark:border-gray-600">
+                <span className="text-lg font-bold text-gray-900 dark:text-white">Total</span>
+                <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                  {(total + (deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0)).toFixed(2)} MT
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
+              <button
+                onClick={onConfirm}
+                className="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl shadow-green-500/30 transform hover:scale-[1.02] transition-all duration-200"
+              >
+                Confirmar Pedido
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 backdrop-blur-md bg-white/60 dark:bg-gray-800/60 border border-white/20 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all shadow-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Componente de Perfil do Cliente
+// ProductCard moved to ../components/ProductCard.tsx
+// ProductCardSkeleton moved to ../components/ProductCard.tsx
+
+// CustomerProfileModal removido - usando CustomerProfile.tsx agora
+
+// Componente de Sidebar de Categorias (Desktop)
+const CategorySidebar: React.FC<{
+  categories: string[];
+  selectedCategory: string;
+  onSelectCategory: (category: string) => void;
+  isDarkMode: boolean;
+}> = ({ categories, selectedCategory, onSelectCategory, isDarkMode }) => {
+  return (
+    <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-120px)] overflow-y-auto pr-4 custom-scrollbar self-start">
+      <div className="space-y-2">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+          <Filter className="h-5 w-5 text-green-600 dark:text-green-400" />
+          Categorias
+        </h2>
+
+        <button
+          onClick={() => onSelectCategory('all')}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium transition-all duration-200 group ${selectedCategory === 'all'
+            ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-500/20'
+            : 'text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80 hover:pl-5'
+            }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className={`p-1.5 rounded-lg transition-colors ${selectedCategory === 'all' ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800/50 group-hover:bg-green-100 dark:group-hover:bg-green-900/30'
+              }`}>
+              <Package className="h-4 w-4" />
+            </div>
+            <span>Todos</span>
+          </div>
+          <ChevronRight className={`h-4 w-4 transition-transform ${selectedCategory === 'all' ? 'rotate-90 opacity-100' : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-1'}`} />
+        </button>
+
+        {categories.map((category) => (
+          <button
+            key={category}
+            onClick={() => onSelectCategory(category)}
+            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl font-medium transition-all duration-200 group ${selectedCategory === category
+              ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-500/20'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80 hover:pl-5'
+              }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-1.5 rounded-lg transition-colors ${selectedCategory === category ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800/50 group-hover:bg-green-100 dark:group-hover:bg-green-900/30'
+                }`}>
+                <Filter className="h-4 w-4" />
+              </div>
+              <span className="truncate">{category}</span>
+            </div>
+            <ChevronRight className={`h-4 w-4 transition-transform ${selectedCategory === category ? 'rotate-90 opacity-100' : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-1'}`} />
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+};
+
+
