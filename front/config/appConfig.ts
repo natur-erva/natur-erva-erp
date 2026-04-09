@@ -21,11 +21,11 @@ export interface AppSystemSettings {
 }
 
 const defaults: AppSystemSettings = {
-  system_name: 'Natur Erva - Naturalmente Saudável',
-  logo_light: 'https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/logo-light.png',
-  logo_dark: 'https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/logo-dark.png',
-  logo_icon: 'https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/logo-light.png',
-  favicon: 'https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/logo-light.png',
+  system_name: 'Natur Erva - Natural é saudável',
+  logo_light: 'https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/logo-light.png?v=1',
+  logo_dark: 'https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/logo-light.png?v=1',
+  logo_icon: 'https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/favicon-natur-erva.png?v=1',
+  favicon: 'https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/favicon-natur-erva.png?v=1',
   primary_color: '#2e7d32', // Deep Green
   secondary_color: '#8bc34a', // Light Green
   company_name: 'Natur Erva',

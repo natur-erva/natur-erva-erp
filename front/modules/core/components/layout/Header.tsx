@@ -59,7 +59,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className={`flex items-center justify-between ${isMobile ? 'gap-2' : 'gap-2 sm:gap-4'} ${isMobile ? 'h-16' : 'h-16'}`}>
             {/* Logo */}
-            <div className="flex items-center flex-shrink-0 gap-6">
+            <div className="flex items-center flex-shrink-0">
               <Link
                 to="/"
                 className="flex items-center cursor-pointer hover:opacity-80 transition-opacity bg-transparent border-none p-0"
@@ -72,9 +72,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   isDarkMode={isDarkMode}
                 />
               </Link>
+            </div>
 
+            {/* Right Group: Search, Filters & Actions */}
+            <div className="flex-1 flex items-center justify-end gap-2 sm:gap-4 lg:gap-6 min-w-0">
               {/* Search Bar & Filters */}
-              <div className="flex-1 flex items-center gap-2 max-w-xl pr-2 sm:pr-4">
+              <div className="flex-1 flex items-center gap-2 max-w-xl">
                 <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4" />
                   <input
@@ -85,24 +88,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                     className="w-full pl-9 pr-3 py-1.5 sm:py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-1 focus:ring-green-500/50 focus:border-green-500/50 transition-all backdrop-blur-sm"
                   />
                 </div>
-                {onFilterClick && (
-                  <button
-                    onClick={onFilterClick}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-lg text-sm font-medium border transition-all ${
-                      hasActiveFilters
-                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
-                        : 'border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/80 backdrop-blur-sm'
-                    }`}
-                  >
-                    <Filter className="h-4 w-4" />
-                    <span className="hidden sm:inline">Filtros</span>
-                    {hasActiveFilters && (
-                      <span className="absolute -top-1 -right-1 sm:relative sm:top-0 sm:right-0 w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full bg-green-500" />
-                    )}
-                  </button>
-                )}
               </div>
-            </div>
 
             {/* Actions */}
             <div className="flex items-center flex-shrink-0 gap-1 sm:space-x-1 sm:space-x-3">
@@ -193,6 +179,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             </div>
           </div>
         </div>
+      </div>
 
         {/* Sidebar (menu hamburger) - Portal para altura total */}
         {sidebarOpen && typeof document !== 'undefined' && createPortal(

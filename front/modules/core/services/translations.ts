@@ -41,15 +41,12 @@ export interface Translations {
     stock: string;
     production: string;
     customers: string;
-    loyalty: string;
     products: string;
     finance: string;
     reports: string;
     settings: string;
-    series: string;
     deliveries: string;
     purchases: string;
-    marketing: string;
     gallery: string;
     users: string;
     statistics: string;
@@ -202,44 +199,6 @@ export interface Translations {
     paid: string;
     unpaid: string;
     partiallyPaid: string;
-  };
-
-  // Marketing
-  marketing: {
-    title: string;
-    campaigns: string;
-    newCampaign: string;
-    campaignName: string;
-    startDate: string;
-    endDate: string;
-    budget: string;
-    performance: string;
-    reach: string;
-    engagement: string;
-    status: string;
-    active: string;
-    inactive: string;
-    completed: string;
-    analytics: string;
-    roi: string;
-  };
-
-  // Series/Opportunities
-  series: {
-    title: string;
-    newSeries: string;
-    seriesName: string;
-    description: string;
-    chapters: string;
-    addChapter: string;
-    editChapter: string;
-    deleteChapter: string;
-    chapterTitle: string;
-    chapterNumber: string;
-    content: string;
-    publishDate: string;
-    published: string;
-    draft: string;
   };
 
   // Media/Gallery
@@ -507,15 +466,12 @@ export const translations: Record<Language, Translations> = {
       stock: 'Stock',
       production: 'Produção',
       customers: 'Clientes',
-      loyalty: 'Fidelização',
       products: 'Produtos',
       finance: 'Finanças',
       reports: 'Relatórios',
       settings: 'Configurações',
-      series: 'Oportunidades',
       deliveries: 'Entregas',
       purchases: 'Compras',
-      marketing: 'Marketing',
       gallery: 'Galeria',
       users: 'Usuários',
       statistics: 'Estatísticas',
@@ -777,40 +733,6 @@ export const translations: Record<Language, Translations> = {
       unpaid: 'Não Pago',
       partiallyPaid: 'Parcialmente Pago',
     },
-    marketing: {
-      title: 'Marketing',
-      campaigns: 'Campanhas',
-      newCampaign: 'Nova Campanha',
-      campaignName: 'Nome da Campanha',
-      startDate: 'Data de Início',
-      endDate: 'Data de Fim',
-      budget: 'Orçamento',
-      performance: 'Desempenho',
-      reach: 'Alcance',
-      engagement: 'Engajamento',
-      status: 'Status',
-      active: 'Ativo',
-      inactive: 'Inativo',
-      completed: 'Concluído',
-      analytics: 'Análises',
-      roi: 'ROI',
-    },
-    series: {
-      title: 'Oportunidades',
-      newSeries: 'Nova Oportunidade',
-      seriesName: 'Nome da Oportunidade',
-      description: 'Descrição',
-      chapters: 'Capítulos',
-      addChapter: 'Adicionar Capítulo',
-      editChapter: 'Editar Capítulo',
-      deleteChapter: 'Apagar Capítulo',
-      chapterTitle: 'Título do Capítulo',
-      chapterNumber: 'Número do Capítulo',
-      content: 'Conteúdo',
-      publishDate: 'Data de Publicação',
-      published: 'Publicado',
-      draft: 'Rascunho',
-    },
     media: {
       title: 'Galeria',
       uploadImage: 'Carregar Imagem',
@@ -993,7 +915,6 @@ export const translations: Record<Language, Translations> = {
       },
       customers: {
         customersSummary: 'Resumo de Clientes',
-        loyaltyReport: 'Relatório de Fidelização',
         customerSegments: 'Segmentos de Clientes',
         topCustomers: 'Top Clientes',
       },
@@ -1059,15 +980,12 @@ export const translations: Record<Language, Translations> = {
       stock: 'Stock',
       production: 'Production',
       customers: 'Customers',
-      loyalty: 'Loyalty',
       products: 'Products',
       finance: 'Finance',
       reports: 'Reports',
       settings: 'Settings',
-      series: 'Opportunities',
       deliveries: 'Deliveries',
       purchases: 'Purchases',
-      marketing: 'Marketing',
       gallery: 'Gallery',
       users: 'Users',
       statistics: 'Statistics',
@@ -1329,40 +1247,6 @@ export const translations: Record<Language, Translations> = {
       unpaid: 'Unpaid',
       partiallyPaid: 'Partially Paid',
     },
-    marketing: {
-      title: 'Marketing',
-      campaigns: 'Campaigns',
-      newCampaign: 'New Campaign',
-      campaignName: 'Campaign Name',
-      startDate: 'Start Date',
-      endDate: 'End Date',
-      budget: 'Budget',
-      performance: 'Performance',
-      reach: 'Reach',
-      engagement: 'Engagement',
-      status: 'Status',
-      active: 'Active',
-      inactive: 'Inactive',
-      completed: 'Completed',
-      analytics: 'Analytics',
-      roi: 'ROI',
-    },
-    series: {
-      title: 'Opportunities',
-      newSeries: 'New Opportunity',
-      seriesName: 'Opportunity Name',
-      description: 'Description',
-      chapters: 'Chapters',
-      addChapter: 'Add Chapter',
-      editChapter: 'Edit Chapter',
-      deleteChapter: 'Delete Chapter',
-      chapterTitle: 'Chapter Title',
-      chapterNumber: 'Chapter Number',
-      content: 'Content',
-      publishDate: 'Publish Date',
-      published: 'Published',
-      draft: 'Draft',
-    },
     media: {
       title: 'Gallery',
       uploadImage: 'Upload Image',
@@ -1545,7 +1429,6 @@ export const translations: Record<Language, Translations> = {
       },
       customers: {
         customersSummary: 'Customers Summary',
-        loyaltyReport: 'Loyalty Report',
         customerSegments: 'Customer Segments',
         topCustomers: 'Top Customers',
       },
@@ -1587,12 +1470,10 @@ export const translations: Record<Language, Translations> = {
       stock: 'Xitoku',
       production: 'Kuhumelerisa',
       customers: 'Vaxavi',
-      loyalty: 'Kutiyisela',
       products: 'Swikumiwa',
       finance: 'Timali',
       reports: 'Swiviko',
       settings: 'Matirhiselo',
-      series: 'Oportunidades',
     },
     auth: {
       login: 'Nghena',

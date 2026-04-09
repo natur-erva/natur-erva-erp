@@ -31,6 +31,8 @@ export type User = {
   isActive?: boolean;
   createdAt?: string;
   lastLogin?: string;
+  /** Se true, o utilizador é um super administrador (acesso total). */
+  isSuperAdmin?: boolean;
   /** Se true, o utilizador deve definir uma senha forte no próximo acesso (modal obrigatório). */
   requiresStrongPassword?: boolean;
 };

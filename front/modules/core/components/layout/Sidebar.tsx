@@ -95,8 +95,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       'purchases': 'purchases',
       'products': 'products',
       'stock-management': 'stock-management',
-      'marketing-dashboard': 'marketing-dashboard',
-      'series-management': 'series-management',
       'media': 'media',
       'users': 'users',
       'tracking': 'dashboard', // Linked to dashboard
@@ -239,8 +237,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'stock-adjustments', label: 'Ajustes', icon: Scale, path: '/admin/stock/ajustes' },
       ]
     },
-    { id: 'marketing-dashboard', label: t.nav.marketing, icon: Megaphone, permission: 'marketing.view' },
-    { id: 'series-management', label: t.nav.series, icon: Tv, permission: 'marketing.view' },
     { id: 'media', label: t.nav.gallery, icon: Image, permission: 'media.view' },
     {
       id: 'users',

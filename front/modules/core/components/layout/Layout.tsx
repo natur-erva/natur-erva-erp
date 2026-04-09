@@ -239,8 +239,6 @@ export const Layout: React.FC<LayoutProps> = ({
       'purchases': 'purchases',
       'products': 'products',
       'stock-management': 'stock-management',
-      'marketing-dashboard': 'marketing-dashboard',
-      'series-management': 'series-management',
       'media': 'media',
       'users': 'users',
       'tracking': 'dashboard',

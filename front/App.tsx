@@ -39,6 +39,7 @@ const StockAlerts = lazy(() => import('./modules/products/pages/StockAlerts').th
 const AuditReportPage = lazy(() => import('./modules/products/pages/AuditReportPage').then(m => ({ default: m.AuditReportPage })));
 const ShopReceipts = lazy(() => import('./modules/sales/pages/ShopReceipts').then(m => ({ default: m.ShopReceipts })));
 const Shop = lazy(() => import('./modules/shop/pages/Shop').then(m => ({ default: m.Shop })));
+const ProductLandingPage = lazy(() => import('./modules/shop/pages/ProductLandingPage').then(m => ({ default: m.ProductLandingPage })));
 const UserManagement = lazy(() => import('./modules/admin/pages/UserManagement').then(m => ({ default: m.UserManagement })));
 
 // Services & Utils
@@ -48,7 +49,6 @@ import { ForgotPasswordModal } from './modules/core/components/modals/ForgotPass
 import { SignUpModal } from './modules/core/components/modals/SignUpModal';
 import { LoginModal } from './modules/core/components/modals/LoginModal';
 import { authService } from './modules/auth/services/authService';
-const Loyalty = lazy(() => import('./modules/customers/pages/Loyalty').then(m => ({ default: m.Loyalty })));
 
 // Base path para deploy na raiz
 const BASE_PATH = '/';
@@ -305,6 +305,11 @@ const App = () => {
             <Route path="loja" element={
               <LocationProvider>
                 <Shop currentUser={currentUser} onLogin={handleLogin} onLogout={handleLogout} requireAuth />
+              </LocationProvider>
+            } />
+            <Route path="loja/produto/:slug" element={
+              <LocationProvider>
+                <ProductLandingPage />
               </LocationProvider>
             } />
             {/* Home: redireciona para loja ou mostra loja diretamente */}
@@ -647,7 +652,6 @@ const App = () => {
                   </TrackedPage>
                 </ProtectedRoute>
               } />
-              <Route path="marketing" element={<Navigate to="/admin" replace />} />
               <Route path="usuarios" element={
                 <ProtectedRoute user={currentUser} permission="users.view">
                   <UserManagement currentUser={currentUser} showToast={showToast} />

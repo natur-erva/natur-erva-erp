@@ -43,6 +43,7 @@ export interface ProductVariant {
 export interface Product {
   id: string;
   name: string;
+  slug: string;
   price: number;
   costPrice?: number;
   type: ProductType | string;
@@ -55,4 +56,39 @@ export interface Product {
   showInShop?: boolean;
   variants?: ProductVariant[];
   hasVariants?: boolean;
+  description?: string;
+  descriptionLong?: string;
+  landingPageEnabled?: boolean;
+  landingPageData?: {
+    heroTitle?: string;
+    heroSubtitle?: string;
+    benefitsTitle?: string;
+    benefits?: Array<{
+      title: string;
+      description: string;
+      icon?: string;
+    }>;
+    ingredientsTitle?: string;
+    ingredients?: Array<{
+      name: string;
+      description?: string;
+      image?: string;
+    }>;
+    videoUrl?: string;
+    videoTitle?: string;
+    howToConsume?: string;
+    testimonialsTitle?: string;
+    testimonials?: Array<{
+      author: string;
+      text: string;
+      rating: number;
+      avatar?: string;
+    }>;
+    certifications?: Array<{
+      name: string;
+      icon?: string;
+    }>;
+    primaryColor?: string;
+    secondaryColor?: string;
+  };
 }

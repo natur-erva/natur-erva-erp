@@ -41,7 +41,7 @@ export const AdminBottomNavigation: React.FC<AdminBottomNavigationProps> = ({
           // However, BottomNav uses Set.has(). We need to populate it.
           // If nothing in storage, let's assume ALL basic modules are active for safety, 
           // OR wait for a save. Let's assume ALL for safety if unconfigured.
-          const allDefault = new Set(['dashboard', 'orders', 'sales', 'series-management', 'stock-management']);
+          const allDefault = new Set(['dashboard', 'orders', 'sales', 'stock-management']);
           setEnabledModules(allDefault);
         }
       } catch (e) {
@@ -72,7 +72,6 @@ export const AdminBottomNavigation: React.FC<AdminBottomNavigationProps> = ({
     { id: 'orders', label: 'Pedidos', icon: ShoppingCart, permission: 'orders.view' },
     { id: 'sales', label: 'Vendas', icon: TrendingUp, permission: 'sales.view' },
     { id: 'stock-management', label: 'Stock', icon: BarChart3, permission: 'products.view' },
-    { id: 'series-management', label: 'Oportunidades', icon: Tv, permission: 'marketing.view', skipModuleCheck: true },
   ];
 
   // Filtrar navItems baseado em enabledModules e permisséµes
@@ -83,7 +82,7 @@ export const AdminBottomNavigation: React.FC<AdminBottomNavigationProps> = ({
         return hasPermission(item.permission);
       }
 
-      // Itens que néo precisam verificar mé³dulo (como series-management que é© parte de marketing)
+      // Itens que néo precisam verificar mé³dulo
       if (item.skipModuleCheck) {
         return hasPermission(item.permission);
       }

@@ -497,6 +497,7 @@ export const productService = {
                     const products = data.map((p: any) => ({
                         id: p.id,
                         name: p.name,
+                        slug: p.slug || '',
                         price: Number(p.price),
                         costPrice: Number(p.cost_price || 0),
                         type: p.type,
@@ -506,7 +507,11 @@ export const productService = {
                         unit: p.unit,
                         image: p.image_url,
                         updatedAt: p.updated_at,
-                        showInShop: p.show_in_shop !== undefined ? p.show_in_shop : true
+                        showInShop: p.show_in_shop !== undefined ? p.show_in_shop : true,
+                        description: p.description,
+                        descriptionLong: p.description_long,
+                        landingPageEnabled: p.landing_page_enabled,
+                        landingPageData: p.landing_page_data
                     })) as Product[];
 
                     try {
@@ -677,6 +682,88 @@ export const productService = {
         });
     },
 
+    async getProductBySlug(slug: string): Promise<Product | null> {
+        if (!isSupabaseConfigured() || !supabase) return null;
+        
+        const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .eq('slug', slug)
+            .single();
+
+        if (error || !data) {
+            console.error('[getProductBySlug] Erro:', error);
+            return null;
+        }
+
+        const product: Product = {
+            id: data.id,
+            name: data.name,
+            slug: data.slug,
+            price: Number(data.price),
+            costPrice: Number(data.cost_price || 0),
+            type: data.type,
+            category: data.category,
+            stock: Number(data.stock),
+            minStock: Number(data.min_stock || 0),
+            unit: data.unit,
+            image: data.image_url,
+            updatedAt: data.updated_at,
+            showInShop: data.show_in_shop !== undefined ? data.show_in_shop : true,
+            description: data.description,
+            descriptionLong: data.description_long,
+            landingPageEnabled: data.landing_page_enabled,
+            landingPageData: data.landing_page_data
+        };
+
+        // Fetch variants
+        const { data: variantsData } = await supabase
+            .from('product_variants')
+            .select('*')
+            .eq('product_id', product.id)
+            .order('display_order', { ascending: true, nullsFirst: false });
+
+        if (variantsData) {
+            product.variants = variantsData.map((v: any) => ({
+                id: v.id,
+                productId: v.product_id,
+                name: v.name,
+                price: Number(v.price),
+                costPrice: Number(v.cost_price || 0),
+                stock: Number(v.stock),
+                minStock: Number(v.min_stock || 0),
+                unit: v.unit,
+                isDefault: v.is_default || false,
+                displayOrder: v.display_order ?? null,
+                image: v.image_url || undefined
+            }));
+            product.hasVariants = product.variants.length > 0;
+            
+            // Recalculate stock
+            try {
+                const snapshotDate = getStockSnapshotDate();
+                const rows = await stockReportService.getCurrentStockSummary(snapshotDate);
+                const stockByVariant = new Map<string, number>();
+                for (const row of rows) {
+                    if (row.productId === product.id) {
+                        stockByVariant.set(row.variantId || 'main', Math.max(0, row.finalStock || 0));
+                    }
+                }
+                
+                if (product.variants) {
+                    for (const v of product.variants) {
+                        const qty = stockByVariant.get(v.id);
+                        if (qty !== undefined) v.stock = qty;
+                    }
+                }
+            } catch (e) {
+                console.warn('[getProductBySlug] Failed to recalculate stock:', e);
+            }
+        }
+
+        return product;
+    },
+
     async getProductsCount(): Promise<number> {
         if (!isSupabaseConfigured() || !supabase) return 0;
         try {
@@ -785,6 +872,11 @@ export const productService = {
             if (updates.costPrice !== undefined) dbUpdates.cost_price = updates.costPrice;
             if (updates.image !== undefined) dbUpdates.image_url = updates.image;
             if (updates.showInShop !== undefined) dbUpdates.show_in_shop = updates.showInShop;
+            if (updates.slug !== undefined) dbUpdates.slug = updates.slug;
+            if (updates.description !== undefined) dbUpdates.description = updates.description;
+            if (updates.descriptionLong !== undefined) dbUpdates.description_long = updates.descriptionLong;
+            if (updates.landingPageEnabled !== undefined) dbUpdates.landing_page_enabled = updates.landingPageEnabled;
+            if (updates.landingPageData !== undefined) dbUpdates.landing_page_data = updates.landingPageData;
 
             dbUpdates.updated_at = new Date().toISOString();
 

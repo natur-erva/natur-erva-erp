@@ -1004,63 +1004,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
           {/* Produtos */}
           <main className={`max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 ${currentUser && showWelcome ? 'py-2' : 'pt-2'} pb-4 sm:pb-8 relative z-10`}>
 
-            {/* Painel de filtros (modal/drawer) */}
-            {showFiltersPanel && (
-              <>
-                <div className="fixed inset-0 min-h-screen min-w-full z-50 modal-overlay" onClick={() => setShowFiltersPanel(false)} />
-                <div className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-white dark:bg-gray-900 shadow-xl animate-slide-in-up">
-                  <div className="sticky top-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Filtros</span>
-                    <button
-                      onClick={() => setShowFiltersPanel(false)}
-                      className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  </div>
-                  <div className="p-4 space-y-4">
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Categoria</p>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => setSelectedCategory('all')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                            selectedCategory === 'all' ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                          }`}
-                        >
-                          Todos
-                        </button>
-                        {categories.map((cat) => (
-                          <button
-                            key={cat}
-                            onClick={() => setSelectedCategory(cat)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                              selectedCategory === cat ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                            }`}
-                          >
-                            {cat}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Preço</p>
-                      <select
-                        value={priceRange}
-                        onChange={(e) => setPriceRange(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
-                      >
-                        <option value="">Qualquer</option>
-                        <option value="0-100">0 - 100 MT</option>
-                        <option value="100-300">100 - 300 MT</option>
-                        <option value="300-500">300 - 500 MT</option>
-                        <option value="500-10000">500+ MT</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+
 
             {loading ? (
               <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} ${isMobile ? 'gap-2' : 'gap-4 sm:gap-6'}`}>
@@ -1204,60 +1148,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
 
 
 
-      {/* Drawer de Filtros de Categoria Mobile */}
-      {isMobile && showCategoryFilters && (
-        <div className="fixed inset-0 min-h-screen min-w-full z-50 flex">
-          <div
-            className="absolute inset-0 modal-overlay-bg"
-            onClick={() => setShowCategoryFilters(false)}
-          />
-          <div
-            className="relative ml-auto w-full max-w-sm h-full backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 shadow-2xl flex flex-col animate-slide-in-right border-l border-white/20 dark:border-gray-700/50"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-5 border-b border-white/20 dark:border-gray-700/50">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Categorias</h2>
-              <button
-                onClick={() => setShowCategoryFilters(false)}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    setSelectedCategory('all');
-                    setShowCategoryFilters(false);
-                  }}
-                  className={`w-full px-4 py-3 rounded-xl text-left font-medium transition-all ${selectedCategory === 'all'
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
-                    : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80'
-                    }`}
-                >
-                  Todos
-                </button>
-                {categories.map(category => (
-                  <button
-                    key={category}
-                    onClick={() => {
-                      setSelectedCategory(category);
-                      setShowCategoryFilters(false);
-                    }}
-                    className={`w-full px-4 py-3 rounded-xl text-left font-medium transition-all ${selectedCategory === category
-                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
-                      : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80'
-                      }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onClose={removeToast} />

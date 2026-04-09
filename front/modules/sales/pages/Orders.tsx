@@ -20,6 +20,7 @@ import { FilterBar, ItemsPerPageSelect, SearchInput, SelectFilter, ViewModeToggl
 import { formatDateOnly, formatDateWithOptions, getTodayDateString, toDateStringInTimezone, extractLocalDate } from '../../core/utils/dateUtils';
 import { normalizeForSearch, normalizeOrderStatus, hasPaymentProof, getPaidAmount } from '../../core/services/serviceUtils';
 import { useTrackAction } from '../../auth/components/TrackedPage';
+import { appSystemConfig } from '../../../config/appConfig';
 
 interface OrdersProps {
   orders: Order[];
@@ -2154,7 +2155,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
          </head>
          <body>
            <div class="header">
-             <div class="logo"><img src="https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/logo-light.png" style="max-height: 40px; display: block; margin: 0 auto 10px;" /></div>
+             <div class="logo"><img src="${appSystemConfig.logo_light}" style="max-height: 40px; display: block; margin: 0 auto 10px;" /></div>
              <div>Produtos Frescos</div>
            </div>
            <div class="info">

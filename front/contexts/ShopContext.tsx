@@ -26,80 +26,95 @@ export const ShopContext = createContext<ShopContextType | undefined>(undefined)
 export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cartItemCount, setCartItemCount] = useState(0);
-  const [onCartClick, setOnCartClick] = useState<(() => void) | undefined>(undefined);
-  const [onProfileClick, setOnProfileClick] = useState<(() => void) | undefined>(undefined);
-  const [onLoginClick, setOnLoginClick] = useState<(() => void) | undefined>(undefined);
   const [darkMode, setDarkMode] = useState(false);
-  const [toggleTheme, setToggleTheme] = useState<(() => void) | undefined>(undefined);
-  const [onFilterClick, setOnFilterClick] = useState<(() => void) | undefined>(undefined);
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
-  // Usar refs para callbacks para evitar re-renders
-  const onCartClickRef = useRef(onCartClick);
-  const onProfileClickRef = useRef(onProfileClick);
-  const onLoginClickRef = useRef(onLoginClick);
-  const toggleThemeRef = useRef(toggleTheme);
-  const onFilterClickRef = useRef(onFilterClick);
+  // Usar refs para callbacks para evitar re-renders do contexto
+  const onCartClickRef = useRef<(() => void) | undefined>(undefined);
+  const onProfileClickRef = useRef<(() => void) | undefined>(undefined);
+  const onLoginClickRef = useRef<(() => void) | undefined>(undefined);
+  const toggleThemeRef = useRef<(() => void) | undefined>(undefined);
+  const onFilterClickRef = useRef<(() => void) | undefined>(undefined);
 
-  // Atualizar refs quando mudarem (sem useEffect para evitar loops)
-  onCartClickRef.current = onCartClick;
-  onProfileClickRef.current = onProfileClick;
-  onLoginClickRef.current = onLoginClick;
-  toggleThemeRef.current = toggleTheme;
-  onFilterClickRef.current = onFilterClick;
+  // Wrappers estáveis para os handlers que serão expostos no contexto
+  // Estes wrappers nunca mudam, então não causam re-renders dos consumidores
+  const contextOnCartClick = useCallback(() => {
+    if (onCartClickRef.current) onCartClickRef.current();
+  }, []);
 
-  // Memoizar setters para evitar recriação - usar refs para evitar loops
-  // IMPORTANTE: Atualizar tanto o ref quanto o state para garantir disponibilidade imediata
-  const stableSetOnCartClick = useCallback((handler: () => void) => {
+  const contextOnProfileClick = useCallback(() => {
+    if (onProfileClickRef.current) onProfileClickRef.current();
+  }, []);
+
+  const contextOnLoginClick = useCallback(() => {
+    if (onLoginClickRef.current) onLoginClickRef.current();
+  }, []);
+
+  const contextToggleTheme = useCallback(() => {
+    if (toggleThemeRef.current) toggleThemeRef.current();
+  }, []);
+
+  const contextOnFilterClick = useCallback(() => {
+    if (onFilterClickRef.current) onFilterClickRef.current();
+  }, []);
+
+  // Setters estáveis que apenas atualizam os refs
+  const setOnCartClick = useCallback((handler: () => void) => {
     onCartClickRef.current = handler;
-    // Usar função inline para garantir que o handler seja capturado corretamente
-    setOnCartClick(() => handler);
   }, []);
 
-  const stableSetOnProfileClick = useCallback((handler: () => void) => {
+  const setOnProfileClick = useCallback((handler: () => void) => {
     onProfileClickRef.current = handler;
-    setOnProfileClick(() => handler);
   }, []);
 
-  const stableSetOnLoginClick = useCallback((handler: () => void) => {
+  const setOnLoginClick = useCallback((handler: () => void) => {
     onLoginClickRef.current = handler;
-    // Atualizar state imediatamente para garantir que o contexto seja atualizado
-    // Usar função inline para garantir que o handler seja capturado corretamente
-    setOnLoginClick(() => handler);
   }, []);
 
-  const stableSetToggleTheme = useCallback((handler: () => void) => {
+  const setToggleTheme = useCallback((handler: () => void) => {
     toggleThemeRef.current = handler;
-    setToggleTheme(() => handler);
   }, []);
 
-  const stableSetOnFilterClick = useCallback((handler: () => void) => {
+  const setOnFilterClick = useCallback((handler: () => void) => {
     onFilterClickRef.current = handler;
-    setOnFilterClick(() => handler);
   }, []);
 
-  // Memoizar o valor do contexto
-  // IMPORTANTE: Incluir onLoginClick nas dependências para garantir que mudanças sejam refletidas
+  // Memoizar o valor do contexto - note que os handlers e setters são todos estáveis agora
   const contextValue = useMemo(() => ({
     searchTerm,
     setSearchTerm,
     cartItemCount,
     setCartItemCount,
-    onCartClick,
-    setOnCartClick: stableSetOnCartClick,
-    onProfileClick,
-    setOnProfileClick: stableSetOnProfileClick,
-    onLoginClick,
-    setOnLoginClick: stableSetOnLoginClick,
+    onCartClick: contextOnCartClick,
+    setOnCartClick,
+    onProfileClick: contextOnProfileClick,
+    setOnProfileClick,
+    onLoginClick: contextOnLoginClick,
+    setOnLoginClick,
     darkMode,
     setDarkMode,
-    toggleTheme,
-    setToggleTheme: stableSetToggleTheme,
-    onFilterClick,
-    setOnFilterClick: stableSetOnFilterClick,
+    toggleTheme: contextToggleTheme,
+    setToggleTheme,
+    onFilterClick: contextOnFilterClick,
+    setOnFilterClick,
     hasActiveFilters,
     setHasActiveFilters
-  }), [searchTerm, cartItemCount, onCartClick, onProfileClick, onLoginClick, darkMode, toggleTheme, onFilterClick, hasActiveFilters, stableSetOnCartClick, stableSetOnProfileClick, stableSetOnLoginClick, stableSetToggleTheme, stableSetOnFilterClick]);
+  }), [
+    searchTerm, 
+    cartItemCount, 
+    darkMode, 
+    hasActiveFilters, 
+    contextOnCartClick, 
+    setOnCartClick, 
+    contextOnProfileClick, 
+    setOnProfileClick, 
+    contextOnLoginClick, 
+    setOnLoginClick, 
+    contextToggleTheme, 
+    setToggleTheme, 
+    contextOnFilterClick, 
+    setOnFilterClick
+  ]);
 
   return (
     <ShopContext.Provider value={contextValue}>

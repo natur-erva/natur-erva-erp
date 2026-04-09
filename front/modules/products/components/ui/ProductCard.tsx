@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
+import { Link } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { Product, ProductVariant } from '../../../core/types/types';
 import { ShoppingCart, Package, Bell, X, Star } from 'lucide-react';
@@ -120,50 +121,54 @@ const ProductCardComponent: React.FC<{
             style={{ animationDelay: `${index * 50}ms` }}
         >
             {/* Imagem do Produto */}
-            <div className={`relative w-full ${isMobile ? 'h-48' : 'h-72 sm:h-80'} overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800`}>
-                {(() => {
-                    const imageUrl = getVariantImage(selectedVariant, product);
-                    return imageUrl && !imageUrl.includes('placeholder') ? (
-                        <img
-                            src={imageUrl}
-                            alt={displayName}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            loading="lazy"
-                            onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop';
-                            }}
-                        />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900 dark:to-green-800">
-                            <Package className="w-16 h-16 text-green-600 dark:text-green-400 opacity-50" />
+            <Link to={`/loja/produto/${product.slug}`} className="block relative w-full overflow-hidden group">
+                <div className={`relative w-full ${isMobile ? 'h-48' : 'h-72 sm:h-80'} bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800`}>
+                    {(() => {
+                        const imageUrl = getVariantImage(selectedVariant, product);
+                        return imageUrl && !imageUrl.includes('placeholder') ? (
+                            <img
+                                src={imageUrl}
+                                alt={displayName}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                loading="lazy"
+                                onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop';
+                                }}
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900 dark:to-green-800">
+                                <Package className="w-16 h-16 text-green-600 dark:text-green-400 opacity-50" />
+                            </div>
+                        );
+                    })()}
+                    {showFeaturedBadge && (
+                        <div className="absolute top-2 left-2 z-10">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/95 text-white text-[10px] font-semibold shadow-lg">
+                                <Star className="w-3 h-3 fill-current" />
+                                Destaque
+                            </span>
                         </div>
-                    );
-                })()}
-                {showFeaturedBadge && (
-                    <div className="absolute top-2 left-2 z-10">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/95 text-white text-[10px] font-semibold shadow-lg">
-                            <Star className="w-3 h-3 fill-current" />
-                            Destaque
-                        </span>
-                    </div>
-                )}
-                {!hasStock && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="text-white font-bold text-xs px-2 py-0.5 bg-red-500/80 rounded">
-                            Sem Stock
-                        </span>
-                    </div>
-                )}
-            </div>
+                    )}
+                    {!hasStock && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <span className="text-white font-bold text-xs px-2 py-0.5 bg-red-500/80 rounded">
+                                Sem Stock
+                            </span>
+                        </div>
+                    )}
+                </div>
+            </Link>
 
             {/* Conteúdo */}
             <div className={`${isMobile ? 'p-2' : 'p-2 sm:p-3'} space-y-1.5`}>
                 {/* Nome e Preço */}
                 <div>
-                    <h3 className={`${isMobile ? 'text-xs' : 'text-sm sm:text-base'} font-semibold text-gray-900 dark:text-white line-clamp-2`}>
-                        {product.name}
-                    </h3>
+                    <Link to={`/loja/produto/${product.slug}`} className="block hover:text-green-600 transition-colors">
+                        <h3 className={`${isMobile ? 'text-xs' : 'text-sm sm:text-base'} font-semibold text-gray-900 dark:text-white line-clamp-2`}>
+                            {product.name}
+                        </h3>
+                    </Link>
                     <div className="flex items-baseline gap-1">
                         <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-bold text-green-600 dark:text-green-400`}>
                             {currentPrice.toFixed(2)} MT

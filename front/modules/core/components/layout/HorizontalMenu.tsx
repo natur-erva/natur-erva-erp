@@ -117,19 +117,6 @@ export const HorizontalMenu: React.FC<HorizontalMenuProps> = ({
       ]
     },
 
-    {
-      id: 'marketing',
-      label: 'Marketing',
-      icon: Megaphone,
-      items: [
-        { id: 'marketing-dashboard', label: 'Dashboard', icon: BarChart3, permission: 'marketing.view' },
-        { id: 'marketing-loyalty', label: 'Pontos e Fidelizaçéo', icon: Award, permission: 'marketing.manage_loyalty' },
-        { id: 'marketing-affiliates', label: 'Programa de Afiliados', icon: Share2, permission: 'marketing.manage_affiliates' },
-        { id: 'marketing-actions', label: 'Açéµes e Conquistas', icon: Target, permission: 'marketing.manage_actions' },
-        { id: 'marketing-campaigns', label: 'Campanhas', icon: Megaphone, permission: 'marketing.manage_campaigns' },
-        { id: 'marketing-reports', label: 'Relaté³rios', icon: FileText, permission: 'marketing.view_reports' },
-
-      ]
     },
     {
       id: 'administracao',

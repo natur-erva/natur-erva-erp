@@ -9,7 +9,6 @@ const categoryLabels: Record<DashboardCard['category'], string> = {
   producao: 'Produçéo / Fé¡brica',
   financeiro: 'Financeiro',
   estoque: 'Estoque',
-  marketing: 'Marketing',
   geral: 'Geral',
 };
 
@@ -19,7 +18,6 @@ const categoryColors: Record<DashboardCard['category'], string> = {
   producao: 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800',
   financeiro: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
   estoque: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800',
-  marketing: 'bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-800',
   geral: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
 };
 

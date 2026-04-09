@@ -5,7 +5,7 @@ export interface DashboardCard {
   label: string;
   visible: boolean;
   order: number;
-  category: 'vendas' | 'loja' | 'producao' | 'financeiro' | 'estoque' | 'marketing' | 'geral';
+  category: 'vendas' | 'loja' | 'producao' | 'financeiro' | 'estoque' | 'geral';
   essential?: boolean;
   linkTo?: string;
 }

@@ -67,9 +67,6 @@ const getAllPermissionsList = (): string[] => {
     'accounting.view', 'accounting.entries.create', 'accounting.entries.edit',
     'accounting.reports', 'accounting.balances', 'accounting.export',
 
-    // Marketing (3)
-    'marketing.view', 'marketing.manage', 'marketing.series',
-
     // Media (3)
     'media.view', 'media.upload', 'media.delete',
 

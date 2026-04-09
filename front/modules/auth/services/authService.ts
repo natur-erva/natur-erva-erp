@@ -128,6 +128,7 @@ const getUserRoles = async (userId: string): Promise<string[]> => {
 
 // Helper para determinar role principal (para compatibilidade)
 const getPrimaryRole = (roles: string[]): UserRole => {
+  if (roles.includes('SUPER_ADMIN')) return UserRole.SUPER_ADMIN;
   if (roles.includes('ADMIN')) return UserRole.ADMIN;
   if (roles.includes('CONTABILISTA')) return UserRole.CONTABILISTA;
   if (roles.includes('GESTOR_STOCK')) return UserRole.GESTOR_STOCK;
@@ -304,7 +305,7 @@ const processPopupCallback = async (hash: string): Promise<{ user: User | null, 
       customerId: profileData?.customer_id || undefined,
       isActive: profileData?.is_active !== false,
       lastLogin: new Date().toISOString(),
-      requiresStrongPassword: profileData?.requires_strong_password !== false
+      requiresStrongPassword: profileData?.requires_strong_password === true
     };
 
     return { user, error: null };
@@ -652,7 +653,8 @@ export const authService = {
         customerId: profileData?.customer_id || undefined,
         isActive: profileData?.is_active !== false,
         lastLogin: new Date().toISOString(),
-        requiresStrongPassword: profileData?.requires_strong_password !== false
+        isSuperAdmin: profileData?.is_super_admin === true,
+        requiresStrongPassword: profileData?.requires_strong_password === true
       };
 
       return { user, error: null };
@@ -769,7 +771,7 @@ export const authService = {
         customerId: profileData?.customer_id || undefined,
         isActive: profileData?.is_active !== false,
         lastLogin: profileData?.last_login || undefined,
-        requiresStrongPassword: profileData?.requires_strong_password !== false
+        requiresStrongPassword: profileData?.requires_strong_password === true
       };
     } catch (e) {
       return null;
