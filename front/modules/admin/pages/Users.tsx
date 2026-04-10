@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { type User, Role, Permission, UserRole } from '../../core/types/types';
-import { supabase, isSupabaseConfigured, getAdminClient } from '../../core/services/supabaseClient';
+import { type User, Role, Permission } from '../../core/types/types';
+import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClient';
+import {
+  edgeListUsers,
+  edgeListUsersToAppUsers,
+  edgeCreateUserFull,
+  edgeUpdateUserFull,
+  edgeDeleteUserFull
+} from '../../core/services/adminAuthEdge';
 import { Plus, Edit, Trash2, Shield, User as UserIcon, Phone, Check, X, Users as UsersIcon, ShoppingBag, Lock } from 'lucide-react';
 import { Avatar } from '../../core/components/ui/Avatar';
 import { isClientUser, isStaffUser, canManageUsers } from '../../core/hooks/useUserPermissions';
@@ -74,127 +81,24 @@ export const Users: React.FC<{
     }
 
     try {
-      // Buscar perfis respeitando as políticas RLS
-      // As políticas RLS garantirão que:
-      // - Clientes vejam apenas seu prãoprio perfil
-      // - Staff vejam todos os perfis
-      // - Super admin veja todos
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('name');
-
-      if (profilesError) {
-        console.error('Erro ao buscar perfis:', profilesError);
-
-        // Verificar se é erro de permissão (RLS bloqueando)
-        if (profilesError.message?.includes('row-level security') ||
-          profilesError.message?.includes('policy') ||
-          profilesError.code === '42501') {
-          showToast('Vocéª não tem permissão para visualizar usuários. Execute o SQL sql/fixes/IMPROVE_USER_MANAGEMENT_RLS.sql no Supabase.', 'error', 10000);
-        }
-
-        throw profilesError;
+      const rows = await edgeListUsers(supabase);
+      let appUsers = edgeListUsersToAppUsers(rows);
+      if (currentUser?.id) {
+        appUsers = appUsers.map((u) =>
+          u.id === currentUser.id && currentUser.email && !u.email
+            ? { ...u, email: currentUser.email }
+            : u
+        );
       }
-
-      if (!profiles || profiles.length === 0) {
-        console.log('Nenhum perfil encontrado');
-        setUsers([]);
-        return;
-      }
-
-      // Usar adminClient se disponível para buscar dados completos
-      const adminClient = getAdminClient();
-      const clientToUse = adminClient || supabase;
-
-      // Se tiver adminClient, buscar todos os emails de uma vez (mais eficiente)
-      let emailMap: Record<string, string> = {};
-      if (adminClient) {
-        try {
-          // Buscar todos os usuários de uma vez
-          const { data: { users: authUsers }, error: listError } = await adminClient.auth.admin.listUsers();
-          if (!listError && authUsers) {
-            authUsers.forEach((authUser: any) => {
-              if (authUser?.email) {
-                emailMap[authUser.id] = authUser.email;
-              }
-            });
-          }
-        } catch (e) {
-          console.warn('Erro ao buscar lista de usuários:', e);
-        }
-      }
-
-      // Buscar roles e emails de cada usuário
-      const usersWithRoles = await Promise.all(
-        profiles.map(async (profile) => {
-          // Buscar roles do usuário
-          let roleNames: string[] = [];
-          try {
-            const { data: userRoles, error: rolesError } = await clientToUse
-              .from('user_roles')
-              .select('role_id, roles(name, display_name)')
-              .eq('user_id', profile.id);
-
-            if (!rolesError && userRoles) {
-              roleNames = userRoles.map((ur: any) => ur.roles?.name).filter(Boolean);
-            }
-          } catch (e) {
-            console.warn(`Erro ao buscar roles do usuário ${profile.id}:`, e);
-          }
-
-          // Se não encontrou roles em user_roles, usar role do profile
-          if (roleNames.length === 0 && profile.role) {
-            roleNames = [profile.role];
-          }
-
-          const primaryRole = roleNames[0] || profile.role || 'STAFF';
-          const isClient = roleNames.includes('CLIENTE') || profile.role === 'CLIENTE';
-
-          // Buscar email do usuário
-          let email = emailMap[profile.id] || '';
-
-          // Se não encontrou no map e tem adminClient, tentar buscar individualmente
-          if (!email && adminClient) {
-            try {
-              const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(profile.id);
-              if (!authError && authUser?.user?.email) {
-                email = authUser.user.email;
-                emailMap[profile.id] = email; // Cache para prãoximas iterações
-              }
-            } catch (e) {
-              console.warn(`Erro ao buscar email individual do usuário ${profile.id}:`, e);
-            }
-          }
-
-          // Se ainda não tem email e é o usuário atual, usar do currentUser
-          if (!email && profile.id === currentUser?.id && currentUser?.email) {
-            email = currentUser.email;
-          }
-
-          // Garantir que o telefone seja carregado corretamente (null vira undefined, string vazia também)
-          const phoneValue = profile.phone;
-          const finalPhone = phoneValue && phoneValue.trim && phoneValue.trim().length > 0 ? phoneValue.trim() : undefined;
-
-          return {
-            id: profile.id,
-            name: profile.name || '',
-            email: email,
-            phone: finalPhone,
-            role: primaryRole as UserRole,
-            roles: roleNames,
-            avatar: profile.avatar_url,
-            customerId: profile.customer_id,
-            isActive: profile.is_active !== false,
-            lastLogin: profile.last_login
-          };
-        })
-      );
-
-      setUsers(usersWithRoles);
+      setUsers(appUsers);
     } catch (error: any) {
       console.error('Erro ao carregar usuários:', error);
-      showToast(error.message || 'Erro ao carregar usuários', 'error');
+      showToast(
+        error.message ||
+          'Erro ao carregar usuários. Verifique se a Edge Function admin-auth-users está deployada.',
+        'error',
+        10000
+      );
       setUsers([]);
     }
   };
@@ -333,202 +237,27 @@ export const Users: React.FC<{
 
     setIsSubmitting(true);
     try {
-      // Tentar usar cliente admin se disponível, senão usar método alternativo
-      const adminClient = getAdminClient();
-      const clientToUse = adminClient || supabase;
-
-      let authData: any = null;
-      let authError: any = null;
-
-      if (adminClient) {
-        // Usar método admin se tiver service role key
-        const result = await adminClient.auth.admin.createUser({
-          email: userData.email.trim(),
-          password: userData.password,
-          email_confirm: true
-        });
-        authData = result.data;
-        authError = result.error;
-      } else {
-        // Método alternativo: usar signUp e depois confirmar via RPC ou funçéo
-        // Primeiro, tentar criar via RPC function se existir
-        const { data: rpcData, error: rpcError } = await supabase.rpc('create_user_with_profile', {
-          user_email: userData.email.trim(),
-          user_password: userData.password,
-          user_name: userData.name.trim(),
-          user_phone: userData.phone?.trim() || null,
-          user_role: userData.roleIds[0] || 'STAFF',
-          is_active: userData.isActive !== false
-        });
-
-        if (!rpcError && rpcData) {
-          // Se RPC funcionou, usar o resultado
-          authData = { user: { id: rpcData.user_id, email: userData.email.trim() } };
-        } else {
-          // Se RPC não existe, mostrar erro informativo
-          const errorMsg = 'Service Role Key não configurada. Vá em configurações â†’ Supabase e adicione a Service Role Key (encontre em: Supabase Dashboard â†’ Settings â†’ API â†’ service_role key)';
-          showToast(errorMsg, 'error', 10000);
-          throw new Error('Service Role Key não configurada');
-        }
-      }
-
-      if (authError) {
-        // Verificar se é erro de email já cadastrado
-        if (authError.message?.includes('already registered') ||
-          authError.message?.includes('already exists') ||
-          authError.message?.includes('email address has already been registered') ||
-          authError.message?.includes('User already registered')) {
-          const errorMsg = `O email "${userData.email.trim()}" já está cadastrado no sistema. Se deseja editar este usuário, encontre-o na lista e clique no ícone de edição.`;
-          showToast(errorMsg, 'error', 8000);
-          throw new Error('Email já cadastrado');
-        }
-        // Verificar se é erro de permissão
-        if (authError.message?.includes('not allowed') ||
-          authError.message?.includes('permission') ||
-          authError.message?.includes('User not allowed')) {
-          const errorMsg = 'Sem permissão para criar usuários. Configure a Service Role Key: Vá em configurações â†’ Supabase e adicione a Service Role Key (encontre em: Supabase Dashboard â†’ Settings â†’ API â†’ service_role key)';
-          showToast(errorMsg, 'error', 10000);
-          throw new Error('Service Role Key não configurada');
-        }
-        // Outros erros
-        const errorMsg = authError.message || 'Erro ao criar usuário. Verifique os dados e tente novamente.';
-        showToast(errorMsg, 'error');
-        throw authError;
-      }
-      if (!authData?.user) throw new Error('Erro ao criar usuário');
-
-      // Buscar o nome do role a partir do ID (primeiro role selecionado)
-      let primaryRoleName = 'STAFF';
-      if (userData.roleIds.length > 0) {
-        const selectedRole = roles.find(r => r.id === userData.roleIds[0]);
-        if (selectedRole) {
-          primaryRoleName = selectedRole.name;
-        } else {
-          // Se não encontrou, tentar buscar do banco
-          try {
-            const { data: roleData } = await supabase
-              .from('roles')
-              .select('name')
-              .eq('id', userData.roleIds[0])
-              .single();
-            if (roleData) {
-              primaryRoleName = roleData.name;
-            }
-          } catch (e) {
-            console.warn('Erro ao buscar nome do role:', e);
-          }
-        }
-      }
-
-      // Criar perfil
-      // Garantir que o telefone seja tratado corretamente
-      let finalPhone: string | null = null;
-
-      // Verificar se o telefone foi fornecido e não está vazio
-      // Aceitar string vazia, undefined, null - todos viram null
+      let finalPhone: string | undefined;
       if (userData.phone !== undefined && userData.phone !== null) {
         const phoneStr = String(userData.phone).trim();
-        if (phoneStr.length > 0) {
-          finalPhone = phoneStr;
-        }
+        if (phoneStr.length > 0) finalPhone = phoneStr;
       }
 
-      console.log('=== CRIANDO PERFIL ===');
-      console.log('Dados recebidos em handleCreateUser:', {
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        phoneType: typeof userData.phone,
-        phoneExists: userData.phone !== undefined,
-        phoneNotNull: userData.phone !== null,
-        phoneNotEmpty: userData.phone !== ''
-      });
-      console.log('Telefone processado:', finalPhone);
-      console.log('Dados que serão salvos no perfil:', {
-        id: authData.user.id,
+      const authUser = await edgeCreateUserFull(supabase, {
+        email: userData.email.trim(),
+        password: userData.password,
         name: userData.name.trim(),
         phone: finalPhone,
-        role: primaryRoleName,
-        is_active: userData.isActive !== false
+        role_ids: userData.roleIds,
+        is_active: userData.isActive !== false,
+        is_super_admin: userData.isSuperAdmin === true
       });
-
-      // Sempre incluir o campo phone, mesmo que seja null
-      const profileData: any = {
-        id: authData.user.id,
-        name: userData.name.trim(),
-        phone: finalPhone, // null se não fornecido, senão o valor
-        role: primaryRoleName,
-        is_active: userData.isActive !== false
-      };
-
-      console.log('Inserindo perfil no banco:', profileData);
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert(profileData);
-
-      if (profileError) {
-        // Verificar se é erro de perfil já existente
-        if (profileError.message?.includes('duplicate key') || profileError.message?.includes('unique constraint')) {
-          // Se o perfil já existe, apenas atualizar os roles
-          console.warn('Perfil já existe, atualizando roles...');
-          // Néo apagar o usuário, apenas continuar para associar roles
-        } else {
-          // Se falhar ao criar perfil por outro motivo, tentar apagar o usuário criado
-          try {
-            const adminClient = getAdminClient();
-            const clientToDelete = adminClient || supabase;
-            await clientToDelete.auth.admin.deleteUser(authData.user.id);
-          } catch (deleteError) {
-            console.error('Erro ao apagar usuário apãos falha ao criar perfil:', deleteError);
-          }
-          throw profileError;
-        }
-      }
-
-      // Associar roles - usar adminClient se disponível para bypassar RLS
-      if (userData.roleIds.length > 0) {
-        const roleAssignments = userData.roleIds.map(roleId => ({
-          user_id: authData.user.id,
-          role_id: roleId,
-          assigned_by: currentUser?.id || null
-        }));
-
-        // Usar adminClient se disponível para bypassar RLS completamente
-        const clientForRoles = adminClient || supabase;
-        const { error: rolesError } = await clientForRoles
-          .from('user_roles')
-          .insert(roleAssignments);
-
-        if (rolesError) {
-          console.error('Erro ao associar roles:', rolesError);
-          // Se falhar ao associar roles, não falhar completamente, mas avisar
-          if (rolesError.message?.includes('row-level security') || rolesError.message?.includes('policy')) {
-            if (!adminClient) {
-              showToast('Usuário criado, mas erro ao associar roles: Service Role Key necessária. Vocéª pode editar o usuário para adicionar roles.', 'warning', 8000);
-            } else {
-              showToast('Usuário criado, mas erro ao associar roles. Execute o SQL sql/fixes/FIX_USER_ROLES_RLS_V2.sql no Supabase. Vocéª pode editar o usuário para adicionar roles.', 'warning', 10000);
-            }
-          } else if (rolesError.message?.includes('duplicate') || rolesError.message?.includes('unique')) {
-            // Se já existe, apenas avisar
-            console.warn('Roles já associados ou erro de duplicação:', rolesError);
-          } else {
-            showToast('Usuário criado, mas houve erro ao associar roles. Vocéª pode editar o usuário para adicionar roles.', 'warning', 8000);
-          }
-        } else {
-          console.log(`Roles associados com sucesso: ${userData.roleIds.length} role(s)`);
-        }
-      } else {
-        // Se não selecionou nenhum role, avisar
-        showToast('Usuário criado, mas nenhum role foi selecionado. Vocéª pode editar o usuário para adicionar roles.', 'info', 6000);
-      }
 
       showToast('Usuário criado com sucesso', 'success');
       setShowUserModal(false);
 
-      // Disparar evento para limpar cache de permissões do novo usuário
-      if (authData?.user?.id) {
-        window.dispatchEvent(new CustomEvent('roles-updated', { detail: { userId: authData.user.id } }));
+      if (authUser?.id) {
+        window.dispatchEvent(new CustomEvent('roles-updated', { detail: { userId: authUser.id } }));
       }
 
       loadData();
@@ -581,99 +310,16 @@ export const Users: React.FC<{
 
     setIsSubmitting(true);
     try {
-      const adminClient = getAdminClient();
-
-      // Atualizar email e/ou senha no auth.users (requer adminClient)
-      if (updates.email !== undefined || (updates.password && updates.password.length >= 6)) {
-        if (!adminClient) {
-          showToast('Para atualizar email/senha, configure a Service Role Key nas configurações.', 'error', 8000);
-          setIsSubmitting(false);
-          return;
-        }
-
-        const authUpdates: { email?: string; email_confirm?: boolean; password?: string } = {};
-        if (updates.email !== undefined) {
-          authUpdates.email = updates.email.trim();
-          authUpdates.email_confirm = true;
-        }
-        if (updates.password && updates.password.length >= 6) {
-          authUpdates.password = updates.password;
-        }
-
-        try {
-          const { error: authError } = await adminClient.auth.admin.updateUserById(userId, authUpdates);
-
-          if (authError) {
-            if (authError.message?.includes('already registered') || authError.message?.includes('already exists')) {
-              showToast('Este email já está cadastrado por outro usuário', 'error');
-              setIsSubmitting(false);
-              return;
-            }
-            throw authError;
-          }
-        } catch (authErr: any) {
-          console.error('Erro ao atualizar auth:', authErr);
-          showToast(authErr.message || 'Erro ao atualizar', 'error');
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      // Atualizar perfil
-      const profileUpdates: any = {};
-      if (updates.name !== undefined) profileUpdates.name = updates.name.trim();
-      if (updates.phone !== undefined) profileUpdates.phone = updates.phone?.trim() || null;
-      if (updates.isActive !== undefined) profileUpdates.is_active = updates.isActive;
-
-      if (Object.keys(profileUpdates).length > 0) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update(profileUpdates)
-          .eq('id', userId);
-
-        if (profileError) throw profileError;
-      }
-
-
-      // Atualizar roles - usar adminClient se disponível para bypassar RLS
-      if (updates.roleIds !== undefined) {
-        const adminClient = getAdminClient();
-        const clientForRoles = adminClient || supabase;
-
-        // Remover roles existentes
-        const { error: deleteError } = await clientForRoles
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId);
-
-        if (deleteError) {
-          console.warn('Erro ao remover roles antigos:', deleteError);
-          if (!adminClient) {
-            showToast('Erro ao atualizar roles. Certifique-se de que a Service Role Key está configurada.', 'error');
-            throw deleteError;
-          }
-        }
-
-        // Adicionar novos roles
-        if (updates.roleIds.length > 0) {
-          const roleAssignments = updates.roleIds.map(roleId => ({
-            user_id: userId,
-            role_id: roleId,
-            assigned_by: currentUser?.id || null
-          }));
-
-          const { error: rolesError } = await clientForRoles
-            .from('user_roles')
-            .insert(roleAssignments);
-
-          if (rolesError) {
-            if (!adminClient) {
-              showToast('Erro ao atualizar roles. Certifique-se de que a Service Role Key está configurada.', 'error');
-            }
-            throw rolesError;
-          }
-        }
-      }
+      await edgeUpdateUserFull(supabase, {
+        target_user_id: userId,
+        name: updates.name,
+        email: updates.email,
+        phone: updates.phone !== undefined ? (updates.phone?.trim() || null) : undefined,
+        password: updates.password && updates.password.length >= 6 ? updates.password : undefined,
+        role_ids: updates.roleIds,
+        is_active: updates.isActive,
+        is_super_admin: updates.isSuperAdmin
+      });
 
       showToast('Usuário atualizado com sucesso', 'success');
       setShowUserModal(false);
@@ -705,38 +351,7 @@ export const Users: React.FC<{
 
     setIsSubmitting(true);
     try {
-      // Usar adminClient se disponível para ter permissões de admin
-      const adminClient = getAdminClient();
-      const clientToUse = adminClient || supabase;
-
-      if (!adminClient) {
-        // Se não tiver adminClient, tentar deletar via supabase normal
-        // Mas isso provavelmente vai falhar sem Service Role Key
-        const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-        if (authError) {
-          if (authError.message?.includes('not allowed') || authError.message?.includes('permission')) {
-            showToast('Para deletar usuários, configure a Service Role Key nas configurações.', 'error', 8000);
-            throw new Error('Service Role Key não configurada');
-          }
-          throw authError;
-        }
-      } else {
-        // Usar adminClient para deletar (bypassa RLS)
-        const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
-        if (authError) throw authError;
-      }
-
-      // Também deletar roles associados (se não for cascade)
-      try {
-        const clientForRoles = adminClient || supabase;
-        await clientForRoles
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId);
-      } catch (rolesError: any) {
-        console.warn('Erro ao deletar roles do usuário (pode ser cascade):', rolesError);
-        // Néo falhar completamente se for cascade delete
-      }
+      await edgeDeleteUserFull(supabase, userId);
 
       showToast('Usuário apagado com sucesso', 'success');
       loadData();
@@ -837,16 +452,10 @@ export const Users: React.FC<{
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         setIsSubmitting(true);
-        const adminClient = getAdminClient();
-        if (!adminClient) {
-          showToast('Configure a Service Role Key para apagar usuários.', 'error');
-          setIsSubmitting(false);
-          return;
-        }
         let ok = 0;
         for (const id of excludeSelf) {
           try {
-            await adminClient.auth.admin.deleteUser(id);
+            await edgeDeleteUserFull(supabase, id);
             ok++;
           } catch (e) {
             console.warn('Erro ao apagar usuário', id, e);
@@ -861,16 +470,14 @@ export const Users: React.FC<{
   };
 
   const handleBulkSetPassword = async (password: string) => {
-    const adminClient = getAdminClient();
-    if (!adminClient) {
-      showToast('Configure a Service Role Key para definir senhas.', 'error');
-      throw new Error('Admin client required');
-    }
     const ids = Array.from(selectedIds);
     let ok = 0;
     for (const id of ids) {
       try {
-        await adminClient.auth.admin.updateUserById(id, { password });
+        await edgeUpdateUserFull(supabase, {
+          target_user_id: id,
+          password
+        });
         ok++;
       } catch (e) {
         console.warn('Erro ao definir senha', id, e);

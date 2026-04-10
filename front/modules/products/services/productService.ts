@@ -799,10 +799,21 @@ export const productService = {
             let { data, error } = await supabase.from('products').insert(dbProduct).select().single();
 
             if (error?.code === '42703') {
-                console.warn("DB schema outdated (missing columns). Attempting basic insert...");
-                const basicProduct = { ...dbProduct };
-                delete (basicProduct as any).cost_price;
-                delete (basicProduct as any).image_url;
+                console.warn("[AddProduct] DB schema mismatch detected (42703). Retrying with known stable columns...");
+                const basicProduct: any = {
+                    name: product.name,
+                    price: product.price,
+                    type: product.type,
+                    category: product.category,
+                    stock: 0,
+                    min_stock: product.minStock,
+                    unit: product.unit
+                };
+                
+                // Add optional columns if they exist in the error message or common knowledge
+                if (product.costPrice !== undefined) basicProduct.cost_price = product.costPrice;
+                if (product.image !== undefined) basicProduct.image_url = product.image;
+                if (product.showInShop !== undefined) basicProduct.show_in_shop = product.showInShop;
 
                 const retry = await supabase.from('products').insert(basicProduct).select().single();
                 data = retry.data;
@@ -883,7 +894,7 @@ export const productService = {
             let { error } = await supabase.from('products').update(dbUpdates).eq('id', id);
 
             if (error?.code === '42703') {
-                console.warn("[UpdateProduct] Coluna não encontrada. Tentando sem campos opcionais...");
+                console.warn("[UpdateProduct] DB schema mismatch detected (42703). Retrying with known stable columns...");
                 const basicUpdates: any = {};
                 if (updates.name !== undefined) basicUpdates.name = updates.name;
                 if (updates.price !== undefined) basicUpdates.price = updates.price;
@@ -891,6 +902,12 @@ export const productService = {
                 if (updates.category !== undefined) basicUpdates.category = updates.category;
                 if (updates.stock !== undefined) basicUpdates.stock = updates.stock;
                 if (updates.unit !== undefined) basicUpdates.unit = updates.unit;
+                
+                // Include newer columns in fallback too
+                if (updates.image !== undefined) basicUpdates.image_url = updates.image;
+                if (updates.costPrice !== undefined) basicUpdates.cost_price = updates.costPrice;
+                if (updates.minStock !== undefined) basicUpdates.min_stock = updates.minStock;
+                if (updates.showInShop !== undefined) basicUpdates.show_in_shop = updates.showInShop;
 
                 const retry = await supabase.from('products').update(basicUpdates).eq('id', id);
                 error = retry.error;
