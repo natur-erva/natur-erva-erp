@@ -55,7 +55,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   // Header para modo Shop (público)
   if (isShopMode) {
     return (
-      <header className={`backdrop-blur-xl bg-surface-raised/90 dark:bg-surface-base/90 border-b border-border-default shadow-lg shadow-black/5 fixed top-0 left-0 right-0 z-30 transition-all duration-300 ${isMobile ? 'h-16' : 'h-16'}`}>
+      <header className={`bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-md fixed top-0 left-0 right-0 z-50 ${isMobile ? 'h-16' : 'h-16'}`}>
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className={`flex items-center justify-between ${isMobile ? 'gap-2' : 'gap-2 sm:gap-4'} ${isMobile ? 'h-16' : 'h-16'}`}>
             {/* Logo */}
@@ -66,9 +66,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 aria-label="Ir para página inicial"
               >
                 <Logo
-                  width={isMobile ? 130 : 120}
-                  height={isMobile ? 42 : 40}
-                  className={isMobile ? "h-10 w-auto" : "h-8 sm:h-10 w-auto"}
+                  width={isMobile ? 170 : 160}
+                  height={isMobile ? 54 : 52}
+                  className={isMobile ? "h-12 w-auto" : "h-10 sm:h-12 w-auto"}
                   isDarkMode={isDarkMode}
                 />
               </Link>
@@ -197,7 +197,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               style={{ top: 0, left: 0, height: '100vh' }}
             >
               <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                <Logo width={140} height={44} className="h-10 w-auto" isDarkMode={isDarkMode} />
+                <Logo width={180} height={56} className="h-12 w-auto" isDarkMode={isDarkMode} />
                 <button
                   onClick={closeSidebar}
                   className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -296,7 +296,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             to="/admin"
             className="flex items-center cursor-pointer hover:opacity-80 transition-opacity bg-transparent border-none"
           >
-            <Logo width={120} height={40} className="h-8 sm:h-10 w-auto" isDarkMode={isDarkMode} />
+            <Logo width={160} height={52} className="h-10 sm:h-12 w-auto" isDarkMode={isDarkMode} />
           </Link>
           <div className="flex items-center space-x-2">
             <button

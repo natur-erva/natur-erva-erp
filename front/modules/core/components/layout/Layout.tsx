@@ -307,7 +307,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 }}
                 className="flex-shrink-0 cursor-pointer hover:opacity-80 active:opacity-70 transition-opacity touch-manipulation"
               >
-                <Logo variant="full" width={150} height={45} className="h-[45px] w-auto max-w-[150px] object-contain" isDarkMode={isDarkMode} />
+                <Logo variant="full" width={190} height={58} className="h-[58px] w-auto max-w-[190px] object-contain" isDarkMode={isDarkMode} />
               </button>
             </div>
 
@@ -475,7 +475,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   }}
                   className="cursor-pointer hover:opacity-80 transition-opacity"
                 >
-                  <Logo width={180} height={56} className="h-14 w-auto max-w-[calc(100%-2rem)] object-contain" isDarkMode={isDarkMode} />
+                  <Logo width={220} height={70} className="h-16 w-auto max-w-[calc(100%-2rem)] object-contain" isDarkMode={isDarkMode} />
                 </button>
               </div>
             </div>

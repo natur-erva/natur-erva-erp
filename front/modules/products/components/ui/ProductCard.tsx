@@ -117,7 +117,7 @@ const ProductCardComponent: React.FC<{
     return (
         <div
             data-product-id={product.id}
-            className={`backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 ${isMobile ? 'rounded-xl' : 'rounded-2xl'} shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group`}
+            className={`backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 ${isMobile ? 'rounded-xl' : 'rounded-2xl'} shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50 hover:shadow-xl transition-shadow duration-300 group`}
             style={{ animationDelay: `${index * 50}ms` }}
         >
             {/* Imagem do Produto */}

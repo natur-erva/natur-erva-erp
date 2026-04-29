@@ -16,9 +16,9 @@ export const Logo: React.FC<LogoProps> = ({
   variant = 'full',
   isDarkMode = false
 }) => {
-  // URLs padréo (fallback)
-  const defaultFullLogoUrl = "https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/logo-light.png?v=1";
-  const defaultIconLogoUrl = "https://oiiscvsqqmkewsmxrfdy.supabase.co/storage/v1/object/public/images/favicon-natur-erva.png?v=1";
+  // URLs padrão (fallback)
+  const defaultFullLogoUrl = "/logo.png";
+  const defaultIconLogoUrl = "/favicon.png";
 
   // Inicializar com URL padréo imediatamente para garantir que o logotipo apareça
   const [logoUrl, setLogoUrl] = useState<string>(

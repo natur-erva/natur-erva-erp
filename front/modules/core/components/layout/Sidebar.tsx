@@ -275,9 +275,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="flex-shrink-0 flex items-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
           >
             {isOpen ? (
-              <Logo variant="full" width={200} height={62} className="h-14 sm:h-16 w-auto max-w-[calc(100%-2rem)] object-contain" isDarkMode={isDarkMode} />
+              <Logo variant="full" width={240} height={76} className="h-16 sm:h-20 w-auto max-w-[calc(100%-2rem)] object-contain" isDarkMode={isDarkMode} />
             ) : (
-              <Logo variant="icon" width={150} height={45} className="w-[150px] h-[45px] object-contain" isDarkMode={isDarkMode} />
+              <Logo variant="icon" width={180} height={56} className="w-[180px] h-[56px] object-contain" isDarkMode={isDarkMode} />
             )}
           </button>
         </div>
