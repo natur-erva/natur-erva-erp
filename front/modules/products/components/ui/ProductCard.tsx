@@ -4,17 +4,22 @@ import { createPortal } from 'react-dom';
 import { Product, ProductVariant } from '../../../core/types/types';
 import { ShoppingCart, Package, Bell, X, Star } from 'lucide-react';
 import { getVariantImage } from '../../../core/utils/productUtils';
+import { StarRating } from './StarRating';
+import { ReviewModal } from './ReviewModal';
+import { getProductRating, RatingStats } from '../../services/reviewService';
 
 export const ProductCardSkeleton: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
     return (
-        <div className={`backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 ${isMobile ? 'rounded-xl' : 'rounded-2xl'} shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50`}>
-            <div className={`relative w-full ${isMobile ? 'h-48' : 'h-72 sm:h-80'} bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 animate-pulse`} />
-            <div className={`${isMobile ? 'p-2' : 'p-2 sm:p-3'} space-y-2`}>
-                <div className={`h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse ${isMobile ? 'w-3/4' : 'w-full'}`} />
-                <div className={`h-5 bg-gray-300 dark:bg-gray-600 rounded animate-pulse ${isMobile ? 'w-1/2' : 'w-1/3'}`} />
-                {isMobile && (
-                    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                )}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div className={`relative w-full ${isMobile ? 'h-44' : 'h-56'} bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 animate-pulse`} />
+            <div className="p-4 space-y-3">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-2/3" />
+                <div className="flex items-center justify-between pt-1">
+                    <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded animate-pulse w-1/3" />
+                    <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse w-1/3" />
+                </div>
             </div>
         </div>
     );
@@ -27,7 +32,8 @@ const ProductCardComponent: React.FC<{
     index?: number;
     isMobile?: boolean;
     showFeaturedBadge?: boolean;
-}> = ({ product, onAddToCart, onNotify, index = 0, isMobile = false, showFeaturedBadge = false }) => {
+    currentUserName?: string;
+}> = ({ product, onAddToCart, onNotify, index = 0, isMobile = false, showFeaturedBadge = false, currentUserName }) => {
     // Filtrar apenas variações com stock para seleção (memoizado)
     const availableVariants = useMemo(() =>
         product.variants?.filter(v => v.stock > 0) || [],
@@ -42,8 +48,15 @@ const ProductCardComponent: React.FC<{
     const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(defaultVariant);
     const [showVariantModal, setShowVariantModal] = useState(false);
     const [modalSelectedVariant, setModalSelectedVariant] = useState<ProductVariant | undefined>(defaultVariant);
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [ratingStats, setRatingStats] = useState<RatingStats>({ average: 0, total: 0 });
     const hasVariants = product.variants && product.variants.length > 0;
     const hasTrackedViewRef = useRef(false);
+
+    // Load rating stats on mount
+    useEffect(() => {
+        getProductRating(product.id).then(setRatingStats);
+    }, [product.id]);
 
     // Atualizar variação selecionada quando o produto mudar
     useEffect(() => {
@@ -117,19 +130,19 @@ const ProductCardComponent: React.FC<{
     return (
         <div
             data-product-id={product.id}
-            className={`backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 ${isMobile ? 'rounded-xl' : 'rounded-2xl'} shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50 hover:shadow-xl transition-shadow duration-300 group`}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 group flex flex-col"
             style={{ animationDelay: `${index * 50}ms` }}
         >
             {/* Imagem do Produto */}
-            <Link to={`/loja/produto/${product.slug}`} className="block relative w-full overflow-hidden group">
-                <div className={`relative w-full ${isMobile ? 'h-48' : 'h-72 sm:h-80'} bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800`}>
+            <Link to={`/loja/produto/${product.slug}`} className="block relative overflow-hidden flex-shrink-0">
+                <div className={`relative w-full ${isMobile ? 'h-44' : 'h-56'} bg-gradient-to-br from-green-50 to-green-100 dark:from-gray-700 dark:to-gray-800`}>
                     {(() => {
                         const imageUrl = getVariantImage(selectedVariant, product);
                         return imageUrl && !imageUrl.includes('placeholder') ? (
                             <img
                                 src={imageUrl}
                                 alt={displayName}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                 loading="lazy"
                                 onError={(e) => {
                                     const target = e.target as HTMLImageElement;
@@ -137,22 +150,26 @@ const ProductCardComponent: React.FC<{
                                 }}
                             />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900 dark:to-green-800">
-                                <Package className="w-16 h-16 text-green-600 dark:text-green-400 opacity-50" />
+                            <div className="w-full h-full flex items-center justify-center">
+                                <Package className="w-16 h-16 text-green-400 dark:text-green-600 opacity-60" />
                             </div>
                         );
                     })()}
+                    {/* Badge categoria */}
+                    {product.category && (
+                        <span className="absolute top-3 right-3 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-sm">
+                            {product.category}
+                        </span>
+                    )}
                     {showFeaturedBadge && (
-                        <div className="absolute top-2 left-2 z-10">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/95 text-white text-[10px] font-semibold shadow-lg">
-                                <Star className="w-3 h-3 fill-current" />
-                                Destaque
-                            </span>
-                        </div>
+                        <span className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-400 text-yellow-900 text-xs font-semibold shadow-sm">
+                            <Star className="w-3 h-3 fill-current" />
+                            Destaque
+                        </span>
                     )}
                     {!hasStock && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                            <span className="text-white font-bold text-xs px-2 py-0.5 bg-red-500/80 rounded">
+                            <span className="text-white font-bold text-sm px-3 py-1.5 bg-red-500/90 rounded-full">
                                 Sem Stock
                             </span>
                         </div>
@@ -161,45 +178,64 @@ const ProductCardComponent: React.FC<{
             </Link>
 
             {/* Conteúdo */}
-            <div className={`${isMobile ? 'p-2' : 'p-2 sm:p-3'} space-y-1.5`}>
-                {/* Nome e Preço */}
-                <div>
-                    <Link to={`/loja/produto/${product.slug}`} className="block hover:text-green-600 transition-colors">
-                        <h3 className={`${isMobile ? 'text-xs' : 'text-sm sm:text-base'} font-semibold text-gray-900 dark:text-white line-clamp-2`}>
-                            {product.name}
-                        </h3>
-                    </Link>
-                    <div className="flex items-baseline gap-1">
-                        <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-bold text-green-600 dark:text-green-400`}>
+            <div className="p-4 flex flex-col flex-1 space-y-3">
+                {/* Nome */}
+                <Link to={`/loja/produto/${product.slug}`} className="hover:text-green-700 dark:hover:text-green-400 transition-colors">
+                    <h3 className={`${isMobile ? 'text-sm' : 'text-base'} font-semibold text-gray-800 dark:text-white line-clamp-2 leading-snug`}>
+                        {product.name}
+                    </h3>
+                </Link>
+
+                {/* Rating */}
+                <button
+                    type="button"
+                    onClick={() => setShowReviewModal(true)}
+                    className="flex items-center gap-1.5 group w-fit"
+                    aria-label="Ver avaliações"
+                >
+                    <StarRating value={ratingStats.average} size="sm" />
+                    <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                        {ratingStats.total > 0 ? `(${ratingStats.total})` : 'Avaliar'}
+                    </span>
+                </button>
+
+                {/* Descrição */}
+                {product.description && !isMobile && (
+                    <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2 leading-relaxed">
+                        {product.description}
+                    </p>
+                )}
+
+                {/* Preço + Botão */}
+                <div className="flex items-center justify-between mt-auto pt-1">
+                    <div>
+                        <span className={`${isMobile ? 'text-base' : 'text-xl'} font-bold text-green-700 dark:text-green-400`}>
                             {currentPrice.toFixed(2)} MT
                         </span>
                         {currentUnit && (
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                / {currentUnit}
-                            </span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">/ {currentUnit}</span>
                         )}
                     </div>
-                </div>
 
-                {/* Botão de Ação */}
-                {hasStock ? (
-                    <button
-                        onClick={handleAddToCart}
-                        className={`${isMobile ? 'w-full text-[11px] py-1.5' : 'w-full text-sm py-2'} bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors`}
-                    >
-                        <ShoppingCart className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
-                        <span>Adicionar</span>
-                    </button>
-                ) : (
-                    <button
-                        onClick={handleNotify}
-                        className={`${isMobile ? 'w-full text-[11px] py-1.5' : 'w-full text-sm py-2'} bg-gray-400 dark:bg-gray-600 text-white font-medium rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed opacity-75`}
-                        disabled
-                    >
-                        <Bell className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
-                        <span>Notificar</span>
-                    </button>
-                )}
+                    {hasStock ? (
+                        <button
+                            onClick={handleAddToCart}
+                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors text-sm font-medium shadow-sm"
+                        >
+                            <ShoppingCart className="w-4 h-4" />
+                            {!isMobile && <span>Adicionar</span>}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleNotify}
+                            disabled
+                            className="bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 px-3 py-2 rounded-lg flex items-center gap-1.5 text-sm font-medium cursor-not-allowed"
+                        >
+                            <Bell className="w-4 h-4" />
+                            {!isMobile && <span>Avisar</span>}
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Modal de escolha de variante - Portal para sair do card (overflow-hidden) */}
@@ -284,6 +320,17 @@ const ProductCardComponent: React.FC<{
                 </>,
                 document.body
             )}
+
+        {/* Modal de avaliações */}
+        {showReviewModal && (
+            <ReviewModal
+                productId={product.id}
+                productName={product.name}
+                currentUserName={currentUserName}
+                onClose={() => setShowReviewModal(false)}
+                onStatsChange={setRatingStats}
+            />
+        )}
         </div>
     );
 };

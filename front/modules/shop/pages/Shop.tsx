@@ -9,7 +9,7 @@ import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClie
 import { trackingService } from '../../core/services/trackingService';
 import { useShopTracking } from '../../core/hooks/useShopTracking';
 import { useMobile } from '../../core/hooks/useMobile';
-import { ShoppingCart, Search, User, LogIn, LogOut, Package, Plus, Minus, X, MapPin, Phone, Mail, Settings, Moon, Sun, Bell, CheckCircle, Eye, EyeOff, Loader2, Filter, ChevronRight, ChevronDown, Instagram, Facebook } from 'lucide-react';
+import { ShoppingCart, Search, User, LogIn, LogOut, Package, Plus, Minus, X, MapPin, Phone, Mail, Settings, Moon, Sun, Bell, CheckCircle, Eye, EyeOff, Loader2, Filter, ChevronRight, ChevronDown, Instagram, Facebook, Leaf, Droplet, Pill, Heart, Sparkles, Tag } from 'lucide-react';
 import { User as UserType } from '../../core/types/types';
 import { Logo } from '../../core/components/ui/Logo';
 import { ToastContainer, Toast } from '../../core/components/ui/Toast';
@@ -107,6 +107,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [priceRange, setPriceRange] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<string>('popular');
 
   const [showCategoryFilters, setShowCategoryFilters] = useState(false);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
@@ -545,8 +546,13 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
       });
     }
 
+    // Ordenar
+    if (sortOrder === 'price_asc') filtered.sort((a, b) => getProductMinPrice(a) - getProductMinPrice(b));
+    else if (sortOrder === 'price_desc') filtered.sort((a, b) => getProductMinPrice(b) - getProductMinPrice(a));
+    else if (sortOrder === 'name_asc') filtered.sort((a, b) => a.name.localeCompare(b.name));
+
     return filtered;
-  }, [products, debouncedSearchTerm, selectedCategory, priceRange]);
+  }, [products, debouncedSearchTerm, selectedCategory, priceRange, sortOrder]);
 
   // Rastrear busca em um useEffect separado para evitar loops
   // Usar refs para evitar dependências que mudam constantemente
@@ -950,17 +956,11 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-green-50/30 to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 transition-colors duration-300 relative overflow-hidden">
-      {/* Background decorative elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-400/10 dark:bg-green-500/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-green-300/10 dark:bg-green-600/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute -bottom-40 right-1/4 w-80 h-80 bg-green-500/10 dark:bg-green-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-      </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
 
       {/* Renderizar Perfil do Cliente se showProfile for true */}
       {showProfile && currentUser ? (
-        <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 relative z-10">
+        <main className="max-w-7xl mx-auto px-4 sm:px-8 py-4 sm:py-8">
           <CustomerProfile
             user={currentUser}
             onBack={() => {
@@ -975,7 +975,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
         <>
           {/* Mensagem de Boas-Vindas */}
           {currentUser && showWelcome && (
-            <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 pt-4 pb-2 animate-fadeIn">
+            <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-4 pb-2 animate-fadeIn">
               <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 shadow-lg flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="bg-white/20 rounded-full p-2">
@@ -983,7 +983,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                   </div>
                   <div>
                     <p className="text-white font-semibold text-sm sm:text-base">
-                      Olé¡, {currentUser.name.split(' ')[0]}! ðŸ‘‹
+                      Olá, {currentUser.name.split(' ')[0]}! 👋
                     </p>
                     <p className="text-white/90 text-xs sm:text-sm">
                       Bem-vindo de volta à Natur Erva
@@ -1001,26 +1001,123 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             </div>
           )}
 
-          {/* Produtos */}
-          <main className={`max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 ${currentUser && showWelcome ? 'py-2' : 'pt-2'} pb-4 sm:pb-8 relative z-10`}>
+          {/* ── HERO ── */}
+          {!isMobile && (
+            <section className="relative h-96 overflow-hidden">
+              <div className="absolute inset-0">
+                <img
+                  src="https://images.unsplash.com/photo-1761746604770-abc00f8e55b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1200"
+                  alt="Ervas naturais"
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-green-900/80 to-green-700/60" />
+              </div>
+              <div className="relative h-full max-w-7xl mx-auto px-4 flex items-center">
+                <div className="text-white max-w-2xl">
+                  <h2 className="text-5xl mb-4 leading-tight">Saúde Natural &amp; Bem-Estar</h2>
+                  <p className="text-xl mb-6 text-green-50">Descubra o poder da natureza com produtos 100% naturais e selecionados</p>
+                  <button
+                    onClick={() => document.getElementById('produtos-section')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="bg-white text-green-700 px-8 py-3 rounded-lg hover:bg-green-50 transition-colors"
+                  >
+                    Explorar Produtos
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
 
+          {/* ── CATEGORIAS ── */}
+          {categories.length > 0 && (
+            <section className={`max-w-7xl mx-auto px-4 relative z-10 ${!isMobile ? '-mt-16' : 'pt-4'}`}>
+              <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
+                {categories.slice(0, 4).map((cat) => {
+                  const icons = [Leaf, Droplet, Pill, Heart];
+                  const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-red-500'];
+                  const idx = categories.indexOf(cat) % icons.length;
+                  const Icon = icons[idx];
+                  const color = colors[idx];
+                  const count = products.filter(p => (p.category || 'Geral') === cat).length;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat === selectedCategory ? 'all' : cat)}
+                      className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 w-full ${selectedCategory === cat ? 'ring-2 ring-green-500' : ''}`}
+                    >
+                      <div className={`w-16 h-16 ${color} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                        <Icon className="w-8 h-8 text-white" />
+                      </div>
+                      <h3 className="text-base font-semibold mb-1 text-gray-800 dark:text-white">{cat}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{count} produtos</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
+          {/* ── BANNER PROMOCIONAL ── */}
+          {!isMobile && (
+            <section className="max-w-7xl mx-auto px-4 mt-16">
+              <div className="bg-gradient-to-r from-green-600 to-green-500 rounded-2xl p-8 text-white flex flex-col md:flex-row items-center justify-between">
+                <div className="mb-4 md:mb-0">
+                  <h3 className="text-3xl mb-2">Primeira Compra?</h3>
+                  <p className="text-green-50">Fale connosco e descubra promoções exclusivas para novos clientes</p>
+                </div>
+                <a
+                  href="https://wa.me/258840000000"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white text-green-700 px-6 py-3 rounded-lg hover:bg-green-50 transition-colors"
+                >
+                  Falar connosco
+                </a>
+              </div>
+            </section>
+          )}
+
+          {/* ── GRID DE PRODUTOS ── */}
+          <main id="produtos-section" className="max-w-7xl mx-auto px-4 sm:px-8 py-16">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-3xl text-gray-800 dark:text-white">
+                  {selectedCategory !== 'all' ? selectedCategory : 'Nossos Produtos'}
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {filteredProducts.length === 1 ? 'Seleção premium de suplementos naturais' : `${filteredProducts.length} produtos disponíveis`}
+                </p>
+              </div>
+              <select
+                value={sortOrder}
+                onChange={e => setSortOrder(e.target.value)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-white text-sm"
+              >
+                <option value="popular">Mais Populares</option>
+                <option value="price_asc">Menor Preço</option>
+                <option value="price_desc">Maior Preço</option>
+                <option value="name_asc">Nome A-Z</option>
+              </select>
+            </div>
 
             {loading ? (
-              <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} ${isMobile ? 'gap-2' : 'gap-4 sm:gap-6'}`}>
+              <div className={`grid ${isMobile ? 'grid-cols-2 gap-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'}`}>
                 {Array.from({ length: isMobile ? 6 : 8 }).map((_, index) => (
                   <ProductCardSkeleton key={index} isMobile={isMobile} />
                 ))}
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="inline-block p-4 rounded-full bg-white/60 dark:bg-gray-800/60 backdrop-blur-md mb-4">
+              <div className="text-center py-16">
+                <div className="inline-block p-5 rounded-full bg-white dark:bg-gray-800 shadow-md mb-4">
                   <Package className="h-12 w-12 text-gray-400 dark:text-gray-500" />
                 </div>
-                <p className="mt-4 text-gray-600 dark:text-gray-400">Nenhum produto encontrado</p>
+                <p className="mt-2 text-gray-600 dark:text-gray-400">Nenhum produto encontrado</p>
+                {selectedCategory !== 'all' && (
+                  <button onClick={() => setSelectedCategory('all')} className="mt-3 text-green-600 dark:text-green-400 text-sm hover:underline">Limpar filtro</button>
+                )}
               </div>
             ) : (
-              <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} ${isMobile ? 'gap-2' : 'gap-4 sm:gap-6'}`}>
+              <div className={`grid ${isMobile ? 'grid-cols-2 gap-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'}`}>
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -1028,6 +1125,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                     onAddToCart={addToCart}
                     onNotify={() => showToast('Será notificado quando este produto estiver disponível!', 'info', 4000)}
                     isMobile={isMobile}
+                    currentUserName={currentUser?.name}
                   />
                 ))}
               </div>
