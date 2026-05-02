@@ -116,8 +116,6 @@ export const HorizontalMenu: React.FC<HorizontalMenuProps> = ({
         { id: 'incubator', label: 'Incubadora', icon: Egg, permission: 'production.view' },
       ]
     },
-
-    },
     {
       id: 'administracao',
       label: 'Administraçéo',

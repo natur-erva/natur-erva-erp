@@ -63,6 +63,7 @@ export const Sales: React.FC<SalesProps> = ({
   const isMobile = useMobile(768);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(isMobile ? 'cards' : 'list');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<'fromOrders' | 'manual'>('fromOrders');
   const [ordersDate, setOrdersDate] = useState(getTodayDateString());
 
   // Selection State
@@ -1091,6 +1092,7 @@ export const Sales: React.FC<SalesProps> = ({
     setSaveProgress(null);
     setIsImporting(false);
     setShowImportDetails(false);
+    setCreateMode('fromOrders');
   };
 
   // Filtered and sorted sales
@@ -2811,6 +2813,34 @@ export const Sales: React.FC<SalesProps> = ({
             </div>
 
 
+            {/* Tab Selector for Create Mode */}
+            {!isEditing && (
+              <div className="px-6 border-b border-gray-200 dark:border-gray-700 flex gap-0">
+                <button
+                  onClick={() => setCreateMode('fromOrders')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
+                    createMode === 'fromOrders'
+                      ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  A partir de Pedidos
+                </button>
+                <button
+                  onClick={() => setCreateMode('manual')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
+                    createMode === 'manual'
+                      ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  <FileText className="w-4 h-4" />
+                  Manual
+                </button>
+              </div>
+            )}
+
             {/* Modal Content */}
             <div className="p-6 overflow-y-auto flex-1">
               {/* Edit Mode Content */}
@@ -2935,7 +2965,7 @@ export const Sales: React.FC<SalesProps> = ({
                 </div>
               )}
 
-              {!isEditing && false && (
+              {!isEditing && createMode === 'manual' && (
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -3202,7 +3232,7 @@ export const Sales: React.FC<SalesProps> = ({
                 </div>
               )}
 
-              {!isEditing && (
+              {!isEditing && createMode === 'fromOrders' && (
                 <div className="space-y-6">
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                     <p className="text-sm text-blue-800 dark:text-blue-200">
@@ -3643,10 +3673,10 @@ export const Sales: React.FC<SalesProps> = ({
                   Cancelar
                 </button>
                 <button
-                  onClick={handleCreateFromOrders}
+                  onClick={createMode === 'manual' ? handleManualSubmit : handleCreateFromOrders}
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors"
                 >
-                  Criar Resumo
+                  {createMode === 'manual' ? 'Salvar Resumo' : 'Criar Resumo'}
                 </button>
               </div>
             )}

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ShoppingCart, Heart, Star, Truck, Shield,
-  RotateCcw, Check, Loader2, Package,
+    ShoppingCart, Heart, Star, Truck, Shield,
+    RotateCcw, Check, Loader2, Package,
 } from 'lucide-react';
 import { Product, ProductVariant } from '../../core/types/types';
 import { productService } from '../../products/services/productService';
@@ -10,11 +10,12 @@ import { getVariantImage } from '../../core/utils/productUtils';
 import { useShopContext } from '../../../contexts/ShopContext';
 import { Logo } from '../../core/components/ui/Logo';
 import {
-  getProductRating,
-  getProductReviews,
-  ProductReview,
-  RatingStats,
+    getProductRating,
+    getProductReviews,
+    ProductReview,
+    RatingStats,
 } from '../../products/services/reviewService';
+import uploadService from '../../../services/uploadService';
 
 export const ProductLandingPage: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
@@ -22,7 +23,7 @@ export const ProductLandingPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(undefined);
     const [quantity, setQuantity] = useState(1);
-    const [selectedTab, setSelectedTab] = useState<'description' | 'benefits' | 'usage'>('description');
+    const [selectedTab, setSelectedTab] = useState<'description' | 'benefits' | 'usage' | 'ingredients'>('description');
     const [selectedImage, setSelectedImage] = useState('');
     const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
     const [reviews, setReviews] = useState<ProductReview[]>([]);
@@ -66,19 +67,27 @@ export const ProductLandingPage: React.FC = () => {
 
     const handleAddToCart = useCallback(() => {
         if (!product) return;
-        console.log('Adicionando ao carrinho:', product.name, selectedVariant?.name);
-        if (shopContext?.onCartClick) {
-            shopContext.onCartClick();
+        
+        if (shopContext?.onAddToCart) {
+            shopContext.onAddToCart(product, selectedVariant, quantity);
+            // Abrir o carrinho após adicionar
+            if (shopContext?.onCartClick) {
+                shopContext.onCartClick();
+            }
         }
-    }, [product, selectedVariant, shopContext]);
+    }, [product, selectedVariant, shopContext, quantity]);
 
     const displayPrice = (selectedVariant?.price ?? product?.price ?? 0).toFixed(2);
 
     const galleryImages: string[] = product
         ? [
-              getVariantImage(selectedVariant, product),
-              ...(product.variants?.map(v => v.image).filter((img): img is string => Boolean(img)) ?? []),
-          ].filter((img, i, arr) => Boolean(img) && arr.indexOf(img) === i)
+            getVariantImage(selectedVariant, product),
+            product.image,
+            product.image2,
+            product.image3,
+            product.image4,
+            ...(product.variants?.map(v => v.image).filter((img): img is string => Boolean(img)) ?? []),
+        ].filter((img, i, arr) => Boolean(img) && arr.indexOf(img) === i && !img.includes('placeholder'))
         : [];
 
     if (loading) {
@@ -100,7 +109,7 @@ export const ProductLandingPage: React.FC = () => {
                     <div>
                         <div className="bg-white rounded-xl overflow-hidden shadow-md mb-4 aspect-square flex items-center justify-center">
                             <img
-                                src={selectedImage || galleryImages[0] || 'https://via.placeholder.com/600?text=Sem+Imagem'}
+                                src={selectedImage ? uploadService.getPublicUrl(selectedImage) : (galleryImages[0] ? uploadService.getPublicUrl(galleryImages[0]) : 'https://via.placeholder.com/600?text=Sem+Imagem')}
                                 alt={product.name}
                                 className="w-full h-full object-contain p-6"
                             />
@@ -111,11 +120,10 @@ export const ProductLandingPage: React.FC = () => {
                                     <button
                                         key={i}
                                         onClick={() => setSelectedImage(img)}
-                                        className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors flex-shrink-0 ${
-                                            selectedImage === img ? 'border-green-500' : 'border-gray-200 hover:border-gray-300'
-                                        }`}
+                                        className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors flex-shrink-0 ${selectedImage === img ? 'border-green-500' : 'border-gray-200 hover:border-gray-300'
+                                            }`}
                                     >
-                                        <img src={img} alt="" className="w-full h-full object-cover" />
+                                        <img src={uploadService.getPublicUrl(img)} alt="" className="w-full h-full object-cover" />
                                     </button>
                                 ))}
                             </div>
@@ -157,24 +165,67 @@ export const ProductLandingPage: React.FC = () => {
                         {/* Variants */}
                         {product.variants && product.variants.length > 0 && (
                             <div className="mb-6">
-                                <p className="text-gray-700 mb-2 font-medium">Variante:</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {product.variants.map(v => (
-                                        <button
-                                            key={v.id}
-                                            onClick={() => {
-                                                setSelectedVariant(v);
-                                                setSelectedImage(getVariantImage(v, product));
-                                            }}
-                                            className={`px-4 py-2 rounded-lg border-2 text-sm transition-colors ${
-                                                selectedVariant?.id === v.id
-                                                    ? 'border-green-500 bg-green-50 text-green-700'
-                                                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                                            }`}
-                                        >
-                                            {v.name}{v.price ? ` — ${v.price.toFixed(2)} MT` : ''}
-                                        </button>
-                                    ))}
+                                <p className="text-gray-700 mb-3 font-medium">Escolha a variação:</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {product.variants.map(v => {
+                                        const variantStock = v.stock ?? 0;
+                                        const hasStock = variantStock > 0;
+                                        const variantImage = v.image || product.image;
+                                        const variantImageUrl = variantImage ? uploadService.getPublicUrl(variantImage) : '';
+
+                                        return (
+                                            <button
+                                                key={v.id}
+                                                onClick={() => {
+                                                    if (hasStock) {
+                                                        setSelectedVariant(v);
+                                                        setSelectedImage(getVariantImage(v, product));
+                                                    }
+                                                }}
+                                                disabled={!hasStock}
+                                                className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${selectedVariant?.id === v.id
+                                                        ? 'border-green-500 bg-green-50 shadow-md'
+                                                        : hasStock
+                                                            ? 'border-gray-200 hover:border-green-300 hover:shadow-sm'
+                                                            : 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                                                    }`}
+                                            >
+                                                {/* Thumbnail da variante */}
+                                                {variantImage && (
+                                                    <div className="w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                                                        <img
+                                                            src={variantImageUrl}
+                                                            alt={v.name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.style.display = 'none';
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {/* Info da variante */}
+                                                <div className="flex-1 text-left">
+                                                    <p className={`font-medium ${selectedVariant?.id === v.id ? 'text-green-700' : 'text-gray-800'}`}>
+                                                        {v.name}
+                                                    </p>
+                                                    <p className={`text-sm ${selectedVariant?.id === v.id ? 'text-green-600' : 'text-gray-600'}`}>
+                                                        {v.price ? `${v.price.toFixed(2)} MT` : `${product.price.toFixed(2)} MT`}
+                                                        {v.unit && ` / ${v.unit}`}
+                                                    </p>
+                                                    <p className={`text-xs mt-0.5 ${hasStock ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
+                                                        {hasStock ? `Stock: ${variantStock}` : 'Sem stock'}
+                                                    </p>
+                                                </div>
+
+                                                {/* Check icon quando selecionado */}
+                                                {selectedVariant?.id === v.id && (
+                                                    <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -200,20 +251,34 @@ export const ProductLandingPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex gap-3">
-                                <button
-                                    onClick={handleAddToCart}
-                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-4 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium"
-                                >
-                                    <ShoppingCart className="w-5 h-5" />
-                                    Adicionar ao Carrinho
-                                </button>
+                                {(() => {
+                                    const currentStock = selectedVariant?.stock ?? product.stock ?? 0;
+                                    const hasStock = currentStock > 0;
+
+                                    return hasStock ? (
+                                        <button
+                                            onClick={handleAddToCart}
+                                            className="flex-1 bg-green-600 hover:bg-green-700 text-white py-4 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium shadow-md"
+                                        >
+                                            <ShoppingCart className="w-5 h-5" />
+                                            Adicionar ao Carrinho
+                                        </button>
+                                    ) : (
+                                        <button
+                                            disabled
+                                            className="flex-1 bg-gray-400 text-white py-4 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed font-medium"
+                                        >
+                                            <Package className="w-5 h-5" />
+                                            Sem Stock
+                                        </button>
+                                    );
+                                })()}
                                 <button
                                     onClick={() => setWishlist(w => !w)}
-                                    className={`border-2 p-4 rounded-lg transition-colors ${
-                                        wishlist
+                                    className={`border-2 p-4 rounded-lg transition-colors ${wishlist
                                             ? 'border-red-400 bg-red-50 text-red-500'
                                             : 'border-green-600 text-green-600 hover:bg-green-50'
-                                    }`}
+                                        }`}
                                 >
                                     <Heart className={`w-5 h-5 ${wishlist ? 'fill-current' : ''}`} />
                                 </button>
@@ -268,22 +333,22 @@ export const ProductLandingPage: React.FC = () => {
             {/* Tabs Section */}
             <section className="max-w-7xl mx-auto px-4 py-10">
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-                    <div className="border-b border-gray-200 flex">
+                    <div className="border-b border-gray-200 flex flex-wrap">
                         {(
                             [
                                 { key: 'description', label: 'Descrição Completa' },
                                 { key: 'benefits', label: 'Benefícios' },
                                 { key: 'usage', label: 'Como Usar' },
+                                { key: 'ingredients', label: 'Ingredientes' },
                             ] as const
                         ).map(({ key, label }) => (
                             <button
                                 key={key}
                                 onClick={() => setSelectedTab(key)}
-                                className={`px-7 py-4 text-sm transition-colors ${
-                                    selectedTab === key
+                                className={`px-7 py-4 text-sm transition-colors ${selectedTab === key
                                         ? 'border-b-2 border-green-600 text-green-600 font-medium'
                                         : 'text-gray-600 hover:text-gray-800'
-                                }`}
+                                    }`}
                             >
                                 {label}
                             </button>
@@ -291,43 +356,48 @@ export const ProductLandingPage: React.FC = () => {
                     </div>
                     <div className="p-8">
                         {selectedTab === 'description' && (
-                            <p className="text-gray-600 leading-relaxed">
-                                {product.descriptionLong || product.description || 'Sem descrição disponível.'}
+                            <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+                                {(product as any).descriptionLong || (product as any).description || 'Sem descrição disponível.'}
                             </p>
                         )}
                         {selectedTab === 'benefits' && (
-                            <div className="grid md:grid-cols-2 gap-4">
-                                {[
-                                    '100% orgânico e natural',
-                                    'Sem conservantes ou aditivos artificiais',
-                                    'Rico em nutrientes e compostos ativos',
-                                    'Auxilia no bem-estar geral',
-                                    'Produção certificada e rastreável',
-                                    'Adequado para uso diário',
-                                ].map((b, i) => (
-                                    <div key={i} className="flex items-start gap-2">
-                                        <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                        <span className="text-gray-600 text-sm">{b}</span>
-                                    </div>
-                                ))}
-                            </div>
+                            (product as any).benefits ? (
+                                <div className="space-y-3">
+                                    {((product as any).benefits as string).split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => (
+                                        <div key={i} className="flex items-start gap-2">
+                                            <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                                            <span className="text-gray-600 text-sm">{line.trim()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-gray-500 text-sm">Sem informação de benefícios disponível.</p>
+                            )
                         )}
                         {selectedTab === 'usage' && (
-                            <ol className="space-y-4">
-                                {[
-                                    'Consulte a embalagem para a dosagem recomendada.',
-                                    'Utilize com água ou conforme indicação do produto.',
-                                    'Para melhores resultados, use de forma regular.',
-                                    'Guarde em local seco, fresco e fora do alcance de crianças.',
-                                ].map((step, i) => (
-                                    <li key={i} className="flex gap-4 items-start">
-                                        <span className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                                            {i + 1}
-                                        </span>
-                                        <p className="text-gray-600 pt-1 text-sm leading-relaxed">{step}</p>
-                                    </li>
-                                ))}
-                            </ol>
+                            (product as any).howToUse ? (
+                                <ol className="space-y-4">
+                                    {((product as any).howToUse as string).split('\n').filter((l: string) => l.trim()).map((step: string, i: number) => (
+                                        <li key={i} className="flex gap-4 items-start">
+                                            <span className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                                                {i + 1}
+                                            </span>
+                                            <p className="text-gray-600 pt-1 text-sm leading-relaxed">{step.trim()}</p>
+                                        </li>
+                                    ))}
+                                </ol>
+                            ) : (
+                                <p className="text-gray-500 text-sm">Sem instruções de uso disponíveis.</p>
+                            )
+                        )}
+                        {selectedTab === 'ingredients' && (
+                            (product as any).ingredients ? (
+                                <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+                                    {(product as any).ingredients}
+                                </p>
+                            ) : (
+                                <p className="text-gray-500 text-sm">Sem lista de ingredientes disponível.</p>
+                            )
                         )}
                     </div>
                 </div>
@@ -407,7 +477,7 @@ export const ProductLandingPage: React.FC = () => {
                             <Link key={p.id} to={`/loja/produto/${p.slug}`} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 group">
                                 <div className="relative h-48 overflow-hidden bg-gray-50">
                                     <img
-                                        src={p.image || 'https://via.placeholder.com/400?text=Sem+Imagem'}
+                                        src={p.image ? uploadService.getPublicUrl(p.image) : 'https://via.placeholder.com/400?text=Sem+Imagem'}
                                         alt={p.name}
                                         className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500"
                                     />

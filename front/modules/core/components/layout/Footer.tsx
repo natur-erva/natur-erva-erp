@@ -54,7 +54,7 @@ const FooterComponent: React.FC<FooterProps> = ({ isShopMode = false }) => {
                 <Instagram className="h-4 w-4" />
               </a>
               <a
-                href="https://www.facebook.com/naturervamz"
+                href="https://www.facebook.com/naturervamz/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white hover:scale-110 transition-transform"
@@ -62,17 +62,15 @@ const FooterComponent: React.FC<FooterProps> = ({ isShopMode = false }) => {
               >
                 <Facebook className="h-4 w-4" />
               </a>
-              {settings.company_phone && (
-                <a
-                  href={`https://wa.me/${settings.company_phone.replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white hover:scale-110 transition-transform"
-                  aria-label="WhatsApp"
-                >
-                  <Phone className="h-4 w-4" />
-                </a>
-              )}
+              <a
+                href="https://wa.me/258874209440"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white hover:scale-110 transition-transform"
+                aria-label="WhatsApp (+258 87 420 9440)"
+              >
+                <Phone className="h-4 w-4" />
+              </a>
             </div>
           </div>
 
@@ -94,10 +92,9 @@ const FooterComponent: React.FC<FooterProps> = ({ isShopMode = false }) => {
             <ul className="space-y-2 text-gray-400 text-sm">
               <li><Link to="/loja" className="hover:text-green-400 transition-colors">Sobre Nós</Link></li>
               <li>
-                {settings.company_phone
-                  ? <a href={`https://wa.me/${settings.company_phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="hover:text-green-400 transition-colors">Fale Connosco</a>
-                  : <span>Fale Connosco</span>
-                }
+                <a href="https://wa.me/258874209440" target="_blank" rel="noopener noreferrer" className="hover:text-green-400 transition-colors">
+                  Fale Connosco
+                </a>
               </li>
               <li><Link to="/loja" className="hover:text-green-400 transition-colors">Política de Troca</Link></li>
               <li><Link to="/loja" className="hover:text-green-400 transition-colors">Perguntas Frequentes</Link></li>
