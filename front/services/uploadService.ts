@@ -12,14 +12,38 @@ export interface UploadResult {
   publicUrl: string;
 }
 
+// Redimensiona e comprime a imagem no browser antes de enviar
+function compressImage(file: File, maxSize = 600, quality = 0.82): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file),
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+    img.src = objectUrl;
+  });
+}
+
 export const uploadService = {
-  /**
-   * Fazer upload de um ficheiro de imagem para o backend local
-   */
   async uploadImage(file: File, folder = 'products'): Promise<UploadResult | null> {
     try {
+      const compressed = await compressImage(file);
+
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('image', compressed);
       formData.append('folder', folder);
 
       const token = getApiToken();
@@ -49,9 +73,6 @@ export const uploadService = {
     }
   },
 
-  /**
-   * Apagar uma imagem do backend (por URL ou path)
-   */
   async deleteImage(urlOrPath: string): Promise<boolean> {
     try {
       const filename = urlOrPath.split('/').pop();
@@ -72,9 +93,6 @@ export const uploadService = {
     }
   },
 
-  /**
-   * Obter URL pública de uma imagem já armazenada
-   */
   getPublicUrl(path: string): string {
     if (!path) return '';
     if (path.startsWith('data:')) return path;
@@ -82,7 +100,6 @@ export const uploadService = {
       try {
         const url = new URL(path);
         if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-          // URL guardado em dev — usa só o pathname para funcionar em produção
           return `${BACKEND_URL}${url.pathname}`;
         }
       } catch {}
@@ -92,9 +109,6 @@ export const uploadService = {
     return `${BACKEND_URL}/uploads/${path}`;
   },
 
-  /**
-   * Verificar se a URL é do backend local
-   */
   isLocalUrl(url: string): boolean {
     return url.includes('localhost') || url.includes('/uploads/');
   }

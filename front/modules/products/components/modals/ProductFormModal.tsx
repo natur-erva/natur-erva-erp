@@ -143,20 +143,27 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       return;
     }
 
+    // Preview instantâneo enquanto o upload acontece em background
+    const previewUrl = URL.createObjectURL(file);
+    setFormData((prev) => ({ ...prev, [imageKey]: previewUrl }));
     setUploadingImage(prev => ({ ...prev, [imageKey]: true }));
     setImageLoadError(prev => ({ ...prev, [imageKey]: false }));
-    
+
     try {
       const productId = product?.id;
       const imageUrl = await uploadProductImage(file, productId);
+      URL.revokeObjectURL(previewUrl);
 
       if (imageUrl) {
         setFormData((prev) => ({ ...prev, [imageKey]: imageUrl }));
         showToast('Imagem carregada com sucesso', 'success');
       } else {
+        setFormData((prev) => ({ ...prev, [imageKey]: '' }));
         showToast('Erro ao fazer upload da imagem', 'error');
       }
     } catch (error: any) {
+      URL.revokeObjectURL(previewUrl);
+      setFormData((prev) => ({ ...prev, [imageKey]: '' }));
       showToast(error.message || 'Erro ao fazer upload da imagem', 'error');
     } finally {
       setUploadingImage(prev => ({ ...prev, [imageKey]: false }));
