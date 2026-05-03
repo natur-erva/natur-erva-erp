@@ -35,7 +35,7 @@ const DEFAULT_BANNER: BannerConfig = {
 
 export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, products = [], uploadImage }) => {
   const navigate = useNavigate();
-  const [banner, setBanner] = useState<BannerConfig>(DEFAULT_BANNER);
+  const [banner, setBanner] = useState<BannerConfig | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<BannerConfig>(DEFAULT_BANNER);
   const [saving, setSaving] = useState(false);
@@ -46,15 +46,16 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
   // Carregar banner do backend
   useEffect(() => {
     api.get<BannerConfig>('/banners/active').then(data => {
-      if (data) {
-        setBanner(data);
-        setDraft(data);
-      }
-    }).catch(() => {});
+      setBanner(data || DEFAULT_BANNER);
+      setDraft(data || DEFAULT_BANNER);
+    }).catch(() => {
+      setBanner(DEFAULT_BANNER);
+      setDraft(DEFAULT_BANNER);
+    });
   }, []);
 
   const handleOpenEdit = () => {
-    setDraft({ ...banner });
+    setDraft(banner ? { ...banner } : DEFAULT_BANNER);
     setEditing(true);
   };
 
@@ -113,15 +114,24 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
   };
 
   const handleBannerClick = () => {
-    if (banner.productSlug) {
+    if (banner?.productSlug) {
       navigate(`/loja/produto/${banner.productSlug}`);
     } else {
       document.getElementById('produtos-section')?.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
-  const imageUrl = banner.imageUrl ? uploadService.getPublicUrl(banner.imageUrl) : null;
+  const imageUrl = banner?.imageUrl ? uploadService.getPublicUrl(banner.imageUrl) : null;
   const draftImageUrl = draft.imageUrl ? uploadService.getPublicUrl(draft.imageUrl) : null;
+
+  // Skeleton enquanto carrega do backend
+  if (!banner) {
+    return (
+      <section className="relative h-96 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 animate-pulse" />
+      </section>
+    );
+  }
 
   return (
     <>

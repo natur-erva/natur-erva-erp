@@ -602,15 +602,6 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   };
 
   const addToCart = useCallback(async (product: Product, variant?: ProductVariant, quantityToAdd: number = 1) => {
-    // Verificar se usuário está logado
-    if (!currentUser) {
-      // Salvar produto pendente e mostrar modal de login
-      setPendingAddToCart({ product, variant });
-      setLoginMessage('É necessário iniciar sessão para uma melhor experiência de compra. Você pode fazer login com Google ou criar uma conta.');
-      setShowLogin(true);
-      return;
-    }
-
     const variantToUse = variant || (product.variants?.find(v => v.isDefault) || product.variants?.[0]);
     const price = variantToUse?.price || product.price;
     const stock = variantToUse?.stock ?? product.stock ?? 0;
@@ -670,7 +661,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
       existingItem ? existingItem.quantity + 1 : 1,
       price
     );
-  }, [currentUser, showToast, trackAddToCartAction, cart, saveCartToStorage]);
+  }, [showToast, trackAddToCartAction, cart, saveCartToStorage]);
 
   const updateCartQuantity = useCallback((productId: string, variantId: string | undefined, delta: number) => {
     const updatedCart = cart.map(item => {
