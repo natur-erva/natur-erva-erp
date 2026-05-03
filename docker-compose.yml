@@ -1,43 +1,26 @@
 version: '3.8'
 
-# ============================================================
-# NaturErva ERP — Docker Compose (Coolify)
-#
-# O PostgreSQL é gerido pelo Coolify como serviço separado.
-# Define estas variáveis na UI do Coolify → Environment Variables:
-#
-#   PG_HOST       → host do banco Coolify (ex: postgres ou IP interno)
-#   PG_PORT       → 5432
-#   PG_DATABASE   → naturerva_erp
-#   PG_USER       → naturerva
-#   PG_PASSWORD   → a senha do banco
-#   JWT_SECRET    → segredo longo e aleatório
-#   FRONTEND_URL  → URL pública do teu site (ex: https://erp.naturerva.com)
-# ============================================================
-
 services:
 
-  # ── Backend API (Node.js / Express) ────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: naturerva-backend
     restart: unless-stopped
+    ports:
+      - "${PORT:-3060}:3060"
     environment:
       PORT: ${PORT:-3060}
       PG_HOST: ${PG_HOST}
       PG_PORT: ${PG_PORT:-5432}
       PG_DATABASE: ${PG_DATABASE:-naturerva_erp}
-      PG_USER: ${PG_USER:-naturerva}
+      PG_USER: ${PG_USER:-postgres}
       PG_PASSWORD: ${PG_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL}
     volumes:
       - uploads_data:/app/uploads
-    networks:
-      - app_network
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3060/health || exit 1"]
       interval: 30s
@@ -45,27 +28,6 @@ services:
       retries: 3
       start_period: 20s
 
-  # ── Frontend (React + Nginx) ────────────────────────────────
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: /api
-    container_name: naturerva-frontend
-    restart: unless-stopped
-    expose:
-      - "80"
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - app_network
-
 volumes:
   uploads_data:
     driver: local
-
-networks:
-  app_network:
-    driver: bridge
