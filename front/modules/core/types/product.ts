@@ -52,12 +52,18 @@ export interface Product {
   minStock: number;
   unit: string;
   image?: string;
+  image2?: string;
+  image3?: string;
+  image4?: string;
   updatedAt?: string;
   showInShop?: boolean;
   variants?: ProductVariant[];
   hasVariants?: boolean;
   description?: string;
   descriptionLong?: string;
+  benefits?: string;
+  howToUse?: string;
+  ingredients?: string;
   landingPageEnabled?: boolean;
   landingPageData?: {
     heroTitle?: string;

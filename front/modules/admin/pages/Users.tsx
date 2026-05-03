@@ -1,13 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { type User, Role, Permission } from '../../core/types/types';
 import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClient';
-import {
-  edgeListUsers,
-  edgeListUsersToAppUsers,
-  edgeCreateUserFull,
-  edgeUpdateUserFull,
-  edgeDeleteUserFull
-} from '../../core/services/adminAuthEdge';
+import { userService } from '../../core/services/userService';
 import { Plus, Edit, Trash2, Shield, User as UserIcon, Phone, Check, X, Users as UsersIcon, ShoppingBag, Lock } from 'lucide-react';
 import { Avatar } from '../../core/components/ui/Avatar';
 import { isClientUser, isStaffUser, canManageUsers } from '../../core/hooks/useUserPermissions';
@@ -81,8 +75,7 @@ export const Users: React.FC<{
     }
 
     try {
-      const rows = await edgeListUsers(supabase);
-      let appUsers = edgeListUsersToAppUsers(rows);
+      let appUsers = await userService.getUsers();
       if (currentUser?.id) {
         appUsers = appUsers.map((u) =>
           u.id === currentUser.id && currentUser.email && !u.email
@@ -110,28 +103,7 @@ export const Users: React.FC<{
     }
 
     try {
-      const { data, error } = await supabase
-        .from('roles')
-        .select(`
-          *,
-          role_permissions(
-            permission_id,
-            permissions(*)
-          )
-        `)
-        .order('display_name');
-
-      if (error) {
-        // Erro 42P01 = tabela não existe
-        if (error.code === '42P01' || error.message?.includes('does not exist')) {
-          console.warn('Tabela roles não existe. Execute o SQL sql/migrations/CREATE_PERMISSIONS_SYSTEM.sql no Supabase.');
-          setTablesMissing(true);
-          setRoles([]);
-          return;
-        }
-        console.error('Erro ao buscar roles:', error);
-        throw error;
-      }
+      const data = await userService.getRoles();
 
       const rolesWithPermissions = (data || []).map((role: any) => ({
         id: role.id,
@@ -162,22 +134,7 @@ export const Users: React.FC<{
     }
 
     try {
-      const { data, error } = await supabase
-        .from('permissions')
-        .select('*')
-        .order('category, name');
-
-      if (error) {
-        // Erro 42P01 = tabela não existe
-        if (error.code === '42P01' || error.message?.includes('does not exist')) {
-          console.warn('Tabela permissions não existe. Execute o SQL sql/migrations/CREATE_PERMISSIONS_SYSTEM.sql no Supabase.');
-          // Néo mostrar toast aqui para evitar duplicação, já que loadRoles também mostra
-          setPermissions([]);
-          return;
-        }
-        console.error('Erro ao buscar permissões:', error);
-        throw error;
-      }
+      const data = await userService.getPermissions();
 
       const permissionsList = (data || []).map((p: any) => ({
         id: p.id,
@@ -243,14 +200,14 @@ export const Users: React.FC<{
         if (phoneStr.length > 0) finalPhone = phoneStr;
       }
 
-      const authUser = await edgeCreateUserFull(supabase, {
+      const authUser = await userService.createUser({
         email: userData.email.trim(),
         password: userData.password,
         name: userData.name.trim(),
         phone: finalPhone,
         role_ids: userData.roleIds,
-        is_active: userData.isActive !== false,
-        is_super_admin: userData.isSuperAdmin === true
+        isActive: userData.isActive !== false,
+        isSuperAdmin: userData.isSuperAdmin === true
       });
 
       showToast('Usuário criado com sucesso', 'success');
@@ -310,15 +267,14 @@ export const Users: React.FC<{
 
     setIsSubmitting(true);
     try {
-      await edgeUpdateUserFull(supabase, {
-        target_user_id: userId,
+      await userService.updateUser(userId, {
         name: updates.name,
         email: updates.email,
         phone: updates.phone !== undefined ? (updates.phone?.trim() || null) : undefined,
         password: updates.password && updates.password.length >= 6 ? updates.password : undefined,
         role_ids: updates.roleIds,
-        is_active: updates.isActive,
-        is_super_admin: updates.isSuperAdmin
+        isActive: updates.isActive,
+        isSuperAdmin: updates.isSuperAdmin
       });
 
       showToast('Usuário atualizado com sucesso', 'success');
@@ -351,7 +307,7 @@ export const Users: React.FC<{
 
     setIsSubmitting(true);
     try {
-      await edgeDeleteUserFull(supabase, userId);
+      await userService.deleteUser(userId);
 
       showToast('Usuário apagado com sucesso', 'success');
       loadData();
@@ -439,7 +395,7 @@ export const Users: React.FC<{
   };
 
   const handleBulkDelete = async () => {
-    const ids = Array.from(selectedIds);
+    const ids = Array.from(selectedIds) as string[];
     const excludeSelf = ids.filter(id => id !== currentUser?.id);
     if (excludeSelf.length === 0) {
       showToast('Não pode apagar seu próprio usuário', 'error');
@@ -455,7 +411,7 @@ export const Users: React.FC<{
         let ok = 0;
         for (const id of excludeSelf) {
           try {
-            await edgeDeleteUserFull(supabase, id);
+            await userService.deleteUser(id);
             ok++;
           } catch (e) {
             console.warn('Erro ao apagar usuário', id, e);
@@ -470,14 +426,11 @@ export const Users: React.FC<{
   };
 
   const handleBulkSetPassword = async (password: string) => {
-    const ids = Array.from(selectedIds);
+    const ids = Array.from(selectedIds) as string[];
     let ok = 0;
     for (const id of ids) {
       try {
-        await edgeUpdateUserFull(supabase, {
-          target_user_id: id,
-          password
-        });
+        await userService.updateUser(id, { password });
         ok++;
       } catch (e) {
         console.warn('Erro ao definir senha', id, e);

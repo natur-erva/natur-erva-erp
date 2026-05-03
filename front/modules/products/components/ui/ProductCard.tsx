@@ -122,7 +122,7 @@ const ProductCardComponent: React.FC<{
     };
 
     const currentPrice = selectedVariant?.price || product.price;
-    const currentStock = selectedVariant?.stock ?? product.variants?.[0]?.stock ?? 0;
+    const currentStock = selectedVariant?.stock ?? product.variants?.[0]?.stock ?? product.stock ?? 0;
     const currentUnit = selectedVariant?.unit || product.unit;
     const hasStock = currentStock > 0;
     const displayName = selectedVariant?.name ? `${product.name} - ${selectedVariant.name}` : product.name;
@@ -338,8 +338,8 @@ const ProductCardComponent: React.FC<{
 // Memoizar ProductCard para evitar re-renders desnecessários
 export const ProductCard = memo(ProductCardComponent, (prevProps, nextProps) => {
   // Comparação customizada - só re-renderizar se produto ou callbacks mudarem
-  const prevStock = prevProps.product.variants?.reduce((s, v) => s + (v.stock ?? 0), 0) ?? 0;
-  const nextStock = nextProps.product.variants?.reduce((s, v) => s + (v.stock ?? 0), 0) ?? 0;
+  const prevStock = prevProps.product.variants?.reduce((s, v) => s + (v.stock ?? 0), 0) ?? prevProps.product.stock ?? 0;
+  const nextStock = nextProps.product.variants?.reduce((s, v) => s + (v.stock ?? 0), 0) ?? nextProps.product.stock ?? 0;
   return (
     prevProps.product.id === nextProps.product.id &&
     prevProps.product.price === nextProps.product.price &&

@@ -8,6 +8,7 @@ import { orderService } from '../../sales/services/orderService';
 import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClient';
 import { trackingService } from '../../core/services/trackingService';
 import { useShopTracking } from '../../core/hooks/useShopTracking';
+import uploadService from '../../../services/uploadService';
 import { useMobile } from '../../core/hooks/useMobile';
 import { ShoppingCart, Search, User, LogIn, LogOut, Package, Plus, Minus, X, MapPin, Phone, Mail, Settings, Moon, Sun, Bell, CheckCircle, Eye, EyeOff, Loader2, Filter, ChevronRight, ChevronDown, Instagram, Facebook, Leaf, Droplet, Pill, Heart, Sparkles, Tag } from 'lucide-react';
 import { User as UserType } from '../../core/types/types';
@@ -23,6 +24,8 @@ import { getSystemSettings, SystemSettings } from '../../core/services/systemSet
 import { useShopContext } from '../../../contexts/ShopContext';
 import { isUUID } from '../../core/utils/slugUtils';
 import { normalizeForSearch } from '../../core/services/serviceUtils';
+import { ShopBanner } from '../components/ShopBanner';
+import { uploadProductImage } from '../../../services/uploadService';
 
 // Base path para deploy na raiz
 const BASE_PATH = '/';
@@ -150,6 +153,9 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   const [showCompleteProfile, setShowCompleteProfile] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState(false);
   const [settings, setSettings] = useState<SystemSettings>({});
+
+  // Verificar se o utilizador atual é admin
+  const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes((currentUser as any)?.role || '');
 
   // Estados para checkout
   const [deliveryInfo, setDeliveryInfo] = useState({
@@ -318,10 +324,12 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
       // Filtrar apenas produtos visíveis na loja (showInShop !== false) e com stock (fonte: product.variants[].stock)
       const visibleProducts = allProducts.filter(p => {
         if (p.showInShop === false) return false;
+        // Se tem variações, verifica se alguma tem stock
         if (p.variants && p.variants.length > 0) {
           return p.variants.some(v => (v.stock ?? 0) > 0);
         }
-        return false;
+        // Se não tem variações, verifica o stock do produto base
+        return (p.stock ?? 0) > 0;
       });
       setProducts(visibleProducts);
 
@@ -593,7 +601,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     localStorage.setItem('shop_cart', JSON.stringify(cartItems));
   };
 
-  const addToCart = useCallback(async (product: Product, variant?: ProductVariant) => {
+  const addToCart = useCallback(async (product: Product, variant?: ProductVariant, quantityToAdd: number = 1) => {
     // Verificar se usuário está logado
     if (!currentUser) {
       // Salvar produto pendente e mostrar modal de login
@@ -605,7 +613,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
 
     const variantToUse = variant || (product.variants?.find(v => v.isDefault) || product.variants?.[0]);
     const price = variantToUse?.price || product.price;
-    const stock = variantToUse?.stock ?? 0;
+    const stock = variantToUse?.stock ?? product.stock ?? 0;
     const unit = variantToUse?.unit || product.unit;
     const variantId = variantToUse?.id;
     const variantName = variantToUse?.name;
@@ -620,13 +628,13 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     );
 
     if (existingItem) {
-      if (existingItem.quantity >= stock) {
-        showToast('Stock insuficiente para adicionar mais unidades', 'warning');
+      if (existingItem.quantity + quantityToAdd > stock) {
+        showToast(`Stock insuficiente. Apenas ${stock} unidades disponíveis.`, 'warning');
         return;
       }
       const updatedCart = cart.map(item =>
         item.productId === product.id && item.variantId === variantId
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, quantity: item.quantity + quantityToAdd }
           : item
       );
       setCart(updatedCart);
@@ -634,12 +642,16 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
       const displayName = variantName ? `${product.name} - ${variantName}` : product.name;
       showToast(`${displayName} adicionado ao carrinho`, 'success');
     } else {
+      if (quantityToAdd > stock) {
+        showToast(`Stock insuficiente. Apenas ${stock} unidades disponíveis.`, 'warning');
+        return;
+      }
       const newItem: CartItem = {
         productId: product.id,
         productName: product.name,
         variantId,
         variantName,
-        quantity: 1,
+        quantity: quantityToAdd,
         price,
         unit,
         image: product.image
@@ -1001,31 +1013,13 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             </div>
           )}
 
-          {/* ── HERO ── */}
+          {/* ── HERO / BANNER ── */}
           {!isMobile && (
-            <section className="relative h-96 overflow-hidden">
-              <div className="absolute inset-0">
-                <img
-                  src="https://images.unsplash.com/photo-1761746604770-abc00f8e55b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1200"
-                  alt="Ervas naturais"
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-green-900/80 to-green-700/60" />
-              </div>
-              <div className="relative h-full max-w-7xl mx-auto px-4 flex items-center">
-                <div className="text-white max-w-2xl">
-                  <h2 className="text-5xl mb-4 leading-tight">Saúde Natural &amp; Bem-Estar</h2>
-                  <p className="text-xl mb-6 text-green-50">Descubra o poder da natureza com produtos 100% naturais e selecionados</p>
-                  <button
-                    onClick={() => document.getElementById('produtos-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="bg-white text-green-700 px-8 py-3 rounded-lg hover:bg-green-50 transition-colors"
-                  >
-                    Explorar Produtos
-                  </button>
-                </div>
-              </div>
-            </section>
+            <ShopBanner
+              isAdmin={isAdmin}
+              products={products}
+              uploadImage={uploadProductImage}
+            />
           )}
 
           {/* ── CATEGORIAS ── */}
@@ -1066,7 +1060,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                   <p className="text-green-50">Fale connosco e descubra promoções exclusivas para novos clientes</p>
                 </div>
                 <a
-                  href="https://wa.me/258840000000"
+                  href="https://wa.me/258874209440"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-white text-green-700 px-6 py-3 rounded-lg hover:bg-green-50 transition-colors"
@@ -1373,7 +1367,7 @@ const CartSidebar: React.FC<{
                     <div className="flex-shrink-0">
                       {item.image ? (
                         <img
-                          src={item.image}
+                          src={uploadService.getPublicUrl(item.image)}
                           alt={item.productName}
                           className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg"
                         />
