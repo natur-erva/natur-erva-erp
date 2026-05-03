@@ -1,39 +1,21 @@
 version: '3.8'
 
 # ============================================================
-# NaturErva ERP — Docker Compose
-# Compatível com: Docker Compose v2, Coolify v4
+# NaturErva ERP — Docker Compose (Coolify)
 #
-# Variáveis obrigatórias (.env.production ou Coolify UI):
-#   PG_PASSWORD, JWT_SECRET
+# O PostgreSQL é gerido pelo Coolify como serviço separado.
+# Define estas variáveis na UI do Coolify → Environment Variables:
 #
-# Variáveis opcionais (têm default):
-#   PG_DATABASE, PG_USER, PORT, HTTP_PORT, JWT_EXPIRES_IN, FRONTEND_URL
+#   PG_HOST       → host do banco Coolify (ex: postgres ou IP interno)
+#   PG_PORT       → 5432
+#   PG_DATABASE   → naturerva_erp
+#   PG_USER       → naturerva
+#   PG_PASSWORD   → a senha do banco
+#   JWT_SECRET    → segredo longo e aleatório
+#   FRONTEND_URL  → URL pública do teu site (ex: https://erp.naturerva.com)
 # ============================================================
 
 services:
-
-  # ── PostgreSQL ─────────────────────────────────────────────
-  postgres:
-    build:
-      context: .
-      dockerfile: Dockerfile.postgres
-    container_name: naturerva-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${PG_DATABASE:-naturerva_erp}
-      POSTGRES_USER: ${PG_USER:-naturerva}
-      POSTGRES_PASSWORD: ${PG_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - app_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-naturerva} -d ${PG_DATABASE:-naturerva_erp}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   # ── Backend API (Node.js / Express) ────────────────────────
   backend:
@@ -44,20 +26,16 @@ services:
     restart: unless-stopped
     environment:
       PORT: ${PORT:-3060}
-      # Aponta para o container postgres interno
-      PG_HOST: postgres
-      PG_PORT: 5432
+      PG_HOST: ${PG_HOST}
+      PG_PORT: ${PG_PORT:-5432}
       PG_DATABASE: ${PG_DATABASE:-naturerva_erp}
       PG_USER: ${PG_USER:-naturerva}
       PG_PASSWORD: ${PG_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      FRONTEND_URL: ${FRONTEND_URL}
     volumes:
       - uploads_data:/app/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - app_network
     healthcheck:
@@ -65,7 +43,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 20s
 
   # ── Frontend (React + Nginx) ────────────────────────────────
   frontend:
@@ -76,22 +54,18 @@ services:
         VITE_API_URL: /api
     container_name: naturerva-frontend
     restart: unless-stopped
-    ports:
-      - "${HTTP_PORT:-8080}:80"
+    expose:
+      - "80"
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - app_network
 
-# ── Volumes persistentes ────────────────────────────────────
 volumes:
-  postgres_data:
-    driver: local
   uploads_data:
     driver: local
 
-# ── Rede interna ────────────────────────────────────────────
 networks:
   app_network:
     driver: bridge
