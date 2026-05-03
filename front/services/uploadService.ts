@@ -77,8 +77,16 @@ export const uploadService = {
    */
   getPublicUrl(path: string): string {
     if (!path) return '';
-    if (path.startsWith('http')) return path;
-    // path can be '/uploads/products/file.jpg' or 'products/file.jpg'
+    if (path.startsWith('http')) {
+      try {
+        const url = new URL(path);
+        if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+          // URL guardado em dev — usa só o pathname para funcionar em produção
+          return `${BACKEND_URL}${url.pathname}`;
+        }
+      } catch {}
+      return path;
+    }
     if (path.startsWith('/')) return `${BACKEND_URL}${path}`;
     return `${BACKEND_URL}/uploads/${path}`;
   },
