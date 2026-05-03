@@ -28,14 +28,19 @@ const app = express();
 const PORT = process.env.PORT || 3060;
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
+const extraOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map(o => o.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 const allowedOrigins = [
   'http://localhost:3055',
   'http://localhost:3056',
   'http://localhost:5173',
   'http://localhost:4173',
   'http://localhost:3000',
-  process.env.FRONTEND_URL
-].filter(Boolean);
+  ...extraOrigins
+];
 
 app.use(cors({
   origin: (origin, callback) => {
