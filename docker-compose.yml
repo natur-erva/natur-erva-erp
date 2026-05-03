@@ -19,8 +19,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL}
-    volumes:
-      - uploads_data:/app/uploads
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3060/health || exit 1"]
       interval: 30s
@@ -28,6 +26,3 @@ services:
       retries: 3
       start_period: 20s
 
-volumes:
-  uploads_data:
-    driver: local

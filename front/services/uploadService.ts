@@ -77,6 +77,7 @@ export const uploadService = {
    */
   getPublicUrl(path: string): string {
     if (!path) return '';
+    if (path.startsWith('data:')) return path;
     if (path.startsWith('http')) {
       try {
         const url = new URL(path);
