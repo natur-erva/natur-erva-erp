@@ -23,6 +23,7 @@ import userRoutes from './routes/users.js';
 import uploadRoute from './routes/upload.js';
 import bannerRoutes from './routes/banners.js';
 import roleRoutes from './routes/roles.js';
+import instagramRoutes from './routes/instagram.js';
 
 const app = express();
 const PORT = process.env.PORT || 3060;
@@ -108,6 +109,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoute);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/instagram', instagramRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

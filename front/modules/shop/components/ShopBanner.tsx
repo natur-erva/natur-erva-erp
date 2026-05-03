@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Upload, X, Settings, Loader2, Check, Image as ImageIcon, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Upload, X, Settings, Loader2, Check, Image as ImageIcon,
+  ArrowRight, Plus, Trash2, ChevronLeft, ChevronRight,
+  GripVertical, Pencil,
+} from 'lucide-react';
 import api from '../../core/services/apiClient';
 import uploadService from '../../../services/uploadService';
 import { Product } from '../../core/types/types';
@@ -13,6 +17,8 @@ interface BannerConfig {
   buttonText: string;
   productSlug: string | null;
   productId: string | null;
+  bgColor: string;
+  sortOrder: number;
   isActive: boolean;
 }
 
@@ -22,227 +28,421 @@ interface ShopBannerProps {
   uploadImage?: (file: File) => Promise<string | null>;
 }
 
-const DEFAULT_BANNER: BannerConfig = {
-  id: null,
+const DEFAULT_SLIDE: Omit<BannerConfig, 'id'> = {
   imageUrl: null,
   title: 'Saúde Natural & Bem-Estar',
   subtitle: 'Descubra o poder da natureza com produtos 100% naturais e selecionados',
   buttonText: 'Explorar Produtos',
   productSlug: null,
   productId: null,
+  bgColor: '#14532d',
+  sortOrder: 0,
   isActive: true,
 };
 
+const BG_PRESETS = [
+  { color: '#14532d', label: 'Verde' },
+  { color: '#7c2d12', label: 'Castanho' },
+  { color: '#1e3a5f', label: 'Azul' },
+  { color: '#4a1d96', label: 'Roxo' },
+  { color: '#78350f', label: 'Âmbar' },
+  { color: '#1f2937', label: 'Escuro' },
+];
+
 export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, products = [], uploadImage }) => {
   const navigate = useNavigate();
-  const [banner, setBanner] = useState<BannerConfig | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<BannerConfig>(DEFAULT_BANNER);
+  const [slides, setSlides] = useState<BannerConfig[]>([]);
+  const [current, setCurrent] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // Admin state
+  const [managing, setManaging] = useState(false);
+  const [editing, setEditing] = useState<BannerConfig | null>(null);
+  const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Carregar banner do backend
-  useEffect(() => {
-    api.get<BannerConfig>('/banners/active').then(data => {
-      setBanner(data || DEFAULT_BANNER);
-      setDraft(data || DEFAULT_BANNER);
-    }).catch(() => {
-      setBanner(DEFAULT_BANNER);
-      setDraft(DEFAULT_BANNER);
-    });
+  // Slider auto-advance
+  const autoRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  const loadSlides = useCallback(async () => {
+    try {
+      const data = await api.get<BannerConfig[]>('/banners/active');
+      setSlides(Array.isArray(data) ? data : [data as unknown as BannerConfig]);
+    } catch {
+      setSlides([{ ...DEFAULT_SLIDE, id: null }]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleOpenEdit = () => {
-    setDraft(banner ? { ...banner } : DEFAULT_BANNER);
-    setEditing(true);
+  useEffect(() => { loadSlides(); }, [loadSlides]);
+
+  const goTo = useCallback((index: number) => {
+    setCurrent(Math.max(0, Math.min(index, slides.length - 1)));
+  }, [slides.length]);
+
+  // Auto-advance
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    autoRef.current = setInterval(() => {
+      setCurrent(c => (c + 1) % slides.length);
+    }, 5000);
+    return () => { if (autoRef.current) clearInterval(autoRef.current); };
+  }, [slides.length]);
+
+  const stopAuto = () => { if (autoRef.current) clearInterval(autoRef.current); };
+
+  const handleSlideClick = (slide: BannerConfig) => {
+    if (slide.productSlug) {
+      navigate(`/loja/produto/${slide.productSlug}`);
+    } else {
+      document.getElementById('produtos-section')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // ─── Admin helpers ────────────────────────────────────────────────
+  const openCreate = () => {
+    setEditing({ ...DEFAULT_SLIDE, id: null, sortOrder: slides.length });
+    setIsNew(true);
+  };
+
+  const openEdit = (slide: BannerConfig) => {
+    setEditing({ ...slide });
+    setIsNew(false);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !uploadImage) return;
+    if (!file || !uploadImage || !editing) return;
     setUploading(true);
     try {
       const url = await uploadImage(file);
-      if (url) setDraft(prev => ({ ...prev, imageUrl: url }));
+      if (url) setEditing(prev => prev ? { ...prev, imageUrl: url } : prev);
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
-  };
-
-  const handleRemoveImage = () => {
-    setDraft(prev => ({ ...prev, imageUrl: null }));
   };
 
   const handleProductChange = (productId: string) => {
+    if (!editing) return;
     if (!productId) {
-      setDraft(prev => ({ ...prev, productId: null, productSlug: null }));
+      setEditing(prev => prev ? { ...prev, productId: null, productSlug: null } : prev);
       return;
     }
     const product = products.find(p => p.id === productId);
-    setDraft(prev => ({
+    setEditing(prev => prev ? {
       ...prev,
       productId: product?.id || null,
       productSlug: product?.slug || null,
-      title: prev.title === DEFAULT_BANNER.title ? (product?.name || prev.title) : prev.title,
-      buttonText: prev.buttonText === 'Explorar Produtos' ? `Ver ${product?.name || 'Produto'}` : prev.buttonText,
-    }));
+    } : prev);
   };
 
   const handleSave = async () => {
+    if (!editing) return;
     setSaving(true);
     try {
-      await api.put('/banners', {
-        imageUrl: draft.imageUrl,
-        title: draft.title,
-        subtitle: draft.subtitle,
-        buttonText: draft.buttonText,
-        productSlug: draft.productSlug,
-        productId: draft.productId,
-      });
-      setBanner({ ...draft });
-      setSaved(true);
-      setTimeout(() => {
-        setSaved(false);
-        setEditing(false);
-      }, 1500);
+      if (isNew) {
+        const created = await api.post<BannerConfig>('/banners', {
+          imageUrl: editing.imageUrl,
+          title: editing.title,
+          subtitle: editing.subtitle,
+          buttonText: editing.buttonText,
+          productSlug: editing.productSlug,
+          productId: editing.productId,
+          bgColor: editing.bgColor,
+        });
+        setSlides(prev => [...prev, created]);
+      } else {
+        await api.put(`/banners/${editing.id}`, {
+          imageUrl: editing.imageUrl,
+          title: editing.title,
+          subtitle: editing.subtitle,
+          buttonText: editing.buttonText,
+          productSlug: editing.productSlug,
+          productId: editing.productId,
+          bgColor: editing.bgColor,
+          isActive: editing.isActive,
+        });
+        setSlides(prev => prev.map(s => s.id === editing.id ? editing : s));
+      }
+      setEditing(null);
     } catch {
     } finally {
       setSaving(false);
     }
   };
 
-  const handleBannerClick = () => {
-    if (banner?.productSlug) {
-      navigate(`/loja/produto/${banner.productSlug}`);
-    } else {
-      document.getElementById('produtos-section')?.scrollIntoView({ behavior: 'smooth' });
-    }
+  const handleDelete = async (id: number | null) => {
+    if (!id || !confirm('Eliminar este slide?')) return;
+    try {
+      await api.delete(`/banners/${id}`);
+      setSlides(prev => prev.filter(s => s.id !== id));
+    } catch {}
   };
 
-  const imageUrl = banner?.imageUrl ? uploadService.getPublicUrl(banner.imageUrl) : null;
-  const draftImageUrl = draft.imageUrl ? uploadService.getPublicUrl(draft.imageUrl) : null;
+  const moveSlide = async (index: number, dir: -1 | 1) => {
+    const newIndex = index + dir;
+    if (newIndex < 0 || newIndex >= slides.length) return;
+    const reordered = [...slides];
+    [reordered[index], reordered[newIndex]] = [reordered[newIndex], reordered[index]];
+    setSlides(reordered);
+    // persist order
+    try {
+      await Promise.all(reordered.map((s, i) =>
+        s.id ? api.patch(`/banners/${s.id}/order`, { sortOrder: i }) : Promise.resolve()
+      ));
+    } catch {}
+  };
 
-  // Skeleton enquanto carrega do backend
-  if (!banner) {
+  // ─── Skeleton ─────────────────────────────────────────────────────
+  if (loading) {
     return (
-      <section className="relative h-96 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 animate-pulse" />
+      <section className="w-full h-[320px] md:h-[440px]">
+        <div className="w-full h-full bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 animate-pulse" />
       </section>
     );
   }
 
+  const activeSlide = slides[current] ?? slides[0];
+  if (!activeSlide) return null;
+
+  const bgImg = activeSlide.imageUrl ? uploadService.getPublicUrl(activeSlide.imageUrl) : null;
+
   return (
     <>
-      {/* Banner visível na loja */}
-      <section className="relative h-96 overflow-hidden group">
-        {/* Imagem de fundo */}
-        <div className="absolute inset-0">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={banner.title}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <img
-              src="https://images.unsplash.com/photo-1761746604770-abc00f8e55b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1200"
-              alt="Ervas naturais"
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-r from-green-900/80 to-green-700/50" />
+      {/* ── Slider ───────────────────────────────────────────────── */}
+      <section className="relative w-full overflow-hidden" style={{ height: 'clamp(280px, 45vw, 520px)' }}>
+
+        {/* Slides track */}
+        <div
+          ref={trackRef}
+          className="flex h-full transition-transform duration-700 ease-in-out"
+          style={{ transform: `translateX(-${current * 100}%)` }}
+        >
+          {slides.map((slide, i) => {
+            const img = slide.imageUrl ? uploadService.getPublicUrl(slide.imageUrl) : null;
+            return (
+              <div
+                key={slide.id ?? i}
+                className="relative w-full flex-shrink-0 h-full flex items-center"
+                style={{ backgroundColor: slide.bgColor }}
+              >
+                {/* Imagem de fundo com gradiente */}
+                {img && (
+                  <>
+                    <img
+                      src={img}
+                      alt={slide.title}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background: `linear-gradient(to right, ${slide.bgColor}ee 35%, ${slide.bgColor}99 55%, transparent 100%)`,
+                      }}
+                    />
+                  </>
+                )}
+                {!img && (
+                  <div className="absolute inset-0" style={{
+                    background: `linear-gradient(135deg, ${slide.bgColor} 0%, ${slide.bgColor}cc 100%)`,
+                  }} />
+                )}
+
+                {/* Conteúdo */}
+                <div className="relative w-full max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-between gap-6">
+                  <div className="text-white max-w-lg z-10">
+                    {slide.productSlug && (
+                      <span className="inline-block bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1 rounded-full mb-3 border border-white/30">
+                        Produto em destaque
+                      </span>
+                    )}
+                    <h2 className="font-extrabold leading-tight mb-3"
+                      style={{ fontSize: 'clamp(1.5rem, 4vw, 3rem)' }}>
+                      {slide.title}
+                    </h2>
+                    <p className="text-white/80 mb-6 leading-relaxed"
+                      style={{ fontSize: 'clamp(0.85rem, 1.5vw, 1.1rem)' }}>
+                      {slide.subtitle}
+                    </p>
+                    <button
+                      onClick={() => handleSlideClick(slide)}
+                      className="inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-6 py-3 rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-lg hover:shadow-xl text-sm md:text-base"
+                    >
+                      {slide.buttonText}
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Conteúdo */}
-        <div className="relative h-full max-w-7xl mx-auto px-4 flex items-center justify-between">
-          <div className="text-white max-w-2xl">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">{banner.title}</h2>
-            <p className="text-xl mb-6 text-green-50">{banner.subtitle}</p>
+        {/* Setas */}
+        {slides.length > 1 && (
+          <>
             <button
-              onClick={handleBannerClick}
-              className="inline-flex items-center gap-2 bg-white text-green-700 font-semibold px-8 py-3 rounded-lg hover:bg-green-50 transition-all duration-200 shadow-md hover:shadow-lg"
+              onClick={() => { stopAuto(); goTo(current - 1 < 0 ? slides.length - 1 : current - 1); }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 md:w-10 md:h-10 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-colors z-10"
             >
-              {banner.buttonText}
-              <ArrowRight className="w-4 h-4" />
+              <ChevronLeft className="w-5 h-5" />
             </button>
+            <button
+              onClick={() => { stopAuto(); goTo((current + 1) % slides.length); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 md:w-10 md:h-10 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-colors z-10"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </>
+        )}
+
+        {/* Dots */}
+        {slides.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { stopAuto(); goTo(i); }}
+                className={`rounded-full transition-all duration-300 ${
+                  i === current
+                    ? 'w-6 h-2.5 bg-white shadow-md'
+                    : 'w-2.5 h-2.5 bg-white/50 hover:bg-white/75'
+                }`}
+              />
+            ))}
           </div>
+        )}
 
-          {/* Botão de edição para admins — aparece ao hover */}
-          {isAdmin && (
-            <button
-              onClick={handleOpenEdit}
-              className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/90 backdrop-blur-sm text-green-700 hover:bg-white rounded-xl px-4 py-2 flex items-center gap-2 shadow-lg font-medium text-sm"
-              title="Editar Banner"
-            >
-              <Settings className="w-4 h-4" />
-              Editar Banner
-            </button>
-          )}
-        </div>
+        {/* Botão gestão (admin) */}
+        {isAdmin && (
+          <button
+            onClick={() => setManaging(true)}
+            className="absolute top-3 right-3 z-10 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium transition-colors"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Gerir Slides
+          </button>
+        )}
       </section>
 
-      {/* Modal de edição — apenas para admins */}
-      {editing && (
+      {/* ── Modal de gestão ──────────────────────────────────────── */}
+      {managing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Settings className="w-5 h-5 text-green-600" />
-                Editar Banner da Loja
+                Gerir Slides do Banner
               </h2>
-              <button
-                onClick={() => setEditing(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
+              <button onClick={() => setManaging(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
-              {/* Preview da imagem */}
+            <div className="overflow-y-auto flex-1 p-5 space-y-3">
+              {slides.map((slide, i) => {
+                const thumb = slide.imageUrl ? uploadService.getPublicUrl(slide.imageUrl) : null;
+                return (
+                  <div
+                    key={slide.id ?? i}
+                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
+                  >
+                    {/* Miniatura */}
+                    <div
+                      className="w-20 h-14 rounded-lg flex-shrink-0 overflow-hidden"
+                      style={{ backgroundColor: slide.bgColor }}
+                    >
+                      {thumb && <img src={thumb} alt="" className="w-full h-full object-cover" />}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800 dark:text-white text-sm truncate">{slide.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{slide.subtitle}</p>
+                    </div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => moveSlide(i, -1)} disabled={i === 0} className="p-1.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <GripVertical className="w-4 h-4 rotate-90" />
+                      </button>
+                      <button onClick={() => moveSlide(i, 1)} disabled={i === slides.length - 1} className="p-1.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <GripVertical className="w-4 h-4 -rotate-90" />
+                      </button>
+                      <button onClick={() => { openEdit(slide); setManaging(false); }} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(slide.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={() => { openCreate(); setManaging(false); }}
+                className="w-full py-3 border-2 border-dashed border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 rounded-xl flex items-center justify-center gap-2 hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors text-sm font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                Adicionar novo slide
+              </button>
+            </div>
+
+            <div className="p-5 border-t border-gray-100 dark:border-gray-800">
+              <button onClick={() => setManaging(false)} className="w-full py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de edição / criação ─────────────────────────────── */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                {isNew ? 'Novo Slide' : 'Editar Slide'}
+              </h2>
+              <button onClick={() => setEditing(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-5 space-y-5">
+              {/* Imagem */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Imagem do Banner
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                  Imagem do slide
+                  <span className="text-gray-400 font-normal ml-2">Recomendado: 1920×520px</span>
                 </label>
-                <div className="relative rounded-xl overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300 h-48 flex items-center justify-center">
-                  {draftImageUrl ? (
+                <div className="relative rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 h-44 flex items-center justify-center">
+                  {editing.imageUrl ? (
                     <>
-                      <img
-                        src={draftImageUrl}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={uploadService.getPublicUrl(editing.imageUrl)} alt="" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                         <div className="flex gap-2">
                           <label className="cursor-pointer bg-white text-gray-800 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-gray-100">
-                            <Upload className="w-4 h-4" />
-                            Trocar
+                            <Upload className="w-4 h-4" /> Trocar
                             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                           </label>
-                          <button
-                            onClick={handleRemoveImage}
-                            className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-red-700"
-                          >
-                            <X className="w-4 h-4" />
-                            Remover
+                          <button onClick={() => setEditing(prev => prev ? { ...prev, imageUrl: null } : prev)} className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-red-700">
+                            <X className="w-4 h-4" /> Remover
                           </button>
                         </div>
                       </div>
                     </>
                   ) : (
-                    <label className="cursor-pointer flex flex-col items-center gap-3 text-gray-500 hover:text-green-600 transition-colors">
-                      {uploading ? (
-                        <Loader2 className="w-10 h-10 animate-spin text-green-600" />
-                      ) : (
+                    <label className="cursor-pointer flex flex-col items-center gap-2 text-gray-500 hover:text-green-600 transition-colors">
+                      {uploading ? <Loader2 className="w-10 h-10 animate-spin text-green-600" /> : (
                         <>
                           <ImageIcon className="w-10 h-10" />
-                          <span className="text-sm font-medium">Clique para carregar a imagem do banner</span>
-                          <span className="text-xs text-gray-400">Recomendado: 1200 × 400px, formato JPG ou PNG</span>
+                          <span className="text-sm font-medium">Clique para carregar imagem</span>
                         </>
                       )}
                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
@@ -251,98 +451,119 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
                 </div>
               </div>
 
-              {/* Produto em destaque */}
+              {/* Cor de fundo */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Produto em Destaque
-                  <span className="text-gray-400 font-normal ml-2">(opcional — ao clicar direciona para o produto)</span>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                  Cor de fundo
+                  <span className="text-gray-400 font-normal ml-2">(visível quando não há imagem ou como overlay)</span>
                 </label>
-                <select
-                  value={draft.productId || ''}
-                  onChange={e => handleProductChange(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white text-gray-800"
-                >
-                  <option value="">— Sem produto (botão vai para a lista) —</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {BG_PRESETS.map(p => (
+                    <button
+                      key={p.color}
+                      onClick={() => setEditing(prev => prev ? { ...prev, bgColor: p.color } : prev)}
+                      title={p.label}
+                      className={`w-8 h-8 rounded-full border-4 transition-transform hover:scale-110 ${editing.bgColor === p.color ? 'border-gray-800 dark:border-white scale-110' : 'border-transparent'}`}
+                      style={{ backgroundColor: p.color }}
+                    />
                   ))}
-                </select>
+                  <input
+                    type="color"
+                    value={editing.bgColor}
+                    onChange={e => setEditing(prev => prev ? { ...prev, bgColor: e.target.value } : prev)}
+                    className="w-8 h-8 rounded-full cursor-pointer border-0 p-0 bg-transparent"
+                    title="Cor personalizada"
+                  />
+                </div>
               </div>
 
               {/* Título */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Título do Banner</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Título</label>
                 <input
                   type="text"
-                  value={draft.title}
-                  onChange={e => setDraft(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Ex: Produto em Destaque — Chá de Camomila"
+                  value={editing.title}
+                  onChange={e => setEditing(prev => prev ? { ...prev, title: e.target.value } : prev)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  placeholder="Ex: Saúde Natural em Cada Produto"
                 />
               </div>
 
               {/* Subtítulo */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Subtítulo / Descrição</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Subtítulo</label>
                 <textarea
-                  value={draft.subtitle}
-                  onChange={e => setDraft(prev => ({ ...prev, subtitle: e.target.value }))}
+                  value={editing.subtitle}
+                  onChange={e => setEditing(prev => prev ? { ...prev, subtitle: e.target.value } : prev)}
                   rows={2}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                  placeholder="Ex: Relaxe e cuide da sua saúde com o nosso produto natural mais vendido"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
                 />
               </div>
 
-              {/* Texto do botão */}
+              {/* Botão */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Texto do Botão</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Texto do botão</label>
                 <input
                   type="text"
-                  value={draft.buttonText}
-                  onChange={e => setDraft(prev => ({ ...prev, buttonText: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Ex: Ver Produto, Comprar Agora, Explorar..."
+                  value={editing.buttonText}
+                  onChange={e => setEditing(prev => prev ? { ...prev, buttonText: e.target.value } : prev)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  placeholder="Ex: Ver Produto, Comprar Agora..."
                 />
               </div>
 
-              {/* Preview simplificado */}
+              {/* Produto */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Pré-visualização</label>
-                <div className="relative rounded-xl overflow-hidden h-32 bg-gradient-to-r from-green-900/90 to-green-700/70">
-                  {draftImageUrl && (
-                    <img src={draftImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60" />
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                  Produto em destaque <span className="text-gray-400 font-normal">(opcional)</span>
+                </label>
+                <select
+                  value={editing.productId || ''}
+                  onChange={e => handleProductChange(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                >
+                  <option value="">— Sem produto (botão vai para a lista) —</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+
+              {/* Preview */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Pré-visualização</label>
+                <div
+                  className="relative rounded-xl overflow-hidden h-32 flex items-center"
+                  style={{ backgroundColor: editing.bgColor }}
+                >
+                  {editing.imageUrl && (
+                    <>
+                      <img src={uploadService.getPublicUrl(editing.imageUrl)} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                      <div className="absolute inset-0" style={{ background: `linear-gradient(to right, ${editing.bgColor}ee 35%, transparent)` }} />
+                    </>
                   )}
-                  <div className="relative h-full flex flex-col justify-center px-6">
-                    <p className="text-white font-bold text-lg leading-tight">{draft.title || 'Título do Banner'}</p>
-                    <p className="text-green-100 text-sm mt-1 truncate">{draft.subtitle}</p>
-                    <button className="mt-2 self-start bg-white text-green-700 text-xs font-semibold px-4 py-1.5 rounded-lg">
-                      {draft.buttonText || 'Ver Produto'}
+                  <div className="relative px-6">
+                    <p className="text-white font-extrabold text-lg leading-tight">{editing.title || 'Título'}</p>
+                    <p className="text-white/70 text-xs mt-1 line-clamp-1">{editing.subtitle}</p>
+                    <button className="mt-2 bg-white text-gray-900 text-xs font-bold px-4 py-1.5 rounded-lg inline-flex items-center gap-1">
+                      {editing.buttonText || 'Ver Produto'} <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
+            <div className="flex gap-3 p-5 border-t border-gray-100 dark:border-gray-800">
               <button
-                onClick={() => setEditing(false)}
-                className="px-6 py-2.5 text-gray-700 hover:bg-gray-100 rounded-xl font-medium transition-colors"
+                onClick={() => { setEditing(null); if (managing) setManaging(true); }}
+                className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving || !draft.title}
-                className="px-6 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-xl font-semibold transition-all flex items-center gap-2"
+                disabled={saving || !editing.title}
+                className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
               >
-                {saving ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> A guardar...</>
-                ) : saved ? (
-                  <><Check className="w-4 h-4" /> Guardado!</>
-                ) : (
-                  'Guardar Banner'
-                )}
+                {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> A guardar...</> : <><Check className="w-4 h-4" /> Guardar slide</>}
               </button>
             </div>
           </div>

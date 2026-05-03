@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { User, LogIn, LogOut, Moon, Sun, Settings, ShoppingCart, Menu, X, Home, ShoppingBag, Tv, Info, Search, Filter } from 'lucide-react';
+import { User, LogIn, LogOut, Moon, Sun, Settings, ShoppingCart, Menu, X, ShoppingBag, Search } from 'lucide-react';
 import { UserRole } from '../../../core/types/types';
 import { Logo } from '../ui/Logo';
 import { useMobile } from '../../../core/hooks/useMobile';
@@ -34,246 +34,184 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useMobile(768);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const isTablet = useMobile(1024);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const closeSidebar = () => setSidebarOpen(false);
-  
+
   const shopContext = useShopContextSafe();
   const searchTerm = shopContext?.searchTerm || '';
   const setSearchTerm = shopContext?.setSearchTerm;
-  const onFilterClick = shopContext?.onFilterClick;
-  const hasActiveFilters = shopContext?.hasActiveFilters || false;
 
-  const handleLogout = () => {
-    if (onLogout) {
-      onLogout();
-    }
-    setUserMenuOpen(false);
-  };
+  const handleLogout = () => { onLogout?.(); };
 
-  // Header para modo Shop (público)
   if (isShopMode) {
     return (
-      <header className={`bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-md fixed top-0 left-0 right-0 z-50 ${isMobile ? 'h-16' : 'h-16'}`}>
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-          <div className={`flex items-center justify-between ${isMobile ? 'gap-2' : 'gap-2 sm:gap-4'} ${isMobile ? 'h-16' : 'h-16'}`}>
-            {/* Logo */}
-            <div className="flex items-center flex-shrink-0">
-              <Link
-                to="/"
-                className="flex items-center cursor-pointer hover:opacity-80 transition-opacity bg-transparent border-none p-0"
-                aria-label="Ir para página inicial"
-              >
-                <Logo
-                  width={isMobile ? 170 : 160}
-                  height={isMobile ? 54 : 52}
-                  className={isMobile ? "h-12 w-auto" : "h-10 sm:h-12 w-auto"}
-                  isDarkMode={isDarkMode}
-                />
-              </Link>
-            </div>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border-b border-gray-100/80 dark:border-gray-800/80 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-8">
+          <div className="flex items-center justify-between h-16 sm:h-[68px] gap-3">
 
-            {/* Right Group: Search, Filters & Actions */}
-            <div className="flex-1 flex items-center justify-end gap-2 sm:gap-4 lg:gap-6 min-w-0">
-              {/* Search Bar & Filters */}
-              <div className="flex-1 flex items-center gap-2 max-w-xl">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4" />
+            {/* Logo */}
+            <Link to="/" className="flex-shrink-0 flex items-center hover:opacity-80 transition-opacity" aria-label="Início">
+              <Logo
+                width={isMobile ? 110 : isTablet ? 130 : 150}
+                height={isMobile ? 38 : isTablet ? 44 : 48}
+                className="w-auto"
+                isDarkMode={isDarkMode}
+              />
+            </Link>
+
+            {/* Search — desktop/tablet expandida, mobile ícone */}
+            {!isMobile ? (
+              <div className="flex-1 max-w-md mx-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Buscar..."
+                    placeholder="Buscar produtos..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm && setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 sm:py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-1 focus:ring-green-500/50 focus:border-green-500/50 transition-all backdrop-blur-sm"
+                    onChange={(e) => setSearchTerm?.(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition-all"
                   />
                 </div>
               </div>
+            ) : searchOpen ? (
+              <div className="flex-1 flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Buscar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm?.(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition-all"
+                  />
+                </div>
+                <button onClick={() => { setSearchOpen(false); setSearchTerm?.(''); }} className="p-2 text-gray-500">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
 
             {/* Actions */}
-            <div className="flex items-center flex-shrink-0 gap-1 sm:space-x-1 sm:space-x-3">
-              {/* Dark Mode Toggle */}
-              <button
-                onClick={toggleTheme}
-                className={`${isMobile ? 'p-2' : 'p-2'} rounded-lg text-content-secondary hover:bg-surface-raised/80 backdrop-blur-md transition-all shadow-sm hover:shadow-md`}
-                title={isDarkMode ? 'Modo Claro' : 'Modo Escuro'}
-                aria-label={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
-              >
-                {isDarkMode ? <Sun className={isMobile ? "h-5 w-5" : "h-5 w-5"} /> : <Moon className={isMobile ? "h-5 w-5" : "h-5 w-5"} />}
-              </button>
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
 
-              {/* Link para Painel Admin (se for admin) */}
-              {currentUser && currentUser.role !== UserRole.CLIENTE && !(currentUser.roles && currentUser.roles.length === 1 && currentUser.roles[0] === 'CLIENTE') && (
-                <button
-                  onClick={() => navigate('/admin')}
-                  className={`${isMobile ? 'p-2' : 'p-2'} rounded-lg text-content-secondary hover:bg-surface-raised/80 backdrop-blur-md transition-all shadow-sm hover:shadow-md`}
-                  title="Painel Admin"
-                  aria-label="Acessar painel administrativo"
-                >
-                  <Settings className={isMobile ? "h-4 w-4" : "h-4 w-4"} />
+              {/* Search icon — mobile only */}
+              {isMobile && !searchOpen && (
+                <button onClick={() => setSearchOpen(true)} className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                  <Search className="h-5 w-5" />
                 </button>
               )}
 
-              {/* User Menu - Desktop */}
+              {/* Dark mode */}
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title={isDarkMode ? 'Modo claro' : 'Modo escuro'}
+              >
+                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </button>
+
+              {/* Admin link */}
+              {currentUser && currentUser.role !== UserRole.CLIENTE && !(currentUser.roles?.length === 1 && currentUser.roles[0] === 'CLIENTE') && (
+                <button onClick={() => navigate('/admin')} className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Painel Admin">
+                  <Settings className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* User — desktop only */}
               {!isMobile && (
-                <div className="flex items-center space-x-1 sm:space-x-2">
-                  {currentUser ? (
-                    <>
-                      <button
-                        onClick={onProfileClick}
-                        className="flex items-center space-x-1 text-sm text-content-secondary hover:text-content-primary px-2 py-1.5 rounded-xl hover:bg-surface-raised/80 backdrop-blur-md transition-all shadow-sm hover:shadow-md"
-                      >
-                        <User className="h-4 w-4 sm:h-5 sm:w-5" />
-                        <span className="hidden sm:inline text-xs sm:text-sm">{currentUser.name}</span>
-                      </button>
-                      <button
-                        onClick={handleLogout}
-                        className="p-2 rounded-lg text-content-secondary hover:bg-surface-raised transition-colors"
-                        title="Sair"
-                      >
-                        <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        // Garantir que onLogin seja chamado mesmo se for undefined
-                        if (onLogin) {
-                          onLogin();
-                        } else {
-                          console.warn('onLogin não está disponível');
-                        }
-                      }}
-                      className="flex items-center space-x-1 text-sm text-content-secondary hover:text-content-primary px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg hover:bg-surface-raised transition-colors"
-                    >
-                      <LogIn className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span className="hidden sm:inline">Entrar</span>
+                currentUser ? (
+                  <div className="flex items-center gap-1">
+                    <button onClick={onProfileClick} className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors font-medium">
+                      <User className="h-4 w-4" />
+                      <span className="max-w-[100px] truncate">{currentUser.name}</span>
                     </button>
-                  )}
-                </div>
+                    <button onClick={handleLogout} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Sair">
+                      <LogOut className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => onLogin?.()} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+                    <LogIn className="h-4 w-4" />
+                    Entrar
+                  </button>
+                )
               )}
 
               {/* Cart */}
-              {onCartClick && (
-                <button
-                  onClick={onCartClick}
-                  className="relative p-2 rounded-xl text-content-secondary hover:bg-surface-raised/80 backdrop-blur-md transition-all shadow-sm hover:shadow-md"
-                >
-                  <ShoppingCart className="h-6 w-6" />
+              {onCartClick && !searchOpen && (
+                <button onClick={onCartClick} className="relative p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                  <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6" />
                   {cartItemCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-green-500 to-green-600 text-white text-[10px] sm:text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center font-medium shadow-lg animate-pulse">
-                      {cartItemCount}
+                    <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-[9px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-0.5 shadow-md shadow-green-500/40">
+                      {cartItemCount > 9 ? '9+' : cartItemCount}
                     </span>
                   )}
                 </button>
               )}
 
-              {/* Hamburger - à direita, ao lado do carrinho (mobile) */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="md:hidden p-2 rounded-xl text-content-secondary hover:bg-surface-raised/80 backdrop-blur-md transition-all"
-                aria-label="Abrir menu"
-              >
-                <Menu className="h-6 w-6" />
-              </button>
+              {/* Hamburger — mobile/tablet */}
+              {!searchOpen && (
+                <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" aria-label="Menu">
+                  <Menu className="h-5 w-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
-      </div>
 
-        {/* Sidebar (menu hamburger) - Portal para altura total */}
+        {/* Sidebar mobile */}
         {sidebarOpen && typeof document !== 'undefined' && createPortal(
           <>
-            <div
-              className="fixed inset-0 min-h-screen min-w-full z-[100] modal-overlay"
-              onClick={closeSidebar}
-              aria-hidden="true"
-              style={{ top: 0, left: 0, right: 0, bottom: 0 }}
-            />
-            <aside
-              className="fixed left-0 top-0 w-[85vw] max-w-sm min-h-screen h-screen bg-white dark:bg-gray-900 z-[101] shadow-2xl overflow-y-auto flex flex-col"
-              role="dialog"
-              aria-label="Menu de navegação"
-              style={{ top: 0, left: 0, height: '100vh' }}
-            >
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                <Logo width={180} height={56} className="h-12 w-auto" isDarkMode={isDarkMode} />
-                <button
-                  onClick={closeSidebar}
-                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  aria-label="Fechar menu"
-                >
-                  <X className="h-6 w-6" />
+            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm" onClick={closeSidebar} />
+            <aside className="fixed left-0 top-0 bottom-0 w-[80vw] max-w-[320px] z-[101] bg-white dark:bg-gray-950 shadow-2xl flex flex-col overflow-y-auto">
+              {/* Header da sidebar */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+                <Logo width={120} height={40} className="w-auto" isDarkMode={isDarkMode} />
+                <button onClick={closeSidebar} className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                  <X className="h-5 w-5" />
                 </button>
               </div>
-              <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                <Link
-                  to="/loja"
-                  onClick={closeSidebar}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    location.pathname === '/loja' || location.pathname === '/' ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  }`}
-                >
+
+              {/* Nav */}
+              <nav className="flex-1 px-4 py-5 space-y-1">
+                <Link to="/loja" onClick={closeSidebar} className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all ${location.pathname === '/loja' || location.pathname === '/' ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'}`}>
                   <ShoppingBag className="h-5 w-5" />
                   Loja
                 </Link>
 
-                <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-800 space-y-1">
                   {onCartClick && (
-                    <button
-                      onClick={() => { onCartClick(); closeSidebar(); }}
-                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      <span className="flex items-center gap-3">
-                        <ShoppingCart className="h-5 w-5" />
-                        Carrinho
-                      </span>
-                      {cartItemCount > 0 && (
-                        <span className="bg-green-500 text-white text-xs font-medium px-2 py-0.5 rounded-full">
-                          {cartItemCount}
-                        </span>
-                      )}
+                    <button onClick={() => { onCartClick(); closeSidebar(); }} className="flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-all">
+                      <span className="flex items-center gap-3"><ShoppingCart className="h-5 w-5" /> Carrinho</span>
+                      {cartItemCount > 0 && <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{cartItemCount}</span>}
                     </button>
                   )}
+
                   {currentUser ? (
                     <>
-                      <button
-                        onClick={() => { onProfileClick?.(); closeSidebar(); }}
-                        className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                      >
-                        <User className="h-5 w-5" />
-                        Perfil
+                      <button onClick={() => { onProfileClick?.(); closeSidebar(); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-all">
+                        <User className="h-5 w-5" />{currentUser.name}
                       </button>
-                      {currentUser.role !== UserRole.CLIENTE && !(currentUser.roles && currentUser.roles.length === 1 && currentUser.roles[0] === 'CLIENTE') && (
-                        <button
-                          onClick={() => { navigate('/admin'); closeSidebar(); }}
-                          className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-                          <Settings className="h-5 w-5" />
-                          Painel Admin
+                      {currentUser.role !== UserRole.CLIENTE && !(currentUser.roles?.length === 1 && currentUser.roles[0] === 'CLIENTE') && (
+                        <button onClick={() => { navigate('/admin'); closeSidebar(); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-all">
+                          <Settings className="h-5 w-5" />Painel Admin
                         </button>
                       )}
-                      <button
-                        onClick={() => { handleLogout(); closeSidebar(); }}
-                        className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                      >
-                        <LogOut className="h-5 w-5" />
-                        Sair
+                      <button onClick={() => { handleLogout(); closeSidebar(); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all">
+                        <LogOut className="h-5 w-5" />Sair
                       </button>
                     </>
                   ) : (
-                    <button
-                      onClick={() => { onLogin?.(); closeSidebar(); }}
-                      className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      <LogIn className="h-5 w-5" />
-                      Entrar
+                    <button onClick={() => { onLogin?.(); closeSidebar(); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 transition-all">
+                      <LogIn className="h-5 w-5" />Entrar
                     </button>
                   )}
-                  <button
-                    onClick={toggleTheme}
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  >
+
+                  <button onClick={toggleTheme} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-all">
                     {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                     {isDarkMode ? 'Modo claro' : 'Modo escuro'}
                   </button>
@@ -287,30 +225,20 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     );
   }
 
-  // Header para modo Admin (simplificado)
+  // Admin header
   return (
-    <header className="backdrop-blur-xl bg-surface-raised/90 dark:bg-surface-base/90 border-b border-border-default shadow-lg shadow-black/5 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <header className="backdrop-blur-xl bg-white/90 dark:bg-gray-950/90 border-b border-gray-100 dark:border-gray-800 shadow-sm sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex items-center justify-between">
-          <Link
-            to="/admin"
-            className="flex items-center cursor-pointer hover:opacity-80 transition-opacity bg-transparent border-none"
-          >
-            <Logo width={160} height={52} className="h-10 sm:h-12 w-auto" isDarkMode={isDarkMode} />
+          <Link to="/admin" className="flex items-center hover:opacity-80 transition-opacity">
+            <Logo width={140} height={46} className="w-auto" isDarkMode={isDarkMode} />
           </Link>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg text-content-secondary hover:bg-surface-raised transition-colors"
-              title={isDarkMode ? 'Modo Claro' : 'Modo Escuro'}
-            >
+          <div className="flex items-center gap-2">
+            <button onClick={toggleTheme} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
               {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
             {currentUser && (
-              <button
-                onClick={() => navigate('/')}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium transition-all shadow-lg hover:shadow-xl shadow-green-500/30 cursor-pointer border-none"
-              >
+              <button onClick={() => navigate('/')} className="px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-sm font-medium shadow-lg shadow-green-500/25 transition-all hover:shadow-xl hover:shadow-green-500/30">
                 Voltar ao Site
               </button>
             )}
@@ -321,17 +249,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   );
 };
 
-// Memoizar o Header com comparação customizada para evitar re-renders desnecessários
-export const Header = memo(HeaderComponent, (prevProps, nextProps) => {
-  // Comparação customizada para evitar re-renders quando apenas valores internos mudam
-  // IMPORTANTE: Incluir onCartClick e onLogin na comparação para garantir re-render quando forem definidos
-  return (
-    prevProps.currentUser?.id === nextProps.currentUser?.id &&
-    prevProps.isDarkMode === nextProps.isDarkMode &&
-    prevProps.cartItemCount === nextProps.cartItemCount &&
-    prevProps.isShopMode === nextProps.isShopMode &&
-    prevProps.onCartClick === nextProps.onCartClick &&
-    prevProps.onLogin === nextProps.onLogin &&
-    prevProps.onProfileClick === nextProps.onProfileClick
-  );
-});
+export const Header = memo(HeaderComponent, (prevProps, nextProps) =>
+  prevProps.currentUser?.id === nextProps.currentUser?.id &&
+  prevProps.isDarkMode === nextProps.isDarkMode &&
+  prevProps.cartItemCount === nextProps.cartItemCount &&
+  prevProps.isShopMode === nextProps.isShopMode &&
+  prevProps.onCartClick === nextProps.onCartClick &&
+  prevProps.onLogin === nextProps.onLogin &&
+  prevProps.onProfileClick === nextProps.onProfileClick
+);

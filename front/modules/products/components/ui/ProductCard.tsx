@@ -10,15 +10,15 @@ import { getProductRating, RatingStats } from '../../services/reviewService';
 
 export const ProductCardSkeleton: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-            <div className={`relative w-full ${isMobile ? 'h-44' : 'h-56'} bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 animate-pulse`} />
-            <div className="p-4 space-y-3">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4" />
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full" />
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-2/3" />
+        <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800">
+            <div className={`w-full ${isMobile ? 'h-40' : 'h-52'} bg-gray-100 dark:bg-gray-800 animate-pulse`} />
+            <div className={`${isMobile ? 'p-3' : 'p-4'} space-y-2.5`}>
+                <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse w-3/4" />
+                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse w-1/2" />
+                {!isMobile && <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse w-full" />}
                 <div className="flex items-center justify-between pt-1">
-                    <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded animate-pulse w-1/3" />
-                    <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse w-1/3" />
+                    <div className="h-5 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse w-1/3" />
+                    <div className="h-8 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse w-1/4" />
                 </div>
             </div>
         </div>
@@ -130,46 +130,47 @@ const ProductCardComponent: React.FC<{
     return (
         <div
             data-product-id={product.id}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 group flex flex-col"
+            className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl hover:shadow-green-500/10 dark:hover:shadow-green-500/5 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col"
             style={{ animationDelay: `${index * 50}ms` }}
         >
-            {/* Imagem do Produto */}
+            {/* Imagem */}
             <Link to={`/loja/produto/${product.slug}`} className="block relative overflow-hidden flex-shrink-0">
-                <div className={`relative w-full ${isMobile ? 'h-44' : 'h-56'} bg-gradient-to-br from-green-50 to-green-100 dark:from-gray-700 dark:to-gray-800`}>
+                <div className={`relative w-full ${isMobile ? 'h-40' : 'h-52'} bg-gradient-to-br from-green-50 to-emerald-100 dark:from-gray-800 dark:to-gray-700`}>
                     {(() => {
                         const imageUrl = getVariantImage(selectedVariant, product);
                         return imageUrl && !imageUrl.includes('placeholder') ? (
                             <img
                                 src={imageUrl}
                                 alt={displayName}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                                 loading="lazy"
-                                onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop';
-                                }}
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                                <Package className="w-16 h-16 text-green-400 dark:text-green-600 opacity-60" />
+                                <Package className="w-14 h-14 text-green-300 dark:text-green-700 opacity-50" />
                             </div>
                         );
                     })()}
+
+                    {/* Overlay gradiente subtil no fundo */}
+                    <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+
                     {/* Badge categoria */}
                     {product.category && (
-                        <span className="absolute top-3 right-3 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-sm">
+                        <span className="absolute top-2.5 right-2.5 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm text-green-700 dark:text-green-400 px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm border border-green-100 dark:border-green-900">
                             {product.category}
                         </span>
                     )}
                     {showFeaturedBadge && (
-                        <span className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-400 text-yellow-900 text-xs font-semibold shadow-sm">
-                            <Star className="w-3 h-3 fill-current" />
+                        <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400 text-amber-900 text-[10px] font-bold shadow-sm">
+                            <Star className="w-2.5 h-2.5 fill-current" />
                             Destaque
                         </span>
                     )}
                     {!hasStock && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                            <span className="text-white font-bold text-sm px-3 py-1.5 bg-red-500/90 rounded-full">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <span className="text-white font-semibold text-xs px-3 py-1.5 bg-red-500/90 rounded-full shadow">
                                 Sem Stock
                             </span>
                         </div>
@@ -178,59 +179,50 @@ const ProductCardComponent: React.FC<{
             </Link>
 
             {/* Conteúdo */}
-            <div className="p-4 flex flex-col flex-1 space-y-3">
-                {/* Nome */}
-                <Link to={`/loja/produto/${product.slug}`} className="hover:text-green-700 dark:hover:text-green-400 transition-colors">
-                    <h3 className={`${isMobile ? 'text-sm' : 'text-base'} font-semibold text-gray-800 dark:text-white line-clamp-2 leading-snug`}>
-                        {product.name}
-                    </h3>
-                </Link>
+            <div className={`${isMobile ? 'p-3' : 'p-4'} flex flex-col flex-1 gap-1.5`}>
+                {/* Nome + Rating agrupados sem gap extra */}
+                <div>
+                    <Link to={`/loja/produto/${product.slug}`} className="block hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                        <h3 className={`${isMobile ? 'text-sm' : 'text-sm sm:text-base'} font-semibold text-gray-900 dark:text-white truncate leading-none`}>
+                            {product.name}
+                        </h3>
+                    </Link>
+                    <button type="button" onClick={() => setShowReviewModal(true)} className="flex items-center gap-1 w-fit mt-0.5 p-0 border-0 bg-transparent" aria-label="Ver avaliações">
+                        <StarRating value={ratingStats.average} size="sm" />
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                            {ratingStats.total > 0 ? `(${ratingStats.total})` : 'Avaliar'}
+                        </span>
+                    </button>
+                </div>
 
-                {/* Rating */}
-                <button
-                    type="button"
-                    onClick={() => setShowReviewModal(true)}
-                    className="flex items-center gap-1.5 group w-fit"
-                    aria-label="Ver avaliações"
-                >
-                    <StarRating value={ratingStats.average} size="sm" />
-                    <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                        {ratingStats.total > 0 ? `(${ratingStats.total})` : 'Avaliar'}
-                    </span>
-                </button>
-
-                {/* Descrição */}
-                {product.description && !isMobile && (
-                    <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2 leading-relaxed">
+                {/* Descrição — todos os tamanhos */}
+                {product.description && (
+                    <p className={`text-gray-400 dark:text-gray-500 leading-relaxed ${isMobile ? 'text-[11px] line-clamp-2' : 'text-xs line-clamp-2'}`}>
                         {product.description}
                     </p>
                 )}
 
                 {/* Preço + Botão */}
                 <div className="flex items-center justify-between mt-auto pt-1">
-                    <div>
-                        <span className={`${isMobile ? 'text-base' : 'text-xl'} font-bold text-green-700 dark:text-green-400`}>
+                    <div className="flex flex-col">
+                        <span className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'} font-bold text-green-600 dark:text-green-400 leading-tight`}>
                             {currentPrice.toFixed(2)} MT
                         </span>
                         {currentUnit && (
-                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">/ {currentUnit}</span>
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500">/ {currentUnit}</span>
                         )}
                     </div>
 
                     {hasStock ? (
                         <button
                             onClick={handleAddToCart}
-                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors text-sm font-medium shadow-sm"
+                            className={`bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 active:scale-95 text-white rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-green-500/25 hover:shadow-lg hover:shadow-green-500/30 font-medium ${isMobile ? 'p-2' : 'px-3 py-2 text-sm'}`}
                         >
-                            <ShoppingCart className="w-4 h-4" />
+                            <ShoppingCart className={isMobile ? 'w-4 h-4' : 'w-4 h-4'} />
                             {!isMobile && <span>Adicionar</span>}
                         </button>
                     ) : (
-                        <button
-                            onClick={handleNotify}
-                            disabled
-                            className="bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 px-3 py-2 rounded-lg flex items-center gap-1.5 text-sm font-medium cursor-not-allowed"
-                        >
+                        <button disabled className="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-3 py-2 rounded-xl flex items-center gap-1.5 text-sm font-medium cursor-not-allowed">
                             <Bell className="w-4 h-4" />
                             {!isMobile && <span>Avisar</span>}
                         </button>
@@ -335,9 +327,7 @@ const ProductCardComponent: React.FC<{
     );
 };
 
-// Memoizar ProductCard para evitar re-renders desnecessários
 export const ProductCard = memo(ProductCardComponent, (prevProps, nextProps) => {
-  // Comparação customizada - só re-renderizar se produto ou callbacks mudarem
   const prevStock = prevProps.product.variants?.reduce((s, v) => s + (v.stock ?? 0), 0) ?? prevProps.product.stock ?? 0;
   const nextStock = nextProps.product.variants?.reduce((s, v) => s + (v.stock ?? 0), 0) ?? nextProps.product.stock ?? 0;
   return (
@@ -345,6 +335,7 @@ export const ProductCard = memo(ProductCardComponent, (prevProps, nextProps) => 
     prevProps.product.price === nextProps.product.price &&
     prevStock === nextStock &&
     prevProps.isMobile === nextProps.isMobile &&
-    prevProps.showFeaturedBadge === nextProps.showFeaturedBadge
+    prevProps.showFeaturedBadge === nextProps.showFeaturedBadge &&
+    prevProps.onAddToCart === nextProps.onAddToCart
   );
 });

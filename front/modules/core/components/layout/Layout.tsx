@@ -307,7 +307,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 }}
                 className="flex-shrink-0 cursor-pointer hover:opacity-80 active:opacity-70 transition-opacity touch-manipulation"
               >
-                <Logo variant="full" width={190} height={58} className="h-[58px] w-auto max-w-[190px] object-contain" isDarkMode={isDarkMode} />
+                <Logo variant="full" width={150} height={46} className="h-[46px] w-auto max-w-[150px] object-contain" isDarkMode={isDarkMode} />
               </button>
             </div>
 
@@ -641,7 +641,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
       {/* Main Content */}
       <main
-        className={`flex-1 p-3 sm:p-4 md:p-8 ${activePage === 'shop' ? 'pt-0' : 'pt-[72px] sm:pt-[80px] md:pt-4'} ${activePage === 'shop' ? 'pb-24' : 'pb-4'} md:pb-8 overflow-x-hidden text-content-primary transition-all duration-300`}
+        className={`flex-1 p-3 sm:p-4 md:p-8 ${activePage === 'shop' ? 'pt-0' : 'pt-[88px] sm:pt-[88px] md:pt-4'} ${activePage === 'shop' ? 'pb-24' : 'pb-4'} md:pb-8 overflow-x-hidden text-content-primary transition-all duration-300`}
         style={{ marginLeft: (!isMobile && activePage !== 'shop') ? `${sidebarWidth}px` : '0' }}
       >
         {children}

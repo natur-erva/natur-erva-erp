@@ -84,6 +84,26 @@ export async function getProductReviews(productId: string): Promise<ProductRevie
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
+export async function getAllReviews(limit = 24): Promise<ProductReview[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('product_reviews')
+        .select('*')
+        .not('comment', 'is', null)
+        .not('comment', 'eq', '')
+        .gte('rating', 4)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (!error && data) return data as ProductReview[];
+    } catch {}
+  }
+  return getLocalReviews()
+    .filter(r => r.comment?.trim() && r.rating >= 4)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, limit);
+}
+
 export async function submitReview(
   productId: string,
   userName: string,

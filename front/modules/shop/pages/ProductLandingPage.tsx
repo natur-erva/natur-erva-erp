@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
     ShoppingCart, Heart, Star, Truck, Shield,
-    RotateCcw, Check, Loader2, Package,
+    RotateCcw, Check, Loader2, Package, ArrowLeft,
 } from 'lucide-react';
 import { Product, ProductVariant } from '../../core/types/types';
 import { productService } from '../../products/services/productService';
 import { getVariantImage } from '../../core/utils/productUtils';
 import { useShopContext } from '../../../contexts/ShopContext';
-import { Logo } from '../../core/components/ui/Logo';
 import {
     getProductRating,
     getProductReviews,
@@ -16,6 +15,17 @@ import {
     RatingStats,
 } from '../../products/services/reviewService';
 import uploadService from '../../../services/uploadService';
+
+interface CartItem {
+    productId: string;
+    productName: string;
+    variantId?: string;
+    variantName?: string;
+    quantity: number;
+    price: number;
+    unit: string;
+    image?: string;
+}
 
 export const ProductLandingPage: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
@@ -29,7 +39,9 @@ export const ProductLandingPage: React.FC = () => {
     const [reviews, setReviews] = useState<ProductReview[]>([]);
     const [ratingStats, setRatingStats] = useState<RatingStats | null>(null);
     const [wishlist, setWishlist] = useState(false);
+    const [cartFeedback, setCartFeedback] = useState<'success' | 'error' | null>(null);
 
+    const navigate = useNavigate();
     const shopContext = useShopContext();
 
     useEffect(() => {
@@ -67,15 +79,56 @@ export const ProductLandingPage: React.FC = () => {
 
     const handleAddToCart = useCallback(() => {
         if (!product) return;
-        
-        if (shopContext?.onAddToCart) {
-            shopContext.onAddToCart(product, selectedVariant, quantity);
-            // Abrir o carrinho após adicionar
-            if (shopContext?.onCartClick) {
-                shopContext.onCartClick();
-            }
+
+        const variantToUse = selectedVariant || product.variants?.find(v => v.isDefault) || product.variants?.[0];
+        const price = variantToUse?.price ?? product.price;
+        const stock = variantToUse?.stock ?? product.stock ?? 0;
+        const unit = variantToUse?.unit || product.unit || '';
+        const variantId = variantToUse?.id;
+        const variantName = variantToUse?.name;
+
+        if (stock <= 0) {
+            setCartFeedback('error');
+            setTimeout(() => setCartFeedback(null), 2000);
+            return;
         }
-    }, [product, selectedVariant, shopContext, quantity]);
+
+        const savedCart: CartItem[] = JSON.parse(localStorage.getItem('shop_cart') || '[]');
+        const existingItem = savedCart.find(
+            item => item.productId === product.id && item.variantId === variantId
+        );
+
+        let updatedCart: CartItem[];
+        if (existingItem) {
+            if (existingItem.quantity + quantity > stock) {
+                setCartFeedback('error');
+                setTimeout(() => setCartFeedback(null), 2000);
+                return;
+            }
+            updatedCart = savedCart.map(item =>
+                item.productId === product.id && item.variantId === variantId
+                    ? { ...item, quantity: item.quantity + quantity }
+                    : item
+            );
+        } else {
+            updatedCart = [...savedCart, {
+                productId: product.id,
+                productName: product.name,
+                variantId,
+                variantName,
+                quantity,
+                price,
+                unit,
+                image: product.image,
+            }];
+        }
+
+        localStorage.setItem('shop_cart', JSON.stringify(updatedCart));
+        shopContext.setCartItemCount(updatedCart.reduce((s, i) => s + i.quantity, 0));
+
+        setCartFeedback('success');
+        setTimeout(() => setCartFeedback(null), 2000);
+    }, [product, selectedVariant, quantity, shopContext]);
 
     const displayPrice = (selectedVariant?.price ?? product?.price ?? 0).toFixed(2);
 
@@ -101,9 +154,20 @@ export const ProductLandingPage: React.FC = () => {
     if (!product) return null;
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+            {/* Breadcrumb / Voltar */}
+            <div className="max-w-7xl mx-auto px-4 pt-5 pb-0">
+                <button
+                    onClick={() => navigate(-1)}
+                    className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors group"
+                >
+                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                    Voltar à Loja
+                </button>
+            </div>
+
             {/* Product Section */}
-            <section className="max-w-7xl mx-auto px-4 py-8">
+            <section className="max-w-7xl mx-auto px-4 py-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     {/* Gallery */}
                     <div>
@@ -258,10 +322,22 @@ export const ProductLandingPage: React.FC = () => {
                                     return hasStock ? (
                                         <button
                                             onClick={handleAddToCart}
-                                            className="flex-1 bg-green-600 hover:bg-green-700 text-white py-4 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium shadow-md"
+                                            disabled={cartFeedback !== null}
+                                            className={`flex-1 py-4 rounded-lg flex items-center justify-center gap-2 font-medium shadow-md transition-all ${
+                                                cartFeedback === 'success'
+                                                    ? 'bg-green-700 text-white'
+                                                    : cartFeedback === 'error'
+                                                    ? 'bg-red-500 text-white'
+                                                    : 'bg-green-600 hover:bg-green-700 text-white'
+                                            }`}
                                         >
-                                            <ShoppingCart className="w-5 h-5" />
-                                            Adicionar ao Carrinho
+                                            {cartFeedback === 'success' ? (
+                                                <><Check className="w-5 h-5" /> Adicionado!</>
+                                            ) : cartFeedback === 'error' ? (
+                                                <><Package className="w-5 h-5" /> Stock insuficiente</>
+                                            ) : (
+                                                <><ShoppingCart className="w-5 h-5" /> Adicionar ao Carrinho</>
+                                            )}
                                         </button>
                                     ) : (
                                         <button

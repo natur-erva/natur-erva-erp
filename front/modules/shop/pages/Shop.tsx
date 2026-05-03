@@ -26,6 +26,10 @@ import { isUUID } from '../../core/utils/slugUtils';
 import { normalizeForSearch } from '../../core/services/serviceUtils';
 import { ShopBanner } from '../components/ShopBanner';
 import { uploadProductImage } from '../../../services/uploadService';
+import { FAQSection } from '../components/FAQSection';
+import { TestimonialsSection } from '../components/TestimonialsSection';
+import { ShopInstagram } from '../components/ShopInstagram';
+import { ShopMidBanner } from '../components/ShopMidBanner';
 
 // Base path para deploy na raiz
 const BASE_PATH = '/';
@@ -1086,7 +1090,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             </div>
 
             {loading ? (
-              <div className={`grid ${isMobile ? 'grid-cols-2 gap-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'}`}>
+              <div className={`grid ${isMobile ? 'grid-cols-2 gap-3' : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5'}`}>
                 {Array.from({ length: isMobile ? 6 : 8 }).map((_, index) => (
                   <ProductCardSkeleton key={index} isMobile={isMobile} />
                 ))}
@@ -1102,7 +1106,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                 )}
               </div>
             ) : (
-              <div className={`grid ${isMobile ? 'grid-cols-2 gap-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'}`}>
+              <div className={`grid ${isMobile ? 'grid-cols-2 gap-3' : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5'}`}>
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -1116,6 +1120,22 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
               </div>
             )}
           </main>
+
+          {/* ── BANNER PROMOCIONAL (após produtos) ── */}
+          <ShopMidBanner
+            isAdmin={isAdmin}
+            products={products}
+            uploadImage={uploadProductImage}
+          />
+
+          {/* ── FAQ ── */}
+          <FAQSection />
+
+          {/* ── DEPOIMENTOS ── */}
+          <TestimonialsSection />
+
+          {/* ── INSTAGRAM ── */}
+          <ShopInstagram />
         </>
       )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from '../../modules/core/components/layout/Header';
 import { Footer } from '../../modules/core/components/layout/Footer';
@@ -24,15 +24,8 @@ const PublicLayoutContent: React.FC<PublicLayoutProps> = ({
 }) => {
   const location = useLocation();
   const isMobile = useMobile(768);
-  const [headerHeight, setHeaderHeight] = useState(64);
-  
   // Usar contexto do Shop (pode ser null se não estiver disponível)
   const shopContext = useShopContextSafe();
-
-  useEffect(() => {
-    // Altura do header (h-16 = 64px)
-    setHeaderHeight(64);
-  }, []);
 
   // Memoizar valores derivados do contexto para evitar recálculos
   // IMPORTANTE: Não memoizar os callbacks para garantir que mudanças sejam detectadas
@@ -82,7 +75,7 @@ const PublicLayoutContent: React.FC<PublicLayoutProps> = ({
         onCartClick={effectiveOnCartClick}
         onProfileClick={effectiveOnProfileClick}
       />
-      <main className="flex-1" style={{ paddingTop: `${headerHeight}px` }}>
+      <main className="flex-1 pt-16 sm:pt-[68px]">
         <Outlet />
       </main>
       <Footer isShopMode={true} />
