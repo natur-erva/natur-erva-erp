@@ -7,6 +7,8 @@ interface ShopContextType {
   setCartItemCount: (count: number) => void;
   onCartClick?: () => void;
   setOnCartClick: (handler: () => void) => void;
+  onAddToCart?: (product: any, variant?: any, quantity?: number) => void;
+  setOnAddToCart: (handler: (product: any, variant?: any, quantity?: number) => void) => void;
   onProfileClick?: () => void;
   setOnProfileClick: (handler: () => void) => void;
   onLoginClick?: () => void;
@@ -31,6 +33,7 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Usar refs para callbacks para evitar re-renders do contexto
   const onCartClickRef = useRef<(() => void) | undefined>(undefined);
+  const onAddToCartRef = useRef<((product: any, variant?: any, quantity?: number) => void) | undefined>(undefined);
   const onProfileClickRef = useRef<(() => void) | undefined>(undefined);
   const onLoginClickRef = useRef<(() => void) | undefined>(undefined);
   const toggleThemeRef = useRef<(() => void) | undefined>(undefined);
@@ -40,6 +43,10 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Estes wrappers nunca mudam, então não causam re-renders dos consumidores
   const contextOnCartClick = useCallback(() => {
     if (onCartClickRef.current) onCartClickRef.current();
+  }, []);
+
+  const contextOnAddToCart = useCallback((product: any, variant?: any, quantity: number = 1) => {
+    if (onAddToCartRef.current) onAddToCartRef.current(product, variant, quantity);
   }, []);
 
   const contextOnProfileClick = useCallback(() => {
@@ -61,6 +68,10 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Setters estáveis que apenas atualizam os refs
   const setOnCartClick = useCallback((handler: () => void) => {
     onCartClickRef.current = handler;
+  }, []);
+
+  const setOnAddToCart = useCallback((handler: (product: any, variant?: any, quantity?: number) => void) => {
+    onAddToCartRef.current = handler;
   }, []);
 
   const setOnProfileClick = useCallback((handler: () => void) => {
@@ -98,22 +109,26 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     onFilterClick: contextOnFilterClick,
     setOnFilterClick,
     hasActiveFilters,
-    setHasActiveFilters
+    setHasActiveFilters,
+    onAddToCart: contextOnAddToCart,
+    setOnAddToCart
   }), [
-    searchTerm, 
-    cartItemCount, 
-    darkMode, 
-    hasActiveFilters, 
-    contextOnCartClick, 
-    setOnCartClick, 
-    contextOnProfileClick, 
-    setOnProfileClick, 
-    contextOnLoginClick, 
-    setOnLoginClick, 
-    contextToggleTheme, 
-    setToggleTheme, 
-    contextOnFilterClick, 
-    setOnFilterClick
+    searchTerm,
+    cartItemCount,
+    darkMode,
+    hasActiveFilters,
+    contextOnCartClick,
+    setOnCartClick,
+    contextOnProfileClick,
+    setOnProfileClick,
+    contextOnLoginClick,
+    setOnLoginClick,
+    contextToggleTheme,
+    setToggleTheme,
+    contextOnFilterClick,
+    setOnFilterClick,
+    contextOnAddToCart,
+    setOnAddToCart
   ]);
 
   return (

@@ -51,6 +51,12 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3055,
       host: '0.0.0.0',
+      proxy: {
+        '/uploads': {
+          target: 'http://localhost:3060',
+          changeOrigin: true,
+        },
+      },
     },
     plugins: [
       react({

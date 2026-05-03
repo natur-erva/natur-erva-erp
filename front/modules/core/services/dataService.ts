@@ -1,5 +1,4 @@
 
-import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { parseProductName, extractLocalDate, normalizeOrderStatus, getPaidAmount } from './serviceUtils';
 import { productService } from '../../products/services/productService';
 import { customerService } from '../../customers/services/customerService';

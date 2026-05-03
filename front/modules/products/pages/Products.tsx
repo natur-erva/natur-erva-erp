@@ -7,7 +7,8 @@ import { ConfirmDialog } from '../../core/components/ui/ConfirmDialog';
 import { ProductManagement } from '../components/ui/ProductManagement';
 import { ProductFormModal } from '../components/modals/ProductFormModal';
 import { ProductVariantModal } from '../components/modals/ProductVariantModal';
-import { uploadProductImage, uploadVariantImage, deleteProductImage, validateImageFile } from '../../media/services/imageService';
+import uploadService, { uploadProductImage, deleteProductImage } from '../../../services/uploadService';
+import { uploadVariantImage, validateImageFile } from '../../media/services/imageService';
 import { useMobile } from '../../core/hooks/useMobile';
 import { PageShell } from '../../core/components/layout/PageShell';
 import type { ProductFormData } from '../components/modals/ProductFormModal';
@@ -77,6 +78,9 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [variantModalProduct, setVariantModalProduct] = useState<Product | null>(null);
 
+  // Track broken images
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+
   // Confirmation Dialog
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -102,6 +106,7 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
 
   const loadProducts = async () => {
     setLoading(true);
+    setBrokenImages(new Set()); // reset imagens marcadas como quebradas
     const data = await productService.getProducts();
     setProducts(data);
     setLoading(false);
@@ -402,6 +407,23 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
     return formatted.replace(/MZN/gi, 'MT').replace(/MTn/gi, 'MT');
   };
 
+  const uploadProductImageAdapter = async (file: File, productId?: string): Promise<string | null> => {
+    const url = await uploadProductImage(file);
+    if (url) {
+      return url;
+    }
+    console.error('[Upload Error]: failed to get URL');
+    return null;
+  };
+
+  // Wrapper para adaptar deleteProductImage ao formato esperado pelo ProductFormModal
+  const deleteProductImageAdapter = async (imageUrl: string): Promise<void | boolean> => {
+    // Extrair filename da URL
+    const filename = imageUrl.split('/').pop();
+    if (!filename) return false;
+    return await deleteProductImage(filename);
+  };
+
   const handleSaveProductForm = async (data: ProductFormData) => {
     const payload: Partial<Product> = {
       name: data.name,
@@ -411,9 +433,17 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
       minStock: data.minStock,
       unit: data.unit,
       image: data.image,
+      image2: data.image2,
+      image3: data.image3,
+      image4: data.image4,
       showInShop: data.showInShop,
       type: ProductType.FRESH,
-      stock: 0,
+      stock: data.stock,
+      description: (data as any).description || undefined,
+      descriptionLong: (data as any).descriptionLong || undefined,
+      benefits: (data as any).benefits || undefined,
+      howToUse: (data as any).howToUse || undefined,
+      ingredients: (data as any).ingredients || undefined,
     };
     let success = false;
     let productId: string | null = null;
@@ -473,6 +503,11 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
 
   const openVariantModal = (product: Product) => {
     setVariantModalProduct(product);
+  };
+
+  const handleImageError = (imageUrl: string) => {
+    console.warn('[Products] Erro ao carregar imagem:', imageUrl);
+    setBrokenImages((prev) => new Set([...prev, imageUrl]));
   };
 
   React.useEffect(() => {
@@ -816,8 +851,13 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
                     }`}
                 >
                   <div className="relative h-48 bg-gray-100 dark:bg-gray-700">
-                    {product.image ? (
-                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                    {product.image && !brokenImages.has(product.image) ? (
+                      <img 
+                        src={uploadService.getPublicUrl(product.image)} 
+                        alt={product.name} 
+                        className="w-full h-full object-cover" 
+                        onError={() => handleImageError(product.image)}
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Sprout className="w-12 h-12 text-brand-600 dark:text-brand-400" />
@@ -1006,7 +1046,7 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
                             {image ? (
-                              <img src={image} alt={displayName} className="w-full h-full object-cover" />
+                              <img src={uploadService.getPublicUrl(image)} alt={displayName} className="w-full h-full object-cover" />
                             ) : (
                               <Sprout className="w-5 h-5 text-brand-600 dark:text-brand-400" />
                             )}
@@ -1164,8 +1204,8 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
         units={unitsList.map((u) => ({ id: u.id, name: u.name, abbreviation: u.abbreviation }))}
         onSave={handleSaveProductForm}
         showToast={showToast}
-        uploadProductImage={uploadProductImage}
-        deleteProductImage={deleteProductImage}
+        uploadProductImage={uploadProductImageAdapter}
+        deleteProductImage={deleteProductImageAdapter}
         validateImageFile={validateImageFile}
       />
 

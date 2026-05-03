@@ -8,6 +8,7 @@ import { stockReportService } from '../../services/stockReportService';
 import { ConfirmDialog } from '../../../core/components/ui/ConfirmDialog';
 import { normalizeForSearch } from '../../../core/services/serviceUtils';
 import { AddVariantModal } from './AddVariantModal';
+import uploadService from '../../../../services/uploadService';
 import { getTodayDateString, getStockSnapshotDate } from '../../../core/utils/dateUtils';
 import type { ProductUnitOption } from './ProductFormModal';
 
@@ -403,7 +404,7 @@ export const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
                             <td className="px-4 py-3">
                               {variant.image ? (
                                 <img
-                                  src={variant.image}
+                                  src={uploadService.getPublicUrl(variant.image)}
                                   alt={variant.name}
                                   className="w-12 h-12 object-cover rounded-lg"
                                 />

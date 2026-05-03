@@ -1,5 +1,4 @@
 
-import { supabase } from './supabaseClient';
 import { LoyaltyTier, Order, OrderStatus } from '../types/types';
 import { extractLocalDate as extractLocalDateFromUtils, getTodayDateString } from '../utils/dateUtils';
 

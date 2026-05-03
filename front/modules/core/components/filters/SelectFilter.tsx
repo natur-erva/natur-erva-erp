@@ -13,6 +13,7 @@ export interface SelectFilterProps<T extends string> {
   className?: string;
   selectClassName?: string;
   ariaLabel?: string;
+  placeholder?: string;
 }
 
 export const SelectFilter = <T extends string>({
@@ -23,6 +24,7 @@ export const SelectFilter = <T extends string>({
   className = '',
   selectClassName = '',
   ariaLabel = 'Filtrar por',
+  placeholder,
 }: SelectFilterProps<T>) => {
   const isCompact = size === 'compact';
 

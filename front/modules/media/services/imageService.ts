@@ -2,6 +2,9 @@ import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClie
 
 const BUCKET_NAME = 'product-images';
 
+// Flag para mostrar aviso apenas uma vez por sessão
+let configWarningShown = false;
+
 /**
  * Cria o bucket de imagens se néo existir
  */
@@ -127,13 +130,37 @@ export const uploadProductImage = async (
       }
     }
 
-    // Obter URL péºblica
+    // Obter URL pública
     const { data: urlData } = supabase.storage
       .from(BUCKET_NAME)
       .getPublicUrl(fileName);
 
     if (!urlData?.publicUrl) {
-      throw new Error('Erro ao obter URL péºblica da imagem');
+      throw new Error('Erro ao obter URL pública da imagem');
+    }
+
+    console.log('[uploadProductImage] Upload concluído com sucesso:', {
+      fileName,
+      publicUrl: urlData.publicUrl,
+      bucket: BUCKET_NAME
+    });
+
+    // Aviso sobre configuração do bucket (mostrar apenas uma vez por sessão)
+    if (!configWarningShown) {
+      configWarningShown = true;
+      console.info(`
+╔════════════════════════════════════════════════════════════════╗
+║  ℹ️  CONFIGURAÇÃO DO BUCKET SUPABASE                          ║
+╚════════════════════════════════════════════════════════════════╝
+
+Para garantir que as imagens sejam acessíveis:
+
+1. Abra o arquivo: sql/fixes/README_SOLUCAO_IMAGENS.md
+2. Siga as instruções para executar o script SQL
+3. Ou execute: sql/fixes/CONFIGURAR_STORAGE_IMAGENS.sql
+
+Bucket: ${BUCKET_NAME}
+`);
     }
 
     return urlData.publicUrl;
