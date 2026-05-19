@@ -308,21 +308,16 @@ export const ShopMidBanner: React.FC<ShopMidBannerProps> = ({ isAdmin = false, p
         style={{ backgroundColor: banner!.bgColor, minHeight: '180px' }}
         onClick={handleClick}
       >
-        {/* Imagem do produto (direita) */}
+        {/* Imagem cobre o banner todo */}
         {imgUrl && (
-          <img
-            src={imgUrl}
-            alt={banner!.title}
-            className="absolute right-0 top-0 h-full w-1/2 md:w-2/5 object-cover object-left group-hover:scale-105 transition-transform duration-500"
-          />
-        )}
-
-        {/* Gradiente para legibilidade do texto */}
-        {imgUrl && (
-          <div
-            className="absolute inset-0"
-            style={{ background: `linear-gradient(to right, ${banner!.bgColor} 45%, ${banner!.bgColor}bb 65%, transparent 100%)` }}
-          />
+          <>
+            <img
+              src={imgUrl}
+              alt={banner!.title}
+              className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+            />
+            <div className="absolute inset-0 bg-black/45" />
+          </>
         )}
 
         {/* Conteúdo de texto */}

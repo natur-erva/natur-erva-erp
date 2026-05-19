@@ -29,6 +29,7 @@ const MIGRATIONS = [
   '../sql/migrations/ADD_CATEGORY_UNIT_COLUMNS.sql',
   '../sql/migrations/CREATE_TRACKING_TABLES.sql',
   '../sql/migrations/CREATE_STOCK_TABLES.sql',
+  '../sql/migrations/SEED_DELIVERY_ZONES_MAPUTO.sql',
 ];
 
 async function run() {

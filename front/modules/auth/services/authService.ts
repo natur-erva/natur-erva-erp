@@ -165,7 +165,7 @@ export const authService = {
 
   async updateProfile(id: string, updates: Partial<User>): Promise<{ success: boolean; error?: string }> {
     try {
-      await api.put(`/users/users/${id}`, updates);
+      await api.put(`/users/${id}`, updates);
       if (currentUser && currentUser.id === id) {
         currentUser = { ...currentUser, ...updates };
       }

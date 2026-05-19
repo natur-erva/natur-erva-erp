@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
-import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Product, ProductVariant, OrderItem, Customer, UserRole, OrderStatus, DeliveryZone } from '../../core/types/types';
 import { authService } from '../../auth/services/authService';
 import { deliveryService } from '../../sales/services/deliveryService';
 import { productService } from '../../products/services/productService';
+import api from '../../core/services/apiClient';
 import { orderService } from '../../sales/services/orderService';
 import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClient';
 import { trackingService } from '../../core/services/trackingService';
@@ -59,6 +60,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   const location = useLocation();
   const params = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isMobile = useMobile(768);
 
   // Usar contexto do Shop para compartilhar estado com Header
@@ -112,7 +114,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => searchParams.get('categoria') || 'all');
   const [priceRange, setPriceRange] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<string>('popular');
 
@@ -147,7 +149,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, params.id, params.seriesId, params.chapterId, params.seriesSlug, params.chapterSlug]);
   const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Array<{id: string; name: string; color: string; isActive: boolean}>>([]);
   const [darkMode, setDarkMode] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -299,6 +301,24 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   }, [onLogin]);
 
   // Declarar todas as funções antes de serem usadas no useEffect
+  const loadCategories = useCallback(async () => {
+    try {
+      const data = await api.get<any[]>('/categories');
+      setCategories((data || []).filter((c: any) => c.isActive !== false));
+    } catch {
+      // falha silenciosa — a loja funciona sem categorias
+    }
+  }, []);
+
+  // Aplicar filtro de categoria vindo do URL (?categoria=...)
+  useEffect(() => {
+    const cat = searchParams.get('categoria');
+    if (cat) {
+      setSelectedCategory(cat);
+      document.getElementById('produtos-section')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [searchParams]);
+
   const loadSettings = useCallback(async () => {
     try {
       const loadedSettings = await getSystemSettings();
@@ -336,10 +356,6 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
         return (p.stock ?? 0) > 0;
       });
       setProducts(visibleProducts);
-
-      // Extrair categorias únicas
-      const uniqueCategories = Array.from(new Set(allProducts.map(p => p.category || 'Geral'))).filter(Boolean);
-      setCategories(uniqueCategories);
 
       // Inicializar filteredProducts
       setFilteredProducts(allProducts);
@@ -391,6 +407,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     hasInitialized.current = true;
 
     loadProducts();
+    loadCategories();
     if (!propCurrentUser) {
       checkAuth();
     } else {
@@ -536,7 +553,9 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
 
     // Filtrar por categoria
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(p => (p.category || 'Geral') === selectedCategory);
+      filtered = filtered.filter(p =>
+        (p.category || '').toLowerCase() === selectedCategory.toLowerCase()
+      );
     }
 
     // Filtrar por termo de busca (usar debounced)
@@ -1020,24 +1039,26 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
           {/* ── CATEGORIAS ── */}
           {categories.length > 0 && (
             <section className={`max-w-7xl mx-auto px-4 relative z-10 ${!isMobile ? '-mt-16' : 'pt-4'}`}>
-              <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
-                {categories.slice(0, 4).map((cat) => {
-                  const icons = [Leaf, Droplet, Pill, Heart];
-                  const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-red-500'];
-                  const idx = categories.indexOf(cat) % icons.length;
-                  const Icon = icons[idx];
-                  const color = colors[idx];
-                  const count = products.filter(p => (p.category || 'Geral') === cat).length;
+              <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
+                {categories.map((cat, idx) => {
+                  const icons = [Leaf, Droplet, Pill, Heart, Sparkles, Tag];
+                  const Icon = icons[idx % icons.length];
+                  const count = products.filter(p =>
+                    (p.category || '').toLowerCase() === cat.name.toLowerCase()
+                  ).length;
                   return (
                     <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat === selectedCategory ? 'all' : cat)}
-                      className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 w-full ${selectedCategory === cat ? 'ring-2 ring-green-500' : ''}`}
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.name === selectedCategory ? 'all' : cat.name)}
+                      className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 w-full ${selectedCategory === cat.name ? 'ring-2 ring-green-500' : ''}`}
                     >
-                      <div className={`w-16 h-16 ${color} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                      <div
+                        className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                        style={{ backgroundColor: cat.color || '#22c55e' }}
+                      >
                         <Icon className="w-8 h-8 text-white" />
                       </div>
-                      <h3 className="text-base font-semibold mb-1 text-gray-800 dark:text-white">{cat}</h3>
+                      <h3 className="text-base font-semibold mb-1 text-gray-800 dark:text-white">{cat.name}</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{count} produtos</p>
                     </button>
                   );
@@ -1734,7 +1755,7 @@ const CheckoutModal: React.FC<{
                           });
                         }
                       }}
-                      showPrice={true}
+                      showPrice={false}
                     />
                   </div>
 

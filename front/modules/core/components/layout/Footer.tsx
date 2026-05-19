@@ -2,27 +2,34 @@ import React, { useState, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram, Facebook, Phone, Mail, Leaf } from 'lucide-react';
 import { Logo } from '../ui/Logo';
-import { getSystemSettings, SystemSettings } from '../../../core/services/systemSettingsService';
+import api from '../../../core/services/apiClient';
+
+interface Category {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
 
 interface FooterProps {
   isShopMode?: boolean;
 }
 
 const FooterComponent: React.FC<FooterProps> = ({ isShopMode = false }) => {
-  const [settings, setSettings] = useState<SystemSettings>({});
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    getSystemSettings().then(setSettings).catch(() => {});
+    api.get('/categories')
+      .then((data: any) => setCategories((data || []).filter((c: Category) => c.isActive !== false)))
+      .catch(() => {});
   }, []);
 
   return (
     <footer className="bg-gray-950 text-white mt-16 pb-20 md:pb-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-8">
 
-        {/* Grid: 2 colunas mobile, 4 desktop */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-10">
 
-          {/* Coluna 1 — Marca (ocupa 2 colunas no mobile) */}
+          {/* Coluna 1 — Marca */}
           <div className="col-span-2 md:col-span-1">
             <div className="mb-4">
               <Logo width={130} height={44} isDarkMode={true} />
@@ -46,22 +53,31 @@ const FooterComponent: React.FC<FooterProps> = ({ isShopMode = false }) => {
             </div>
           </div>
 
-          {/* Coluna 2 — Categorias */}
+          {/* Coluna 2 — Categorias reais */}
           <div>
             <h4 className="mb-4 font-semibold text-white text-sm uppercase tracking-wide flex items-center gap-2">
               <Leaf className="h-3.5 w-3.5 text-green-500" />
               Categorias
             </h4>
             <ul className="space-y-2.5 text-gray-400 text-sm">
-              <li><Link to="/loja?categoria=Suplementos" className="hover:text-green-400 transition-colors">Suplementos</Link></li>
-              <li><Link to="/loja?categoria=Chás e Infusões" className="hover:text-green-400 transition-colors">Chás e Infusões</Link></li>
-              <li><Link to="/loja?categoria=Óleos Essenciais" className="hover:text-green-400 transition-colors">Óleos Essenciais</Link></li>
-              <li><Link to="/loja?categoria=Cápsulas" className="hover:text-green-400 transition-colors">Cápsulas</Link></li>
-              <li><Link to="/loja?categoria=Fitoterapia" className="hover:text-green-400 transition-colors">Fitoterapia</Link></li>
+              {categories.length > 0 ? (
+                categories.map(cat => (
+                  <li key={cat.id}>
+                    <Link
+                      to={`/loja?categoria=${encodeURIComponent(cat.name)}`}
+                      className="hover:text-green-400 transition-colors"
+                    >
+                      {cat.name}
+                    </Link>
+                  </li>
+                ))
+              ) : (
+                <li className="text-gray-600 text-xs">A carregar...</li>
+              )}
             </ul>
           </div>
 
-          {/* Coluna 3 — Atendimento */}
+          {/* Coluna 3 — Ajuda */}
           <div>
             <h4 className="mb-4 font-semibold text-white text-sm uppercase tracking-wide">Ajuda</h4>
             <ul className="space-y-2.5 text-gray-400 text-sm">
@@ -80,12 +96,10 @@ const FooterComponent: React.FC<FooterProps> = ({ isShopMode = false }) => {
           <div>
             <h4 className="mb-4 font-semibold text-white text-sm uppercase tracking-wide">Contacto</h4>
             <p className="text-gray-400 text-sm mb-4">Receba ofertas exclusivas e novidades</p>
-            {settings.company_email && (
-              <a href={`mailto:${settings.company_email}`} className="flex items-center gap-2 text-gray-400 text-sm hover:text-green-400 transition-colors mb-4">
-                <Mail className="h-4 w-4 text-green-500 flex-shrink-0" />
-                {settings.company_email}
-              </a>
-            )}
+            <a href="mailto:info@natur-erva.co.mz" className="flex items-center gap-2 text-gray-400 text-sm hover:text-green-400 transition-colors mb-4">
+              <Mail className="h-4 w-4 text-green-500 flex-shrink-0" />
+              info@natur-erva.co.mz
+            </a>
             <div className="flex gap-2">
               <input
                 type="email"
@@ -99,7 +113,6 @@ const FooterComponent: React.FC<FooterProps> = ({ isShopMode = false }) => {
           </div>
         </div>
 
-        {/* Copyright */}
         <div className="border-t border-gray-800 mt-10 pt-6 text-center text-gray-500 text-xs">
           © {new Date().getFullYear()} Natur Erva · Todos os direitos reservados
         </div>

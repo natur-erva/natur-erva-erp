@@ -201,7 +201,7 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
   // ─── Skeleton ─────────────────────────────────────────────────────
   if (loading) {
     return (
-      <section className="w-full h-[320px] md:h-[440px]">
+      <section className="w-full h-[420px] md:h-[580px]">
         <div className="w-full h-full bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 animate-pulse" />
       </section>
     );
@@ -215,7 +215,7 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
   return (
     <>
       {/* ── Slider ───────────────────────────────────────────────── */}
-      <section className="relative w-full overflow-hidden" style={{ height: 'clamp(280px, 45vw, 520px)' }}>
+      <section className="relative w-full overflow-hidden" style={{ height: 'clamp(420px, 60vw, 680px)' }}>
 
         {/* Slides track */}
         <div
@@ -231,31 +231,26 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
                 className="relative w-full flex-shrink-0 h-full flex items-center"
                 style={{ backgroundColor: slide.bgColor }}
               >
-                {/* Imagem de fundo com gradiente */}
-                {img && (
+                {/* Imagem de fundo — cobre o banner todo */}
+                {img ? (
                   <>
                     <img
                       src={img}
                       alt={slide.title}
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover object-center"
                     />
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        background: `linear-gradient(to right, ${slide.bgColor}ee 35%, ${slide.bgColor}99 55%, transparent 100%)`,
-                      }}
-                    />
+                    {/* overlay subtil só para legibilidade do texto */}
+                    <div className="absolute inset-0 bg-black/40" />
                   </>
-                )}
-                {!img && (
+                ) : (
                   <div className="absolute inset-0" style={{
                     background: `linear-gradient(135deg, ${slide.bgColor} 0%, ${slide.bgColor}cc 100%)`,
                   }} />
                 )}
 
                 {/* Conteúdo */}
-                <div className="relative w-full max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-between gap-6">
-                  <div className="text-white max-w-lg z-10">
+                <div className="relative w-full max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-start gap-6">
+                  <div className="text-white max-w-xl z-10 drop-shadow-lg">
                     {slide.productSlug && (
                       <span className="inline-block bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1 rounded-full mb-3 border border-white/30">
                         Produto em destaque
