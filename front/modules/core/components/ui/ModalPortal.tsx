@@ -39,17 +39,17 @@ export const ModalPortal: React.FC<ModalPortalProps> = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 min-h-screen min-w-full flex items-center justify-center ${className}`}
+      className={`fixed inset-0 flex items-center justify-center overflow-y-auto ${className}`}
       style={{ zIndex }}
     >
-      {/* Overlay com blur transparente */}
+      {/* Overlay */}
       <div
-        className="absolute inset-0 modal-overlay-bg"
+        className="fixed inset-0 modal-overlay-bg"
         onClick={closeOnOverlayClick ? onClose : undefined}
         aria-hidden
       />
-      {/* Conteúdo do modal - stopPropagation evita fechar ao clicar dentro */}
-      <div className="relative" onClick={(e) => e.stopPropagation()}>
+      {/* Conteúdo — my-auto garante centralização mesmo com overflow */}
+      <div className="relative w-full flex justify-center my-auto" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>,

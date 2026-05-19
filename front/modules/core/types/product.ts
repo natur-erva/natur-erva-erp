@@ -56,6 +56,7 @@ export interface Product {
   image3?: string;
   image4?: string;
   updatedAt?: string;
+  totalSold?: number;
   showInShop?: boolean;
   variants?: ProductVariant[];
   hasVariants?: boolean;

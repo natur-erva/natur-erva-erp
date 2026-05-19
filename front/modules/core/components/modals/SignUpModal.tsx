@@ -116,7 +116,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ onClose, onSuccess }) 
 
   return (
     <ModalPortal open onClose={onClose} zIndex={10001} className="p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700 animate-scaleIn relative">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full mx-auto max-h-[92dvh] overflow-y-auto border border-gray-200 dark:border-gray-700 animate-scaleIn relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-10"

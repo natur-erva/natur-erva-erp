@@ -83,7 +83,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, onClose, onUser
   return (
     <>
       <ModalPortal open onClose={onClose} zIndex={10000} className="p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl px-6 sm:px-8 py-5 sm:py-6 max-w-sm w-full mx-4 shadow-2xl border border-gray-200 dark:border-gray-700 animate-scaleIn">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl px-6 sm:px-8 py-5 sm:py-6 max-w-sm w-full mx-auto shadow-2xl border border-gray-200 dark:border-gray-700 animate-scaleIn max-h-[92dvh] overflow-y-auto">
           <div className="text-center mb-3">
             <div className="mb-2 flex justify-center" style={{ maxWidth: '50%', margin: '0 auto' }}>
               <Logo className="h-4" isDarkMode={document.documentElement.classList.contains('dark')} />

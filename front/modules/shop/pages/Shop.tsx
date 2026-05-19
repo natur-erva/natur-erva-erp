@@ -578,9 +578,11 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     }
 
     // Ordenar
-    if (sortOrder === 'price_asc') filtered.sort((a, b) => getProductMinPrice(a) - getProductMinPrice(b));
+    if (sortOrder === 'popular') filtered.sort((a, b) => (b.totalSold || 0) - (a.totalSold || 0));
+    else if (sortOrder === 'price_asc') filtered.sort((a, b) => getProductMinPrice(a) - getProductMinPrice(b));
     else if (sortOrder === 'price_desc') filtered.sort((a, b) => getProductMinPrice(b) - getProductMinPrice(a));
     else if (sortOrder === 'name_asc') filtered.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortOrder === 'newest') filtered.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
 
     return filtered;
   }, [products, debouncedSearchTerm, selectedCategory, priceRange, sortOrder]);
@@ -1104,6 +1106,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-white text-sm"
               >
                 <option value="popular">Mais Populares</option>
+                <option value="newest">Mais Recentes</option>
                 <option value="price_asc">Menor Preço</option>
                 <option value="price_desc">Maior Preço</option>
                 <option value="name_asc">Nome A-Z</option>
@@ -1231,15 +1234,15 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             setPendingCheckout(false);
           }}
           onSuccess={async () => {
-            // Atualizar usuário local
-            const updatedUser = await authService.getCurrentUser();
-            if (updatedUser) {
-              setCurrentUser(updatedUser);
-              if (onLogin) {
-                onLogin(updatedUser);
+            setShowCompleteProfile(false);
+            // Atualizar usuário local (não bloqueia o fluxo)
+            authService.getCurrentUser().then(updatedUser => {
+              if (updatedUser) {
+                setCurrentUser(updatedUser);
+                if (onLogin) onLogin(updatedUser);
               }
-            }
-            // Se checkout estava pendente, abrir agora
+            }).catch(() => {});
+            // Abrir checkout independentemente de getCurrentUser ter sucesso
             if (pendingCheckout) {
               setShowCheckout(true);
               setPendingCheckout(false);

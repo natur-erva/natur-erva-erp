@@ -21,6 +21,7 @@ const mapProduct = (p) => ({
   image3: p.image_url3,
   image4: p.image_url4,
   updatedAt: p.updated_at,
+  totalSold: Number(p.total_sold || 0),
   showInShop: p.show_in_shop !== undefined ? p.show_in_shop : true,
   description: p.description,
   descriptionLong: p.description_long,
@@ -48,9 +49,16 @@ const mapVariant = (v) => ({
 // GET /api/products
 router.get('/', async (req, res) => {
   try {
-    const { rows: products } = await pool.query(
-      'SELECT * FROM products ORDER BY category ASC, name ASC'
-    );
+    const { rows: products } = await pool.query(`
+      SELECT p.*,
+        COALESCE((
+          SELECT SUM((item->>'quantity')::numeric)
+          FROM orders o, jsonb_array_elements(o.items) item
+          WHERE item->>'productId' = p.id::text
+        ), 0) AS total_sold
+      FROM products p
+      ORDER BY p.category ASC, p.name ASC
+    `);
     const { rows: variants } = await pool.query(
       'SELECT * FROM product_variants ORDER BY display_order ASC NULLS LAST, is_default DESC, name ASC'
     );

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { type User, Role, Permission } from '../../core/types/types';
-import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClient';
 import { userService } from '../../core/services/userService';
 import { Plus, Edit, Trash2, Shield, User as UserIcon, Phone, Check, X, Users as UsersIcon, ShoppingBag, Lock } from 'lucide-react';
 import { Avatar } from '../../core/components/ui/Avatar';
@@ -68,12 +67,6 @@ export const Users: React.FC<{
 
 
   const loadUsers = async () => {
-    if (!isSupabaseConfigured() || !supabase) {
-      console.warn('Supabase não configurado');
-      showToast('Supabase não configurado. Configure nas configurações.', 'error');
-      return;
-    }
-
     try {
       let appUsers = await userService.getUsers();
       if (currentUser?.id) {
@@ -97,11 +90,6 @@ export const Users: React.FC<{
   };
 
   const loadRoles = async () => {
-    if (!isSupabaseConfigured() || !supabase) {
-      console.warn('Supabase não configurado');
-      return;
-    }
-
     try {
       const data = await userService.getRoles();
 
@@ -128,11 +116,6 @@ export const Users: React.FC<{
   };
 
   const loadPermissions = async () => {
-    if (!isSupabaseConfigured() || !supabase) {
-      console.warn('Supabase não configurado');
-      return;
-    }
-
     try {
       const data = await userService.getPermissions();
 
@@ -166,11 +149,6 @@ export const Users: React.FC<{
     isActive?: boolean;
     isSuperAdmin?: boolean;
   }) => {
-    if (!isSupabaseConfigured() || !supabase) {
-      showToast('Supabase não configurado', 'error');
-      return;
-    }
-
     // Validações
     if (!userData.name.trim()) {
       showToast('Nome é obrigatãorio', 'error');
@@ -236,11 +214,6 @@ export const Users: React.FC<{
     isActive?: boolean;
     isSuperAdmin?: boolean;
   }) => {
-    if (!isSupabaseConfigured() || !supabase) {
-      showToast('Supabase não configurado', 'error');
-      return;
-    }
-
     // Validações
     if (updates.name !== undefined && !updates.name.trim()) {
       showToast('Nome não pode estar vazio', 'error');
@@ -297,11 +270,6 @@ export const Users: React.FC<{
     if (!confirm('Tem certeza que deseja apagar este usuário? Esta açéo não pode ser desfeita.')) return;
     if (userId === currentUser?.id) {
       showToast('Néo pode apagar seu prãoprio usuário', 'error');
-      return;
-    }
-
-    if (!isSupabaseConfigured() || !supabase) {
-      showToast('Supabase não configurado', 'error');
       return;
     }
 
