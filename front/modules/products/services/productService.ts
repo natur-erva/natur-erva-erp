@@ -155,30 +155,107 @@ export const productService = {
     } catch { return false; }
   },
 
+  // ── Categories ──────────────────────────────────────────────────────────────
+
+  async getCategories(): Promise<any[]> {
+    try {
+      return await api.get<any[]>('/categories');
+    } catch { return []; }
+  },
+
+  async addCategory(category: { name: string; description?: string; color?: string; icon?: string; isActive?: boolean }): Promise<any | null> {
+    try {
+      const result = await api.post<any>('/categories', category);
+      clearProductCache('categories');
+      return result;
+    } catch (err) {
+      console.error('[addCategory]', err);
+      return null;
+    }
+  },
+
+  async updateCategory(id: string, updates: Partial<{ name: string; description: string; color: string; icon: string; isActive: boolean }>): Promise<boolean> {
+    try {
+      await api.put(`/categories/${id}`, updates);
+      clearProductCache('categories');
+      return true;
+    } catch (err) {
+      console.error('[updateCategory]', err);
+      return false;
+    }
+  },
+
+  async deleteCategory(id: string): Promise<boolean> {
+    try {
+      await api.delete(`/categories/${id}`);
+      clearProductCache('categories');
+      return true;
+    } catch { return false; }
+  },
+
+  // ── Units ────────────────────────────────────────────────────────────────────
+
   async getUnits(): Promise<ProductUnit[]> {
-    return [
-      { id: 'un', name: 'Unidade', abbreviation: 'un' },
-      { id: 'kg', name: 'Kilograma', abbreviation: 'kg' },
-      { id: 'g', name: 'Grama', abbreviation: 'g' },
-      { id: 'l', name: 'Litro', abbreviation: 'l' },
-      { id: 'ml', name: 'Mililitro', abbreviation: 'ml' },
-      { id: 'dz', name: 'Dúzia', abbreviation: 'dz' },
-    ];
+    try {
+      return await api.get<ProductUnit[]>('/units');
+    } catch {
+      return [
+        { id: 'un', name: 'Unidade', abbreviation: 'un' },
+        { id: 'kg', name: 'Kilograma', abbreviation: 'kg' },
+        { id: 'g',  name: 'Grama',     abbreviation: 'g' },
+        { id: 'l',  name: 'Litro',     abbreviation: 'l' },
+        { id: 'ml', name: 'Mililitro', abbreviation: 'ml' },
+        { id: 'dz', name: 'Dúzia',     abbreviation: 'dz' },
+      ];
+    }
   },
 
-  async getCategories(): Promise<{ id: string, name: string }[]> {
-    return [
-      { id: 'ervas', name: 'Ervas e Plantas Medicinais' },
-      { id: 'suplementos', name: 'Suplementos Naturais' },
-      { id: 'cosmetica', name: 'Cosmética Natural' },
-      { id: 'alimentacao', name: 'Alimentação Saudável' },
-      { id: 'oleos', name: 'Óleos Essenciais' },
-      { id: 'infusoes', name: 'Chás e Infusões' },
-      { id: 'outros', name: 'Outros' }
-    ];
+  async addUnit(unit: { name: string; abbreviation: string; description?: string; isActive?: boolean }): Promise<any | null> {
+    try {
+      const result = await api.post<any>('/units', unit);
+      return result;
+    } catch (err) {
+      console.error('[addUnit]', err);
+      return null;
+    }
   },
 
-  // Compatibilidade com código legado que usa findOrCreateProduct
+  async updateUnit(id: string, updates: Partial<{ name: string; abbreviation: string; description: string; isActive: boolean }>): Promise<boolean> {
+    try {
+      await api.put(`/units/${id}`, updates);
+      return true;
+    } catch (err) {
+      console.error('[updateUnit]', err);
+      return false;
+    }
+  },
+
+  async deleteUnit(id: string): Promise<boolean> {
+    try {
+      await api.delete(`/units/${id}`);
+      return true;
+    } catch { return false; }
+  },
+
+  // ── Variant templates (stub — no backend table yet) ───────────────────────
+
+  async getVariantTemplates(): Promise<any[]> {
+    return [];
+  },
+
+  async addVariantTemplate(_template: any): Promise<any | null> {
+    return null;
+  },
+
+  async updateVariantTemplate(_id: string, _updates: any): Promise<boolean> {
+    return false;
+  },
+
+  async deleteVariantTemplate(_id: string): Promise<boolean> {
+    return false;
+  },
+
+  // Compatibilidade com código legado
   async findOrCreateProduct(_name: string, _unit: string, _price: number) {
     return { id: null, wasCreated: false };
   },

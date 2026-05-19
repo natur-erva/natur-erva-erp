@@ -254,7 +254,7 @@ router.post('/snapshot', authMiddleware, async (req, res) => {
 router.get('/transactions', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM stock_transactions ORDER BY date DESC LIMIT 1000'
+      'SELECT * FROM stock_transactions ORDER BY created_at DESC LIMIT 1000'
     );
     res.json(rows);
   } catch (err) {

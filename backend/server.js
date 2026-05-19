@@ -26,6 +26,8 @@ import bannerRoutes from './routes/banners.js';
 import roleRoutes from './routes/roles.js';
 import instagramRoutes from './routes/instagram.js';
 import trackingRoutes from './routes/tracking.js';
+import categoriesRoutes from './routes/categories.js';
+import unitsRoutes from './routes/units.js';
 
 const app = express();
 const PORT = process.env.PORT || 3060;
@@ -114,6 +116,8 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/instagram', instagramRoutes);
 app.use('/api/tracking', trackingRoutes);
+app.use('/api/categories', categoriesRoutes);
+app.use('/api/units', unitsRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

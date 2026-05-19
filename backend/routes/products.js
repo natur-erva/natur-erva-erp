@@ -42,7 +42,7 @@ const mapVariant = (v) => ({
   unit: v.unit,
   isDefault: v.is_default || false,
   displayOrder: v.display_order ?? null,
-  image: v.image_url || undefined
+  image: v.image || undefined
 });
 
 // GET /api/products
@@ -226,7 +226,7 @@ router.post('/:id/variants', authMiddleware, async (req, res) => {
   try {
     const v = req.body;
     const { rows } = await pool.query(
-      `INSERT INTO product_variants (product_id, name, price, cost_price, stock, min_stock, unit, is_default, display_order, image_url)
+      `INSERT INTO product_variants (product_id, name, price, cost_price, stock, min_stock, unit, is_default, display_order, image)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [req.params.id, v.name, v.price, v.costPrice || 0, v.stock || 0, v.minStock || 0,
        v.unit, v.isDefault || false, v.displayOrder ?? null, v.image || null]
@@ -253,7 +253,7 @@ router.put('/variants/:variantId', authMiddleware, async (req, res) => {
     if (v.unit !== undefined) { fields.push(`unit = $${i++}`); values.push(v.unit); }
     if (v.isDefault !== undefined) { fields.push(`is_default = $${i++}`); values.push(v.isDefault); }
     if (v.displayOrder !== undefined) { fields.push(`display_order = $${i++}`); values.push(v.displayOrder); }
-    if (v.image !== undefined) { fields.push(`image_url = $${i++}`); values.push(v.image); }
+    if (v.image !== undefined) { fields.push(`image = $${i++}`); values.push(v.image); }
 
     if (fields.length === 0) return res.json({ success: true });
 
