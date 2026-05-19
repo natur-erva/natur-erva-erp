@@ -135,14 +135,14 @@ const ProductCardComponent: React.FC<{
         >
             {/* Imagem */}
             <Link to={`/loja/produto/${product.slug}`} className="block relative overflow-hidden flex-shrink-0">
-                <div className={`relative w-full ${isMobile ? 'h-40' : 'h-52'} bg-gradient-to-br from-green-50 to-emerald-100 dark:from-gray-800 dark:to-gray-700`}>
+                <div className={`relative w-full ${isMobile ? 'h-40' : 'h-52'} bg-white dark:bg-gray-800`}>
                     {(() => {
                         const imageUrl = getVariantImage(selectedVariant, product);
                         return imageUrl && !imageUrl.includes('placeholder') ? (
                             <img
                                 src={imageUrl}
                                 alt={displayName}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                                className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 ease-out"
                                 loading="lazy"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
@@ -208,9 +208,6 @@ const ProductCardComponent: React.FC<{
                         <span className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'} font-bold text-green-600 dark:text-green-400 leading-tight`}>
                             {currentPrice.toFixed(2)} MT
                         </span>
-                        {currentUnit && (
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500">/ {currentUnit}</span>
-                        )}
                     </div>
 
                     {hasStock ? (
@@ -285,7 +282,7 @@ const ProductCardComponent: React.FC<{
                                         >
                                             <span className="font-medium">{v.name}</span>
                                             <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                                                {v.price.toFixed(2)} MT {v.unit ? `/ ${v.unit}` : ''}
+                                                {v.price.toFixed(2)} MT
                                             </span>
                                         </button>
                                     ))}

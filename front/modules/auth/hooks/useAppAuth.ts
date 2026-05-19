@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
-import { clearSupabaseAuthStorage } from '../../core/services/supabaseClient';
 import { User, UserRole } from '../../core/types/types';
 const BASE_PATH = '/';
 
@@ -94,10 +93,7 @@ export const useAppAuth = (): UseAppAuthReturn => {
     setIsShopMode(true);
     setActivePage('shop');
 
-    // 1. Limpar sessão do localStorage imediatamente (garante que ao recarregar não há sessão)
-    clearSupabaseAuthStorage();
-
-    // 2. signOut no cliente (scope: 'local' = sem chamada ao servidor)
+    // 1. signOut no cliente (scope: 'local' = sem chamada ao servidor)
     authService.signOut();
 
     // 3. Redirecionar
