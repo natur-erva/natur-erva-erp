@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Product, ProductType, ProductVariant } from '../../core/types/types';
-import { Plus, Search, Edit2, Trash2, Filter, Sprout, ArrowUpDown, ArrowUp, ArrowDown, Settings, X, Layers, Package, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet } from 'lucide-react';
+import { Plus, Edit2, Trash2, Filter, Sprout, ArrowUpDown, ArrowUp, ArrowDown, Settings, X, Layers, Package, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Upload } from 'lucide-react';
 import { productService } from '../services/productService';
 import { Toast } from '../../core/components/ui/Toast';
 import { ConfirmDialog } from '../../core/components/ui/ConfirmDialog';
 import { ProductManagement } from '../components/ui/ProductManagement';
 import { ProductFormModal } from '../components/modals/ProductFormModal';
 import { ProductVariantModal } from '../components/modals/ProductVariantModal';
+import { ProductImportModal } from '../components/modals/ProductImportModal';
 import uploadService, { uploadProductImage, deleteProductImage } from '../../../services/uploadService';
 import { uploadVariantImage, validateImageFile } from '../../media/services/imageService';
 import { useMobile } from '../../core/hooks/useMobile';
@@ -96,6 +97,9 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
 
   // Form: product being edited (for form modal)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Import modal
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Categories and Units from management system (API returns id, name, abbreviation, isActive)
   const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; isActive?: boolean }>>([]);
@@ -582,6 +586,14 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
       >
         <Settings className="w-5 h-5 mr-2" />
         <span className="hidden sm:inline">Gestão</span>
+      </button>
+      <button
+        onClick={() => setIsImportOpen(true)}
+        className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center shadow-lg transition-colors px-4 py-2"
+        title="Importar produtos via planilha"
+      >
+        <Upload className="w-5 h-5 mr-2" />
+        <span className="hidden sm:inline">Importar</span>
       </button>
       <button
         onClick={exportToExcel}
@@ -1221,6 +1233,13 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
         showToast={showToast}
         uploadVariantImage={uploadVariantImage}
         validateImageFile={validateImageFile}
+      />
+
+      <ProductImportModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onSuccess={() => { loadProducts(); showToast('Produtos importados com sucesso!', 'success'); }}
+        showToast={showToast}
       />
     </PageShell>
   );
