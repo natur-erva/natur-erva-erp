@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
 
-# Copy source code
+# Copy source code (inclui storage/, routes/, middleware/)
 COPY . .
 
 # Create uploads directory
