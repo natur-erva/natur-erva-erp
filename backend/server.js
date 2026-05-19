@@ -123,9 +123,40 @@ app.use((err, req, res, next) => {
 });
 
 // ── START ──────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 NaturErva Backend rodando na porta ${PORT}`);
   console.log(`📦 API: http://localhost:${PORT}/api`);
   console.log(`❤️  Health: http://localhost:${PORT}/health`);
   console.log(`🗄️  DB: ${process.env.PG_HOST}:${process.env.PG_PORT}/${process.env.PG_DATABASE}`);
+
+  // ── Teste de ligação ao MinIO ──────────────────────────────────────────────
+  try {
+    const { BUCKET, PUBLIC_URL } = await import('./storage/minio.js');
+    const Minio = await import('minio');
+
+    const endpoint = process.env.MINIO_ENDPOINT || 'localhost';
+    const port     = process.env.MINIO_PORT || '9000';
+    const ssl      = process.env.MINIO_USE_SSL === 'true';
+    const bucket   = BUCKET();
+
+    console.log(`🪣  MinIO: ${endpoint}:${port} [${ssl ? 'SSL' : 'sem SSL'}] bucket=${bucket}`);
+    console.log(`🌐  MinIO URL pública: ${PUBLIC_URL()}`);
+
+    const client = new Minio.Client({
+      endPoint:  endpoint.replace(/^https?:\/\//, ''),
+      port:      parseInt(port),
+      useSSL:    ssl,
+      accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
+      secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
+    });
+
+    const exists = await client.bucketExists(bucket);
+    if (exists) {
+      console.log(`✅  MinIO OK — bucket '${bucket}' encontrado`);
+    } else {
+      console.log(`⚠️   MinIO OK — bucket '${bucket}' não existe (será criado no 1º upload)`);
+    }
+  } catch (err) {
+    console.error(`❌  MinIO ERRO de ligação: ${err.message}`);
+  }
 });
