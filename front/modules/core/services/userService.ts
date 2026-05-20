@@ -6,9 +6,7 @@ import { User } from '../types/types';
 
 export const userService = {
   async getUsers(): Promise<User[]> {
-    try {
-      return await api.get<User[]>('/users');
-    } catch { return []; }
+    return await api.get<User[]>('/users');
   },
 
   async getSalesManagers(): Promise<User[]> {
@@ -23,7 +21,7 @@ export const userService = {
     } catch { return []; }
   },
 
-  async updateUser(userId: string, updates: Partial<User> & { password?: string, role_ids?: string[] }): Promise<boolean> {
+  async updateUser(userId: string, updates: Partial<User> & { password?: string, role_ids?: string[], locationIds?: string[] }): Promise<boolean> {
     try {
       await api.put(`/users/${userId}`, updates);
       return true;
@@ -39,9 +37,7 @@ export const userService = {
   },
 
   async createUser(params: Partial<User> & { password?: string, role_ids?: string[] }): Promise<User | null> {
-    try {
-      return await api.post<User>('/users', params);
-    } catch { return null; }
+    return await api.post<User>('/users', params);
   },
 
   async deleteUser(userId: string): Promise<boolean> {

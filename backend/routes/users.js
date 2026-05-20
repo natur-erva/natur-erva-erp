@@ -23,7 +23,7 @@ const mapUser = (profile) => ({
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT *, location_id, is_super_admin, location_ids FROM profiles ORDER BY name'
+      'SELECT * FROM profiles ORDER BY name'
     );
     res.json(rows.map(mapUser));
   } catch (err) {
