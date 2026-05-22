@@ -206,8 +206,8 @@ router.post('/', optionalAuth, async (req, res) => {
       if (existing.length) {
         customerId = existing[0].id;
         customerUpdated = true;
-        const newOrders = (existing[0].total_orders || 0) + 1;
-        const newSpent = (existing[0].total_spent || 0) + order.totalAmount;
+        const newOrders = Number(existing[0].total_orders || 0) + 1;
+        const newSpent = Number(existing[0].total_spent || 0) + Number(order.totalAmount);
         const tier = newOrders > 15 || newSpent > 20000 ? 'GOLD' : newOrders > 5 || newSpent > 5000 ? 'SILVER' : 'BRONZE';
         await client.query(
           'UPDATE customers SET total_orders = $1, total_spent = $2, tier = $3, last_order_date = $4 WHERE id = $5',

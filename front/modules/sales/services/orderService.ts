@@ -53,25 +53,21 @@ export const orderService = {
   },
 
   async createOrder(order: Order): Promise<{ order: Order | null; customerCreated: boolean; customerUpdated: boolean }> {
-    try {
-      const result = await api.post<{ order: Order; customerCreated: boolean; customerUpdated: boolean }>('/orders', order);
+    // Lança o erro para que o chamador possa mostrar a mensagem real ao utilizador
+    const result = await api.post<{ order: Order; customerCreated: boolean; customerUpdated: boolean }>('/orders', order);
 
-      // Criar movimentos de stock no frontend (onde temos a lógica completa)
-      if (result.order && (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.COMPLETED)) {
-        await this._createStockRecordsForOrder(
-          result.order.id,
-          result.order.orderNumber || result.order.id,
-          getTodayDateString(),
-          order.items as OrderItem[],
-          order.customerName
-        ).catch(e => console.warn('[createOrder] stock error:', e));
-      }
-
-      return result;
-    } catch (err: any) {
-      console.error('[createOrder]', err);
-      return { order: null, customerCreated: false, customerUpdated: false };
+    // Criar movimentos de stock (só para pedidos imediatamente entregues)
+    if (result.order && (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.COMPLETED)) {
+      await this._createStockRecordsForOrder(
+        result.order.id,
+        result.order.orderNumber || result.order.id,
+        getTodayDateString(),
+        order.items as OrderItem[],
+        order.customerName
+      ).catch(e => console.warn('[createOrder] stock error:', e));
     }
+
+    return result;
   },
 
   async updateOrder(orderId: string, updates: Partial<Order>): Promise<boolean> {
