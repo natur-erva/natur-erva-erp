@@ -22,10 +22,8 @@ export const userService = {
   },
 
   async updateUser(userId: string, updates: Partial<User> & { password?: string, role_ids?: string[], locationIds?: string[] }): Promise<boolean> {
-    try {
-      await api.put(`/users/${userId}`, updates);
-      return true;
-    } catch { return false; }
+    await api.put(`/users/${userId}`, updates);
+    return true;
   },
 
   async updateUserLocations(

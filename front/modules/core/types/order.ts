@@ -56,6 +56,9 @@ export interface Order {
   createdBy?: string;
   createdByName?: string;
   orderNumber?: string;
+  trackingCode?: string;
   externalId?: string;
   source?: string;
+  couponCode?: string;
+  discountAmount?: number;
 }

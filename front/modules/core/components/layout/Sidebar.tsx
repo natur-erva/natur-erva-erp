@@ -249,6 +249,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'users.view' },
+    { id: 'coupons', label: 'Cupões', icon: Tag, permission: 'admin.access' },
+    { id: 'refunds', label: 'Reembolsos', icon: Repeat, permission: 'orders.view' },
+    { id: 'affiliates', label: 'Afiliados', icon: Share2, permission: 'admin.access' },
   ];
 
   // Filtrar itens baseado apenas nas permisséµes (sistema simplificado)

@@ -40,13 +40,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, onClose, onUser
     setError('');
 
     try {
-      // Handle Remember Me
       if (rememberMe) {
         localStorage.setItem('naturerva_saved_email', identifier);
       } else {
         localStorage.removeItem('naturerva_saved_email');
       }
-      onLogin(identifier, password);
+
+      const { user, error: loginError } = await authService.login(identifier, password);
+      if (loginError) {
+        setError(loginError);
+      } else if (user) {
+        if (onUserLogin) onUserLogin(user);
+        onClose();
+      }
     } catch (e: any) {
       setError(e.message || 'Erro ao fazer login.');
     } finally {

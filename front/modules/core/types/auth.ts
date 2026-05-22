@@ -35,6 +35,9 @@ export type User = {
   isSuperAdmin?: boolean;
   /** Se true, o utilizador deve definir uma senha forte no próximo acesso (modal obrigatório). */
   requiresStrongPassword?: boolean;
+  /** Pontos acumulados pelo utilizador (programa de fidelidade). */
+  points?: number;
+  totalPointsEarned?: number;
 };
 
 export interface Role {

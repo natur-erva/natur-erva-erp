@@ -41,6 +41,14 @@ const ShopReceipts = lazy(() => import('./modules/sales/pages/ShopReceipts').the
 const Shop = lazy(() => import('./modules/shop/pages/Shop').then(m => ({ default: m.Shop })));
 const ProductLandingPage = lazy(() => import('./modules/shop/pages/ProductLandingPage').then(m => ({ default: m.ProductLandingPage })));
 const UserManagement = lazy(() => import('./modules/admin/pages/UserManagement').then(m => ({ default: m.UserManagement })));
+const Coupons = lazy(() => import('./modules/admin/pages/Coupons').then(m => ({ default: m.Coupons })));
+const AdminRefunds = lazy(() => import('./modules/admin/pages/Refunds').then(m => ({ default: m.Refunds })));
+const CustomerDashboard = lazy(() => import('./modules/shop/pages/CustomerDashboard').then(m => ({ default: m.CustomerDashboard })));
+const CustomerOrders = lazy(() => import('./modules/shop/pages/CustomerOrders').then(m => ({ default: m.CustomerOrders })));
+const CustomerOrderDetail = lazy(() => import('./modules/shop/pages/CustomerOrderDetail').then(m => ({ default: m.CustomerOrderDetail })));
+const CustomerRefunds = lazy(() => import('./modules/shop/pages/CustomerRefunds').then(m => ({ default: m.CustomerRefunds })));
+const CustomerAffiliate = lazy(() => import('./modules/shop/pages/CustomerAffiliate').then(m => ({ default: m.CustomerAffiliate })));
+const AdminAffiliates = lazy(() => import('./modules/admin/pages/Affiliates').then(m => ({ default: m.Affiliates })));
 
 // Services & Utils
 import { Lock, User as UserIcon, Loader2, Info, Eye, EyeOff } from 'lucide-react';
@@ -312,6 +320,12 @@ const App = () => {
                 <ProductLandingPage />
               </LocationProvider>
             } />
+            {/* Painel do cliente */}
+            <Route path="minha-conta" element={currentUser ? <CustomerDashboard currentUser={currentUser} /> : <Navigate to="/" replace />} />
+            <Route path="minha-conta/encomendas" element={currentUser ? <CustomerOrders /> : <Navigate to="/" replace />} />
+            <Route path="minha-conta/encomendas/:id" element={currentUser ? <CustomerOrderDetail /> : <Navigate to="/" replace />} />
+            <Route path="minha-conta/reembolsos" element={currentUser ? <CustomerRefunds /> : <Navigate to="/" replace />} />
+            <Route path="minha-conta/afiliado" element={currentUser ? <CustomerAffiliate /> : <Navigate to="/" replace />} />
             {/* Home: redireciona para loja ou mostra loja diretamente */}
             <Route index element={
               <LocationProvider>
@@ -665,6 +679,27 @@ const App = () => {
                     <PageShell title="Gerir Roles">
                       <Roles currentUser={currentUser} showToast={showToast} />
                     </PageShell>
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="cupoes" element={
+                <ProtectedRoute user={currentUser} permission="admin.access">
+                  <TrackedPage pagePath="/admin/cupoes" pageTitle="Cupões">
+                    <Coupons showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="reembolsos" element={
+                <ProtectedRoute user={currentUser} permission="orders.view">
+                  <TrackedPage pagePath="/admin/reembolsos" pageTitle="Reembolsos">
+                    <AdminRefunds showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="afiliados" element={
+                <ProtectedRoute user={currentUser} permission="admin.access">
+                  <TrackedPage pagePath="/admin/afiliados" pageTitle="Afiliados">
+                    <AdminAffiliates currentUser={currentUser} showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />

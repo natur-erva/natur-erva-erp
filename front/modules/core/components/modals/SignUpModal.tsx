@@ -47,6 +47,10 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ onClose, onSuccess }) 
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('ref') || '';
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -99,10 +103,11 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ onClose, onSuccess }) 
     }
 
     const { user, error: signUpError } = await authService.signUp(
+      name.trim(),
       email.trim(),
       password,
-      name.trim(),
-      phone.trim()
+      phone.trim(),
+      referralCode.trim() || undefined
     );
 
     if (user) {
@@ -189,6 +194,21 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ onClose, onSuccess }) 
                   required
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
+                Código de Afiliado <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                className="w-full px-3.5 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all font-mono tracking-wider"
+                placeholder="Ex: EKSO1234"
+                maxLength={10}
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Se alguém te indicou, introduz o código para lhes atribuir crédito.</p>
             </div>
 
             <div>

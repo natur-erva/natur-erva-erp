@@ -5,26 +5,39 @@ import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
-const mapUser = (profile) => ({
-  id: profile.id,
-  name: profile.name || profile.email?.split('@')[0] || 'Utilizador',
-  email: profile.email || '',
-  phone: profile.phone || undefined,
-  role: profile.role || 'STAFF',
-  avatar: profile.avatar_url,
-  isActive: profile.is_active !== false,
-  lastLogin: profile.last_login || undefined,
-  locationId: profile.location_id || undefined,
-  locationIds: profile.location_ids || [],
-  isSuperAdmin: profile.is_super_admin || false
-});
+const mapUser = (profile) => {
+  const roleNames = Array.isArray(profile.role_names) ? profile.role_names.filter(Boolean) : [];
+  return {
+    id: profile.id,
+    name: profile.name || profile.email?.split('@')[0] || 'Utilizador',
+    email: profile.email || '',
+    phone: profile.phone || undefined,
+    role: roleNames[0] || profile.role || 'STAFF',
+    roles: roleNames.length > 0 ? roleNames : [profile.role || 'STAFF'],
+    avatar: profile.avatar_url,
+    isActive: profile.is_active !== false,
+    lastLogin: profile.last_login || undefined,
+    locationId: profile.location_id || undefined,
+    locationIds: profile.location_ids || [],
+    isSuperAdmin: profile.is_super_admin || false
+  };
+};
 
 // GET /api/users
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM profiles ORDER BY name'
-    );
+    const { rows } = await pool.query(`
+      SELECT p.*,
+        COALESCE(
+          array_agg(r.name ORDER BY r.name) FILTER (WHERE r.name IS NOT NULL),
+          ARRAY[]::text[]
+        ) AS role_names
+      FROM profiles p
+      LEFT JOIN user_roles ur ON ur.user_id = p.id
+      LEFT JOIN roles r ON r.id = ur.role_id
+      GROUP BY p.id
+      ORDER BY p.name
+    `);
     res.json(rows.map(mapUser));
   } catch (err) {
     res.status(500).json({ error: 'Erro ao buscar utilizadores' });
@@ -79,7 +92,18 @@ router.get('/order-vendors', authMiddleware, async (req, res) => {
 // GET /api/users/:id
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM profiles WHERE id = $1', [req.params.id]);
+    const { rows } = await pool.query(`
+      SELECT p.*,
+        COALESCE(
+          array_agg(r.name ORDER BY r.name) FILTER (WHERE r.name IS NOT NULL),
+          ARRAY[]::text[]
+        ) AS role_names
+      FROM profiles p
+      LEFT JOIN user_roles ur ON ur.user_id = p.id
+      LEFT JOIN roles r ON r.id = ur.role_id
+      WHERE p.id = $1
+      GROUP BY p.id
+    `, [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Utilizador não encontrado' });
     res.json(mapUser(rows[0]));
   } catch (err) {
@@ -108,11 +132,18 @@ router.post('/', authMiddleware, async (req, res) => {
 
     await client.query('BEGIN');
 
+    // Determinar o role primário a partir dos role_ids
+    let primaryRole = 'STAFF';
+    if (role_ids && role_ids.length > 0) {
+      const { rows: rr } = await client.query('SELECT name FROM roles WHERE id = $1', [role_ids[0]]);
+      if (rr.length) primaryRole = rr[0].name;
+    }
+
     // Inserir na tabela profiles
     const { rows: newProfile } = await client.query(
-      `INSERT INTO profiles (email, name, phone, role, password_hash, is_active, is_super_admin, location_id, location_ids) 
-       VALUES ($1, $2, $3, 'STAFF', $4, $5, $6, $7, $8) RETURNING *`,
-      [email, name, phone, passwordHash, is_active !== false, is_super_admin || false, location_id || null, location_ids || '[]']
+      `INSERT INTO profiles (email, name, phone, role, password_hash, is_active, is_super_admin, location_id, location_ids)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [email, name, phone, primaryRole, passwordHash, is_active !== false, is_super_admin || false, location_id || null, location_ids || '[]']
     );
 
     const userId = newProfile[0].id;
@@ -170,12 +201,15 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     if (u.role_ids !== undefined) {
-      // Limpar roles antigas
       await client.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
-      // Inserir novas roles
       if (u.role_ids.length > 0) {
         for (const roleId of u.role_ids) {
           await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [userId, roleId]);
+        }
+        // Sincronizar profiles.role com o role primário
+        const { rows: rr } = await client.query('SELECT name FROM roles WHERE id = $1', [u.role_ids[0]]);
+        if (rr.length) {
+          await client.query('UPDATE profiles SET role = $1 WHERE id = $2', [rr[0].name, userId]);
         }
       }
     }

@@ -43,6 +43,12 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'users': '/admin/usuarios',
   'users-list': '/admin/usuarios',
   'users-roles': '/admin/usuarios/roles',
+  // Cupões
+  'coupons': '/admin/cupoes',
+  // Reembolsos
+  'refunds': '/admin/reembolsos',
+  // Afiliados
+  'affiliates': '/admin/afiliados',
   // Perfil
   'profile': '/admin/perfis'
 };

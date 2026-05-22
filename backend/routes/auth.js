@@ -10,8 +10,8 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, phone } = req.body;
-    
+    const { name, email, password, phone, referralCode } = req.body;
+
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Nome, Email e password são obrigatórios' });
     }
@@ -50,6 +50,34 @@ router.post('/register', async (req, res) => {
       );
     } catch (err) {
       console.warn('Erro ao criar registo de customer, mas perfil foi criado:', err.message);
+    }
+
+    // Registar referência se tiver código de afiliado
+    if (referralCode) {
+      try {
+        const code = referralCode.trim().toUpperCase();
+        const { rows: affRows } = await pool.query(
+          "SELECT id FROM affiliates WHERE referral_code = $1 AND status = 'active'",
+          [code]
+        );
+        if (affRows.length) {
+          const affiliateId = affRows[0].id;
+          await pool.query(
+            'INSERT INTO affiliate_referrals (affiliate_id, referred_profile_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [affiliateId, profile.id]
+          );
+          await pool.query(
+            'UPDATE affiliates SET total_referrals = total_referrals + 1 WHERE id = $1',
+            [affiliateId]
+          );
+          await pool.query(
+            'UPDATE profiles SET referred_by_code = $1 WHERE id = $2',
+            [code, profile.id]
+          );
+        }
+      } catch (refErr) {
+        console.warn('[Auth] referral error:', refErr.message);
+      }
     }
 
     // Gerar JWT
@@ -91,11 +119,11 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email e password são obrigatórios' });
     }
 
-    // Buscar utilizador na tabela profiles (email pode estar em profiles ou auth.users)
+    // Buscar utilizador por email ou telefone
     const { rows } = await pool.query(
-      `SELECT p.*, p.password_hash 
-       FROM profiles p 
-       WHERE LOWER(p.email) = LOWER($1) AND p.is_active = true
+      `SELECT p.*, p.password_hash
+       FROM profiles p
+       WHERE (LOWER(p.email) = LOWER($1) OR p.phone = $1) AND p.is_active = true
        LIMIT 1`,
       [email.trim()]
     );
@@ -209,7 +237,9 @@ router.get('/me', async (req, res) => {
       isActive: profile.is_active !== false,
       isSuperAdmin: profile.is_super_admin || false,
       lastLogin: profile.last_login,
-      requiresStrongPassword: profile.requires_strong_password === true
+      requiresStrongPassword: profile.requires_strong_password === true,
+      points: profile.points || 0,
+      totalPointsEarned: profile.total_points_earned || 0
     });
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {

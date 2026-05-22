@@ -29,6 +29,9 @@ import trackingRoutes from './routes/tracking.js';
 import categoriesRoutes from './routes/categories.js';
 import unitsRoutes from './routes/units.js';
 import deliveryZonesRoutes from './routes/deliveryZones.js';
+import couponRoutes from './routes/coupons.js';
+import refundRoutes from './routes/refunds.js';
+import affiliateRoutes from './routes/affiliates.js';
 
 const app = express();
 const PORT = process.env.PORT || 3060;
@@ -120,6 +123,9 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/units', unitsRoutes);
 app.use('/api/delivery-zones', deliveryZonesRoutes);
+app.use('/api/coupons', couponRoutes);
+app.use('/api/refunds', refundRoutes);
+app.use('/api/affiliates', affiliateRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

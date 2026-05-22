@@ -1,0 +1,187 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ChevronLeft, Loader2, RefreshCw, Plus, X, Check } from 'lucide-react';
+import api from '../../core/services/apiClient';
+
+interface RefundRequest {
+  id: string;
+  orderId: string;
+  orderNumber?: string;
+  reason: string;
+  details?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  adminNotes?: string;
+  createdAt: string;
+}
+
+const REASONS = [
+  'Produto danificado',
+  'Produto errado',
+  'Não recebi o pedido',
+  'Qualidade inferior ao esperado',
+  'Pedido duplicado',
+  'Outro motivo',
+];
+
+const STATUS_LABEL: Record<string, { label: string; className: string }> = {
+  pending:  { label: 'Pendente',  className: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' },
+  approved: { label: 'Aprovado',  className: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+  rejected: { label: 'Rejeitado', className: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
+};
+
+export const CustomerRefunds: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = (location.state as any) || {};
+
+  const [refunds, setRefunds] = useState<RefundRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(!!prefill.orderId);
+  const [form, setForm] = useState({ orderId: prefill.orderId || '', reason: REASONS[0], details: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  useEffect(() => {
+    api.get<RefundRequest[]>('/refunds/my-refunds')
+      .then(setRefunds)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitError('');
+    if (!form.orderId.trim()) return setSubmitError('ID do pedido é obrigatório');
+    setSubmitting(true);
+    try {
+      const created = await api.post<RefundRequest>('/refunds', form);
+      setRefunds(prev => [created, ...prev]);
+      setShowForm(false);
+      setForm({ orderId: '', reason: REASONS[0], details: '' });
+    } catch (err: any) {
+      setSubmitError(err?.message || 'Erro ao enviar pedido');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/minha-conta')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Reembolsos</h1>
+          </div>
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Solicitar
+            </button>
+          )}
+        </div>
+
+        {/* Formulário */}
+        {showForm && (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-semibold text-gray-900 dark:text-white">Novo Pedido de Reembolso</h2>
+              <button onClick={() => { setShowForm(false); setSubmitError(''); }} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  ID / Número do Pedido <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={form.orderId}
+                  onChange={e => setForm(f => ({ ...f, orderId: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                  placeholder="Cole aqui o ID do pedido"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Encontra o ID na página das tuas encomendas.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo <span className="text-red-500">*</span></label>
+                <select
+                  value={form.reason}
+                  onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                >
+                  {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Detalhes</label>
+                <textarea
+                  value={form.details}
+                  onChange={e => setForm(f => ({ ...f, details: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm resize-none"
+                  placeholder="Descreve o problema em detalhe..."
+                />
+              </div>
+              {submitError && <p className="text-sm text-red-500">{submitError}</p>}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+              >
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Enviar Pedido de Reembolso
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Lista */}
+        {loading ? (
+          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-gray-400" /></div>
+        ) : refunds.length === 0 && !showForm ? (
+          <div className="text-center py-16 text-gray-500 dark:text-gray-400">
+            <RefreshCw className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="mb-3">Ainda não tens pedidos de reembolso.</p>
+          </div>
+        ) : refunds.length > 0 ? (
+          <div className="space-y-3">
+            <h2 className="font-semibold text-gray-900 dark:text-white text-sm">Histórico</h2>
+            {refunds.map(r => {
+              const s = STATUS_LABEL[r.status];
+              return (
+                <div key={r.id} className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-gray-800">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">Pedido #{r.orderNumber || r.orderId.slice(0,8)}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${s.className}`}>{s.label}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{r.reason}</p>
+                      {r.details && <p className="text-xs text-gray-500 mt-1">{r.details}</p>}
+                      {r.adminNotes && (
+                        <div className="mt-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
+                          <span className="font-medium">Resposta: </span>{r.adminNotes}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
+export default CustomerRefunds;

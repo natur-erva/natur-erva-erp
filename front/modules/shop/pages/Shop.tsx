@@ -76,6 +76,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ type: string; value: number; discountAmount: number; code: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<UserType | null>(propCurrentUser || null);
 
   // Ref para currentUser para usar em callbacks sem dependências
@@ -99,15 +100,11 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
 
   const handleProfileClick = useCallback(() => {
     if (currentUserRef.current) {
-      setShowProfile(true);
-      // setActiveBottomNav será atualizado via ref quando disponível
-      if (setActiveBottomNavRef.current) {
-        setActiveBottomNavRef.current('profile');
-      }
+      navigate('/minha-conta');
     } else {
       setShowLogin(true);
     }
-  }, []);
+  }, [navigate]);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -887,7 +884,8 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
       priceAtTime: item.price
     }));
 
-    const totalAmount = getCartTotal() + (deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0);
+    const discountAmount = appliedCoupon?.discountAmount || 0;
+    const totalAmount = Math.max(0, getCartTotal() + (deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0) - discountAmount);
 
     const order = {
       id: '',
@@ -904,7 +902,9 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
       deliveryFee: deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0,
       deliveryZoneId: deliveryInfo.deliveryZoneId || undefined,
       deliveryZoneName: deliveryInfo.deliveryZoneName || undefined,
-      orderNumber: orderNumber
+      orderNumber: orderNumber,
+      couponCode: appliedCoupon?.code || undefined,
+      discountAmount: discountAmount || undefined
     };
 
     try {
@@ -915,9 +915,10 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
 
         // Perfil já está completo (telefone foi verificado antes)
 
-        // Limpar carrinho
+        // Limpar carrinho e cupão
         setCart([]);
         saveCartToStorage([]);
+        setAppliedCoupon(null);
         setShowCheckout(false);
         setShowCart(false);
         showToast('Pedido criado com sucesso! Entraremos em contacto em breve.', 'success', 6000);
@@ -1028,6 +1029,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
               </div>
             </div>
           )}
+
 
           {/* ── HERO / BANNER ── */}
           {!isMobile && (
@@ -1260,14 +1262,17 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
           onConfirm={handleCheckout}
           onClose={() => {
             setShowCheckout(false);
+            setAppliedCoupon(null);
           }}
           total={getCartTotal()}
           cart={cart}
           currentUser={currentUser}
           onEditProfile={() => {
             setShowCheckout(false);
-            setShowProfile(true);
+            navigate('/minha-conta');
           }}
+          appliedCoupon={appliedCoupon}
+          onApplyCoupon={setAppliedCoupon}
         />
       )}
 
@@ -1646,7 +1651,38 @@ const CheckoutModal: React.FC<{
   cart: CartItem[];
   currentUser?: UserType | null;
   onEditProfile?: () => void;
-}> = ({ deliveryInfo, onUpdateDeliveryInfo, onConfirm, onClose, total, cart, currentUser, onEditProfile }) => {
+  appliedCoupon: { type: string; value: number; discountAmount: number; code: string } | null;
+  onApplyCoupon: (coupon: { type: string; value: number; discountAmount: number; code: string } | null) => void;
+}> = ({ deliveryInfo, onUpdateDeliveryInfo, onConfirm, onClose, total, cart, currentUser, onEditProfile, appliedCoupon, onApplyCoupon }) => {
+  const [couponInput, setCouponInput] = React.useState(appliedCoupon?.code || '');
+  const [couponValidating, setCouponValidating] = React.useState(false);
+  const [couponError, setCouponError] = React.useState('');
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponValidating(true);
+    setCouponError('');
+    try {
+      const res = await api.post<{ valid: boolean; type: string; value: number; discountAmount: number; code: string; message: string }>(
+        '/coupons/validate',
+        { code: couponInput.trim(), totalAmount: total, deliveryFee: deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0 }
+      );
+      if (res.valid) {
+        onApplyCoupon({ type: res.type, value: res.value, discountAmount: res.discountAmount, code: res.code });
+      } else {
+        setCouponError(res.message || 'Cupão inválido');
+        onApplyCoupon(null);
+      }
+    } catch {
+      setCouponError('Erro ao validar cupão');
+    } finally {
+      setCouponValidating(false);
+    }
+  };
+
+  const effectiveDeliveryFee = appliedCoupon?.type === 'free_shipping' ? 0 : (deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0);
+  const displayTotal = Math.max(0, total + (deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0) - (appliedCoupon?.discountAmount || 0));
+
   return (
     <div className="fixed inset-0 min-h-screen min-w-full modal-overlay z-50 flex items-center justify-center p-4 animate-fadeIn">
       <div className="backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20 dark:border-gray-700/50 animate-scaleIn">
@@ -1780,6 +1816,50 @@ const CheckoutModal: React.FC<{
               )}
             </div>
 
+            {/* Cupão de Desconto */}
+            <div className="backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 sm:p-5 border border-white/20 dark:border-gray-700/50 shadow-sm">
+              <h3 className="font-semibold text-base text-gray-900 dark:text-white flex items-center mb-3">
+                <Tag className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
+                Cupão de Desconto
+              </h3>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-green-700 dark:text-green-400">{appliedCoupon.code}</p>
+                    <p className="text-xs text-green-600 dark:text-green-500">
+                      {appliedCoupon.type === 'free_shipping' ? 'Envio grátis' : `${appliedCoupon.value}% de desconto`}
+                      {' — '}-{appliedCoupon.discountAmount.toFixed(2)} MT
+                    </p>
+                  </div>
+                  <button onClick={() => { onApplyCoupon(null); setCouponInput(''); setCouponError(''); }} className="text-green-600 hover:text-red-500 dark:text-green-400 transition-colors p-1">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
+                      className="flex-1 px-4 py-2.5 border-2 border-white/20 dark:border-gray-700/50 rounded-xl bg-white/60 dark:bg-gray-800/60 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all text-sm font-mono uppercase"
+                      placeholder="CÓDIGO DO CUPÃO"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={couponValidating || !couponInput.trim()}
+                      className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-all disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                    >
+                      {couponValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Aplicar'}
+                    </button>
+                  </div>
+                  {couponError && <p className="text-xs text-red-500 mt-1">{couponError}</p>}
+                </div>
+              )}
+            </div>
+
             {/* Resumo do Pedido */}
             <div className="backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 sm:p-5 border border-white/20 dark:border-gray-700/50 shadow-sm">
               <h3 className="font-semibold text-base sm:text-lg mb-4 text-gray-900 dark:text-white flex items-center">
@@ -1808,15 +1888,25 @@ const CheckoutModal: React.FC<{
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     Taxa de Entrega {deliveryInfo.deliveryZoneName && `(${deliveryInfo.deliveryZoneName})`}
                   </span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  <span className={`text-sm font-medium ${appliedCoupon?.type === 'free_shipping' ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
                     {deliveryInfo.deliveryFee.toFixed(2)} MT
+                  </span>
+                </div>
+              )}
+              {appliedCoupon && appliedCoupon.discountAmount > 0 && (
+                <div className="flex justify-between items-center py-2 border-t border-gray-200 dark:border-gray-700 mb-2">
+                  <span className="text-sm text-green-600 dark:text-green-400">
+                    Desconto ({appliedCoupon.code})
+                  </span>
+                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                    -{appliedCoupon.discountAmount.toFixed(2)} MT
                   </span>
                 </div>
               )}
               <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300 dark:border-gray-600">
                 <span className="text-lg font-bold text-gray-900 dark:text-white">Total</span>
                 <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                  {(total + (deliveryInfo.isDelivery ? deliveryInfo.deliveryFee : 0)).toFixed(2)} MT
+                  {displayTotal.toFixed(2)} MT
                 </span>
               </div>
             </div>

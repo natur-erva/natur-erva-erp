@@ -8,6 +8,7 @@ const mapOrder = (row) => ({
   id: row.id,
   externalId: row.external_id,
   orderNumber: row.order_number,
+  trackingCode: row.tracking_code || null,
   customerId: row.customer_id,
   customerName: row.customer_name,
   customerPhone: row.customer_phone,
@@ -24,14 +25,26 @@ const mapOrder = (row) => ({
   paymentProofText: row.payment_proof_text,
   notes: row.notes,
   createdAt: row.created_at,
+  updatedAt: row.updated_at,
   createdBy: row.created_by,
   createdByName: row.creator_name || undefined,
   deliveryZoneId: row.delivery_zone_id,
   deliveryZoneName: row.delivery_zone_name,
   deliveryLatitude: row.delivery_latitude,
   deliveryLongitude: row.delivery_longitude,
-  deliveryAddressFormatted: row.delivery_address_formatted
+  deliveryAddressFormatted: row.delivery_address_formatted,
+  couponCode: row.coupon_code,
+  discountAmount: Number(row.discount_amount) || 0
 });
+
+const generateTrackingCode = () => {
+  const d = new Date();
+  const date = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let suffix = '';
+  for (let i = 0; i < 6; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
+  return `NE-${date}-${suffix}`;
+};
 
 // GET /api/orders
 router.get('/', authMiddleware, async (req, res) => {
@@ -87,6 +100,70 @@ router.get('/check-number/:number', authMiddleware, async (req, res) => {
     res.json({ exists: rows.length > 0 });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao verificar número' });
+  }
+});
+
+// GET /api/orders/my-orders — encomendas do cliente autenticado
+router.get('/my-orders', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { rows } = await pool.query(
+      `SELECT o.*
+       FROM orders o
+       JOIN profiles p ON p.id = $1
+       WHERE o.customer_id = p.customer_id OR o.created_by = $1
+       ORDER BY o.created_at DESC`,
+      [userId]
+    );
+    res.json(rows.map(mapOrder));
+  } catch (err) {
+    console.error('[GET /orders/my-orders]', err);
+    res.status(500).json({ error: 'Erro ao buscar encomendas' });
+  }
+});
+
+// GET /api/orders/my-orders/:id — detalhe de 1 encomenda do cliente
+router.get('/my-orders/:id', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { rows } = await pool.query(
+      `SELECT o.*
+       FROM orders o
+       JOIN profiles p ON p.id = $1
+       WHERE o.id = $2 AND (o.customer_id = p.customer_id OR o.created_by = $1)`,
+      [userId, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Pedido não encontrado' });
+    res.json(mapOrder(rows[0]));
+  } catch (err) {
+    console.error('[GET /orders/my-orders/:id]', err);
+    res.status(500).json({ error: 'Erro ao buscar pedido' });
+  }
+});
+
+// GET /api/orders/tracking/:code — público, sem autenticação
+router.get('/tracking/:code', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT order_number, tracking_code, status, created_at, updated_at,
+              delivery_zone_name, is_delivery, customer_name
+       FROM orders WHERE UPPER(tracking_code) = UPPER($1)`,
+      [req.params.code]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Código de rastreio não encontrado' });
+    const o = rows[0];
+    res.json({
+      trackingCode: o.tracking_code,
+      orderNumber: o.order_number,
+      status: o.status,
+      customerName: o.customer_name,
+      createdAt: o.created_at,
+      updatedAt: o.updated_at,
+      deliveryZoneName: o.delivery_zone_name,
+      isDelivery: o.is_delivery,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao rastrear pedido' });
   }
 });
 
@@ -170,17 +247,50 @@ router.post('/', optionalAuth, async (req, res) => {
       orderNumber = String(max + 1);
     }
 
+    // Validar e aplicar cupão se fornecido
+    let couponCode = order.couponCode || null;
+    let discountAmount = order.discountAmount || 0;
+    if (couponCode) {
+      const { rows: couponRows } = await client.query(
+        'SELECT * FROM coupons WHERE UPPER(code) = UPPER($1) AND is_active = TRUE LIMIT 1',
+        [couponCode]
+      );
+      if (couponRows.length) {
+        const coupon = couponRows[0];
+        const now = new Date();
+        const valid = (!coupon.valid_from || new Date(coupon.valid_from) <= now)
+                   && (!coupon.valid_until || new Date(coupon.valid_until) >= now)
+                   && (coupon.max_uses === null || coupon.current_uses < coupon.max_uses);
+        if (valid) {
+          couponCode = coupon.code;
+          await client.query(
+            'UPDATE coupons SET current_uses = current_uses + 1, updated_at = NOW() WHERE id = $1',
+            [coupon.id]
+          );
+        } else {
+          couponCode = null;
+          discountAmount = 0;
+        }
+      } else {
+        couponCode = null;
+        discountAmount = 0;
+      }
+    }
+
+    const trackingCode = generateTrackingCode();
+
     const { rows: orderRows } = await client.query(
       `INSERT INTO orders (
-        external_id, order_number, customer_id, customer_name, customer_phone,
+        external_id, order_number, tracking_code, customer_id, customer_name, customer_phone,
         items, total_amount, status, source, is_delivery, delivery_location,
         delivery_fee, payment_status, amount_paid, payment_proof, payment_proof_text,
         notes, created_at, created_by, delivery_zone_id, delivery_zone_name,
-        delivery_latitude, delivery_longitude, delivery_address_formatted
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+        delivery_latitude, delivery_longitude, delivery_address_formatted,
+        coupon_code, discount_amount
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
       RETURNING *`,
       [
-        order.externalId || null, orderNumber, customerId, order.customerName,
+        order.externalId || null, orderNumber, trackingCode, customerId, order.customerName,
         hasPhone ? cleanPhone : '', JSON.stringify(order.items || []),
         order.totalAmount, order.status, order.source || null,
         order.isDelivery || false, order.deliveryLocation || null,
@@ -191,11 +301,46 @@ router.post('/', optionalAuth, async (req, res) => {
         order.createdBy || req.user?.id || null,
         order.deliveryZoneId || null, order.deliveryZoneName || null,
         order.deliveryLatitude || null, order.deliveryLongitude || null,
-        order.deliveryAddressFormatted || null
+        order.deliveryAddressFormatted || null,
+        couponCode, discountAmount
       ]
     );
 
     await client.query('COMMIT');
+
+    // Gerar comissão de afiliado (best-effort — não bloqueia o pedido)
+    try {
+      const buyerId = order.createdBy || req.user?.id;
+      if (buyerId) {
+        const { rows: refRows } = await pool.query(
+          'SELECT referred_by_code FROM profiles WHERE id = $1', [buyerId]
+        );
+        const refCode = refRows[0]?.referred_by_code;
+        if (refCode) {
+          const { rows: affRows } = await pool.query(
+            "SELECT id, commission_rate FROM affiliates WHERE referral_code = $1 AND status = 'active'",
+            [refCode]
+          );
+          if (affRows.length) {
+            const { id: affiliateId, commission_rate } = affRows[0];
+            const commAmt = (Number(order.totalAmount) * Number(commission_rate) / 100).toFixed(2);
+            await pool.query(
+              `INSERT INTO affiliate_commissions
+               (affiliate_id, order_id, referred_profile_id, order_amount, commission_rate, commission_amount)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [affiliateId, orderRows[0].id, buyerId, order.totalAmount, commission_rate, commAmt]
+            );
+            await pool.query(
+              'UPDATE affiliates SET pending_balance = pending_balance + $1, updated_at = NOW() WHERE id = $2',
+              [commAmt, affiliateId]
+            );
+          }
+        }
+      }
+    } catch (affErr) {
+      console.warn('[Orders] affiliate commission error:', affErr.message);
+    }
+
     res.status(201).json({
       order: mapOrder(orderRows[0]),
       customerCreated,
@@ -243,6 +388,28 @@ router.put('/:id', authMiddleware, async (req, res) => {
     values.push(req.params.id);
 
     await pool.query(`UPDATE orders SET ${fields.join(', ')} WHERE id = $${i}`, values);
+
+    // Atribuir pontos ao cliente quando pedido é marcado como entregue/concluído (best-effort)
+    if (updates.status === 'delivered' || updates.status === 'completed') {
+      try {
+        const { rows: orderData } = await pool.query(
+          'SELECT total_amount, created_by FROM orders WHERE id = $1',
+          [req.params.id]
+        );
+        if (orderData.length && orderData[0].created_by) {
+          const pts = Math.floor(Number(orderData[0].total_amount) / 10);
+          if (pts > 0) {
+            await pool.query(
+              'UPDATE profiles SET points = points + $1, total_points_earned = total_points_earned + $1 WHERE id = $2',
+              [pts, orderData[0].created_by]
+            );
+          }
+        }
+      } catch (pErr) {
+        console.warn('[Orders] points award error:', pErr.message);
+      }
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('[PUT /orders]', err);

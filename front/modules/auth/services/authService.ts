@@ -149,9 +149,9 @@ export const authService = {
     return this.logout();
   },
 
-  async signUp(name: string, email: string, password?: string, phone?: string): Promise<LoginResult> {
+  async signUp(name: string, email: string, password?: string, phone?: string, referralCode?: string): Promise<LoginResult> {
     try {
-      const result = await api.post<{ token: string; user: any }>('/auth/register', { name, email, password, phone }, { noAuth: true });
+      const result = await api.post<{ token: string; user: any }>('/auth/register', { name, email, password, phone, referralCode }, { noAuth: true });
       if (!result?.token || !result?.user) {
         return { user: null, error: 'Resposta inválida do servidor' };
       }
