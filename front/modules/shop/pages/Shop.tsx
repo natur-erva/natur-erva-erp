@@ -430,6 +430,10 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     }
     loadCartFromStorage();
     loadSettings();
+    // Open cart if navigated from CartDrawer on another page
+    if ((location.state as any)?.openCart) {
+      setShowCart(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propCurrentUser?.id]); // Usar apenas o ID do usuário para evitar loops
 

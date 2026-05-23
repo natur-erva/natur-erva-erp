@@ -95,7 +95,16 @@ export const PageHeroBanner: React.FC<PageHeroBannerProps> = ({
     }
   };
 
-  const activeBanner = banner && banner !== 'loading' ? banner : null;
+  if (banner === 'loading') {
+    return (
+      <section
+        className="relative overflow-hidden bg-gray-200 dark:bg-gray-800 animate-pulse"
+        style={{ minHeight: '220px' }}
+      />
+    );
+  }
+
+  const activeBanner = banner;
   const imgUrl = activeBanner?.imageUrl ? uploadService.getPublicUrl(activeBanner.imageUrl) : null;
   const bgColor = activeBanner?.bgColor || defaultBgColor;
   const title = activeBanner?.title || defaultTitle;

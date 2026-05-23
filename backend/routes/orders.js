@@ -147,7 +147,7 @@ router.put('/my-orders/:id/confirm', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const { rows } = await pool.query(
       `SELECT id, status FROM orders
-       WHERE id = $1 AND (user_id = $2 OR customer_id IN (SELECT customer_id FROM profiles WHERE id = $2))`,
+       WHERE id = $1 AND (created_by = $2 OR customer_id IN (SELECT customer_id FROM profiles WHERE id = $2))`,
       [req.params.id, userId]
     );
     if (!rows.length) return res.status(404).json({ error: 'Pedido não encontrado' });

@@ -5,6 +5,7 @@ import { Footer } from '../../modules/core/components/layout/Footer';
 import { User } from '../../modules/core/types/types';
 import { useMobile } from '../../modules/core/hooks/useMobile';
 import { useShopContextSafe } from '../../contexts/ShopContext';
+import { CartDrawer } from '../../modules/shop/components/CartDrawer';
 
 interface PublicLayoutProps {
   currentUser: User | null;
@@ -26,6 +27,23 @@ const PublicLayoutContent: React.FC<PublicLayoutProps> = ({
   const isMobile = useMobile(768);
   // Usar contexto do Shop (pode ser null se não estiver disponível)
   const shopContext = useShopContextSafe();
+
+  // CartDrawer — visible on all pages except the main Shop page
+  // (Shop.tsx mounts its own CartSidebar and overrides setOnCartClick)
+  const [cartOpen, setCartOpen] = useState(false);
+  const openCart = useCallback(() => setCartOpen(true), []);
+  const closeCart = useCallback(() => setCartOpen(false), []);
+
+  // Pages where Shop.tsx is mounted and manages its own cart
+  const isMainShopPage = location.pathname === '/loja' || location.pathname === '/';
+
+  // Register our handler when NOT on the main shop page.
+  // This effect runs AFTER child effects, so Shop.tsx can still override when /loja mounts.
+  useEffect(() => {
+    if (!isMainShopPage && shopContext) {
+      shopContext.setOnCartClick(openCart);
+    }
+  }, [isMainShopPage, shopContext, openCart]);
 
   // Memoizar valores derivados do contexto para evitar recálculos
   // IMPORTANTE: Não memoizar os callbacks para garantir que mudanças sejam detectadas
@@ -79,6 +97,13 @@ const PublicLayoutContent: React.FC<PublicLayoutProps> = ({
         <Outlet />
       </main>
       <Footer isShopMode={true} />
+      {!isMainShopPage && (
+        <CartDrawer
+          open={cartOpen}
+          onClose={closeCart}
+          onCartCountChange={count => shopContext?.setCartItemCount(count)}
+        />
+      )}
     </div>
   );
 };
