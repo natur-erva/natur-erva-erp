@@ -11,7 +11,7 @@ import { trackingService } from '../../core/services/trackingService';
 import { useShopTracking } from '../../core/hooks/useShopTracking';
 import uploadService from '../../../services/uploadService';
 import { useMobile } from '../../core/hooks/useMobile';
-import { ShoppingCart, Search, User, LogIn, LogOut, Package, Plus, Minus, X, MapPin, Phone, Mail, Settings, Moon, Sun, Bell, CheckCircle, Eye, EyeOff, Loader2, Filter, ChevronRight, ChevronDown, Instagram, Facebook, Leaf, Droplet, Pill, Heart, Sparkles, Tag } from 'lucide-react';
+import { ShoppingCart, Search, User, LogIn, LogOut, Package, Plus, Minus, X, MapPin, Phone, Mail, Settings, Moon, Sun, Bell, CheckCircle, Eye, EyeOff, Loader2, Filter, ChevronRight, ChevronDown, Instagram, Facebook, Leaf, Droplet, Pill, Heart, Sparkles, Tag, Truck, Clock, Gift, Users, TrendingUp, XCircle } from 'lucide-react';
 import { User as UserType } from '../../core/types/types';
 import { Logo } from '../../core/components/ui/Logo';
 import { ToastContainer, Toast } from '../../core/components/ui/Toast';
@@ -28,6 +28,7 @@ import { normalizeForSearch } from '../../core/services/serviceUtils';
 import { ShopBanner } from '../components/ShopBanner';
 import { uploadProductImage } from '../../../services/uploadService';
 import { FAQSection } from '../components/FAQSection';
+import { ProductCarousel } from '../components/ProductCarousel';
 import { TestimonialsSection } from '../components/TestimonialsSection';
 import { ShopInstagram } from '../components/ShopInstagram';
 import { ShopMidBanner } from '../components/ShopMidBanner';
@@ -156,6 +157,16 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   const [showCompleteProfile, setShowCompleteProfile] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState(false);
   const [settings, setSettings] = useState<SystemSettings>({});
+
+  // Order tracking
+  const [trackingInput, setTrackingInput] = useState('');
+  const [trackingResult, setTrackingResult] = useState<{
+    trackingCode: string; orderNumber: string; status: string;
+    customerName: string; createdAt: string; updatedAt: string;
+    deliveryZoneName?: string; isDelivery?: boolean;
+  } | null>(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingError, setTrackingError] = useState('');
 
   // Verificar se o utilizador atual é admin
   const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes((currentUser as any)?.role || '');
@@ -619,6 +630,23 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     }
   }, [filteredProductsMemo]);
 
+  // Secções da homepage
+  const promoProducts = useMemo(() =>
+    (products as Product[]).filter(p => p.promotionalPrice && p.promotionalPrice > 0 && p.promotionalPrice < p.price && p.showInShop !== false).slice(0, 12),
+    [products]
+  );
+  const bestSellers = useMemo(() =>
+    [...(products as Product[])].filter(p => p.showInShop !== false && (p.totalSold || 0) > 0)
+      .sort((a, b) => (b.totalSold || 0) - (a.totalSold || 0)).slice(0, 12),
+    [products]
+  );
+  const newestProducts = useMemo(() =>
+    [...(products as Product[])].filter(p => p.showInShop !== false)
+      .sort((a, b) => new Date(b.createdAt || b.updatedAt || 0).getTime() - new Date(a.createdAt || a.updatedAt || 0).getTime())
+      .slice(0, 12),
+    [products]
+  );
+
   const saveCartToStorage = (cartItems: CartItem[]) => {
     localStorage.setItem('shop_cart', JSON.stringify(cartItems));
   };
@@ -831,6 +859,22 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     // Notificar componente pai sobre logout
     if (onLogout) {
       onLogout();
+    }
+  };
+
+  const handleTrackOrder = async () => {
+    const code = trackingInput.trim().toUpperCase();
+    if (!code) return;
+    setTrackingLoading(true);
+    setTrackingError('');
+    setTrackingResult(null);
+    try {
+      const result = await api.get<typeof trackingResult>(`/orders/tracking/${encodeURIComponent(code)}`);
+      setTrackingResult(result);
+    } catch (e: any) {
+      setTrackingError(e.message || 'Código não encontrado');
+    } finally {
+      setTrackingLoading(false);
     }
   };
 
@@ -1091,21 +1135,69 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             </section>
           )}
 
+          {/* ── SECÇÕES DE PRODUTOS ── */}
+          {!loading && selectedCategory === 'all' && !debouncedSearchTerm && (
+            <section className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-2 space-y-10">
+              <ProductCarousel
+                title="Em Promoção"
+                products={promoProducts}
+                badge={promoProducts.length > 0 ? (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold">
+                    {promoProducts.length} {promoProducts.length === 1 ? 'oferta' : 'ofertas'}
+                  </span>
+                ) : undefined}
+                onAddToCart={addToCart}
+                onNotify={() => showToast('Será notificado quando disponível!', 'info', 4000)}
+                currentUserName={currentUser?.name}
+              />
+              <ProductCarousel
+                title="Mais Vendidos"
+                products={bestSellers}
+                onAddToCart={addToCart}
+                onNotify={() => showToast('Será notificado quando disponível!', 'info', 4000)}
+                currentUserName={currentUser?.name}
+              />
+              <ProductCarousel
+                title="Novidades"
+                products={newestProducts}
+                onAddToCart={addToCart}
+                onNotify={() => showToast('Será notificado quando disponível!', 'info', 4000)}
+                currentUserName={currentUser?.name}
+              />
+            </section>
+          )}
+
+          {/* ── BANNER INTERMÉDIO (entre carrosséis e grid) ── */}
+          <ShopMidBanner
+            isAdmin={isAdmin}
+            products={products}
+            uploadImage={uploadProductImage}
+          />
+
           {/* ── GRID DE PRODUTOS ── */}
           <main id="produtos-section" className="max-w-7xl mx-auto px-4 sm:px-8 py-16">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-3xl text-gray-800 dark:text-white">
-                  {selectedCategory !== 'all' ? selectedCategory : 'Nossos Produtos'}
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  {filteredProducts.length === 1 ? 'Seleção premium de suplementos naturais' : `${filteredProducts.length} produtos disponíveis`}
-                </p>
+
+            {/* Barra de pesquisa + ordenação */}
+            <div className="mb-8 flex items-center justify-between gap-3">
+              <div className="relative w-64 sm:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Pesquisar produtos..."
+                  className="w-full pl-9 pr-8 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition"
+                />
+                {searchTerm && (
+                  <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                    <XCircle className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <select
                 value={sortOrder}
                 onChange={e => setSortOrder(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-white text-sm"
+                className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500"
               >
                 <option value="popular">Mais Populares</option>
                 <option value="newest">Mais Recentes</option>
@@ -1121,7 +1213,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                   <ProductCardSkeleton key={index} isMobile={isMobile} />
                 ))}
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : filteredProductsMemo.length === 0 ? (
               <div className="text-center py-16">
                 <div className="inline-block p-5 rounded-full bg-white dark:bg-gray-800 shadow-md mb-4">
                   <Package className="h-12 w-12 text-gray-400 dark:text-gray-500" />
@@ -1133,7 +1225,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
               </div>
             ) : (
               <div className={`grid ${isMobile ? 'grid-cols-2 gap-3' : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5'}`}>
-                {filteredProducts.map((product) => (
+                {filteredProductsMemo.map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
@@ -1147,15 +1239,123 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             )}
           </main>
 
-          {/* ── BANNER PROMOCIONAL (após produtos) ── */}
-          <ShopMidBanner
-            isAdmin={isAdmin}
-            products={products}
-            uploadImage={uploadProductImage}
-          />
-
           {/* ── FAQ ── */}
           <FAQSection />
+
+          {/* ── RASTREAR ENCOMENDA ── */}
+          <section className="py-12 px-4">
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <Package className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Rastrear Encomenda</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Insere o teu código de rastreio</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <input
+                    type="text"
+                    value={trackingInput}
+                    onChange={e => setTrackingInput(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.key === 'Enter' && handleTrackOrder()}
+                    placeholder="Ex: NE-20260522-ABC123"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500/40"
+                  />
+                  <button
+                    onClick={handleTrackOrder}
+                    disabled={trackingLoading || !trackingInput.trim()}
+                    className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors flex items-center gap-2"
+                  >
+                    {trackingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    Rastrear
+                  </button>
+                </div>
+
+                {/* Resultado */}
+                {trackingError && (
+                  <div className="mt-4 flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl text-sm text-red-600 dark:text-red-400">
+                    <XCircle className="w-4 h-4 shrink-0" />
+                    {trackingError}
+                  </div>
+                )}
+                {trackingResult && (() => {
+                  const STATUS: Record<string, { label: string; bg: string; text: string; icon: React.ReactNode }> = {
+                    pending:          { label: 'Pendente',          bg: 'bg-yellow-50 dark:bg-yellow-900/20', text: 'text-yellow-700',  icon: <Clock className="w-4 h-4" /> },
+                    confirmed:        { label: 'Confirmado',        bg: 'bg-blue-50 dark:bg-blue-900/20',    text: 'text-blue-700',    icon: <CheckCircle className="w-4 h-4" /> },
+                    processing:       { label: 'Em Processamento',  bg: 'bg-blue-50 dark:bg-blue-900/20',    text: 'text-blue-700',    icon: <Clock className="w-4 h-4" /> },
+                    out_for_delivery: { label: 'A Caminho',         bg: 'bg-purple-50 dark:bg-purple-900/20',text: 'text-purple-700',  icon: <Truck className="w-4 h-4" /> },
+                    delivered:        { label: 'Entregue',          bg: 'bg-green-50 dark:bg-green-900/20',  text: 'text-green-700',   icon: <CheckCircle className="w-4 h-4" /> },
+                    completed:        { label: 'Concluído',         bg: 'bg-green-50 dark:bg-green-900/20',  text: 'text-green-700',   icon: <CheckCircle className="w-4 h-4" /> },
+                    cancelled:        { label: 'Cancelado',         bg: 'bg-red-50 dark:bg-red-900/20',      text: 'text-red-700',     icon: <XCircle className="w-4 h-4" /> },
+                  };
+                  const s = STATUS[trackingResult.status] ?? { label: trackingResult.status, bg: 'bg-gray-50', text: 'text-gray-700', icon: <Package className="w-4 h-4" /> };
+                  return (
+                    <div className="mt-4 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                      <div className={`flex items-center gap-2 px-4 py-3 font-semibold text-sm ${s.bg} ${s.text}`}>
+                        {s.icon} {s.label}
+                      </div>
+                      <div className="px-4 py-3 space-y-1.5 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Pedido nº</span>
+                          <span className="font-mono font-semibold text-gray-900 dark:text-white">{trackingResult.orderNumber}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Código</span>
+                          <span className="font-mono text-gray-700 dark:text-gray-300">{trackingResult.trackingCode}</span>
+                        </div>
+                        {trackingResult.deliveryZoneName && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Zona</span>
+                            <span className="text-gray-700 dark:text-gray-300">{trackingResult.deliveryZoneName}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Data do pedido</span>
+                          <span className="text-gray-700 dark:text-gray-300">{new Date(trackingResult.createdAt).toLocaleDateString('pt-MZ')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </section>
+
+          {/* ── BANNER PROGRAMA DE AFILIADOS ── */}
+          <section className="py-4 px-4 pb-12">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 p-8 text-white shadow-lg">
+                {/* background decoration */}
+                <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full bg-white/5" />
+                <div className="absolute -right-4 bottom-0 w-32 h-32 rounded-full bg-white/5" />
+                <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                  <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+                    <Gift className="w-7 h-7 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold mb-1">Programa de Afiliados</h2>
+                    <p className="text-green-100 text-sm leading-relaxed max-w-lg">
+                      Partilha o teu link exclusivo e ganha <strong className="text-white">5% de comissão</strong> em cada compra feita pelos teus referidos. Sem limite de ganhos!
+                    </p>
+                    <div className="flex flex-wrap gap-4 mt-3 text-xs text-green-200">
+                      <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Comissões ilimitadas</span>
+                      <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Partilha com amigos e família</span>
+                      <span className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5" /> Pagamento rápido</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => currentUser ? navigate('/minha-conta/afiliados') : setShowLogin(true)}
+                    className="shrink-0 px-6 py-3 bg-white text-green-700 font-semibold rounded-xl hover:bg-green-50 transition-colors text-sm whitespace-nowrap"
+                  >
+                    {currentUser ? 'Ver o meu painel' : 'Aderir agora'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* ── DEPOIMENTOS ── */}
           <TestimonialsSection />

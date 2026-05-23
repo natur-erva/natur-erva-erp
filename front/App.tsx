@@ -49,6 +49,11 @@ const CustomerOrderDetail = lazy(() => import('./modules/shop/pages/CustomerOrde
 const CustomerRefunds = lazy(() => import('./modules/shop/pages/CustomerRefunds').then(m => ({ default: m.CustomerRefunds })));
 const CustomerAffiliate = lazy(() => import('./modules/shop/pages/CustomerAffiliate').then(m => ({ default: m.CustomerAffiliate })));
 const AdminAffiliates = lazy(() => import('./modules/admin/pages/Affiliates').then(m => ({ default: m.Affiliates })));
+const AdminDeliveryZones = lazy(() => import('./modules/admin/pages/DeliveryZones').then(m => ({ default: m.DeliveryZones })));
+const AdminLogistics = lazy(() => import('./modules/admin/pages/Logistics').then(m => ({ default: m.Logistics })));
+const SobreNos = lazy(() => import('./modules/shop/pages/SobreNos'));
+const Politica = lazy(() => import('./modules/shop/pages/Politica'));
+const Contactos = lazy(() => import('./modules/shop/pages/Contactos'));
 
 // Services & Utils
 import { Lock, User as UserIcon, Loader2, Info, Eye, EyeOff } from 'lucide-react';
@@ -124,9 +129,11 @@ import { useToast } from './modules/core/contexts/ToastContext';
 import { useAppDataHandlers } from './modules/core/hooks/useAppDataHandlers';
 import { useOperationProgress } from './modules/core/hooks/useOperationProgress';
 import { OperationOverlay } from './modules/core/components/ui/OperationOverlay';
+import { useAnalytics } from './modules/core/hooks/useAnalytics';
 
 const App = () => {
   const navigate = useNavigate();
+  useAnalytics();
   const { showToast } = useToast();
   const operationProgress = useOperationProgress();
   const {
@@ -326,7 +333,11 @@ const App = () => {
             <Route path="minha-conta/encomendas/:id" element={currentUser ? <CustomerOrderDetail /> : <Navigate to="/" replace />} />
             <Route path="minha-conta/reembolsos" element={currentUser ? <CustomerRefunds /> : <Navigate to="/" replace />} />
             <Route path="minha-conta/afiliado" element={currentUser ? <CustomerAffiliate /> : <Navigate to="/" replace />} />
-            {/* Home: redireciona para loja ou mostra loja diretamente */}
+            {/* Páginas institucionais */}
+            <Route path="sobre" element={<Suspense fallback={<PageLoadingFallback />}><SobreNos /></Suspense>} />
+            <Route path="politica" element={<Suspense fallback={<PageLoadingFallback />}><Politica /></Suspense>} />
+            <Route path="contactos" element={<Suspense fallback={<PageLoadingFallback />}><Contactos /></Suspense>} />
+            {/* Home: mostra loja */}
             <Route index element={
               <LocationProvider>
                 <Shop currentUser={currentUser} onLogin={handleLogin} onLogout={handleLogout} requireAuth={false} />
@@ -700,6 +711,20 @@ const App = () => {
                 <ProtectedRoute user={currentUser} permission="admin.access">
                   <TrackedPage pagePath="/admin/afiliados" pageTitle="Afiliados">
                     <AdminAffiliates currentUser={currentUser} showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="zonas-entrega" element={
+                <ProtectedRoute user={currentUser} permission="admin.access">
+                  <TrackedPage pagePath="/admin/zonas-entrega" pageTitle="Zonas de Entrega">
+                    <AdminDeliveryZones showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="logistica" element={
+                <ProtectedRoute user={currentUser} permission="logistics.manage">
+                  <TrackedPage pagePath="/admin/logistica" pageTitle="Logística">
+                    <AdminLogistics showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />

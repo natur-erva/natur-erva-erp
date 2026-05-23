@@ -227,18 +227,43 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
 // DELETE /api/users/:id
 router.delete('/:id', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
   try {
     const userId = req.params.id;
-    // Opcionalmente, proibir a deleção do próprio usuário ou do último super admin
     if (req.user && req.user.id === userId) {
       return res.status(400).json({ error: 'Não é possível remover a própria conta.' });
     }
-    
-    await pool.query('DELETE FROM profiles WHERE id = $1', [userId]);
+
+    const { rows } = await client.query('SELECT id FROM profiles WHERE id = $1', [userId]);
+    if (!rows.length) return res.status(404).json({ error: 'Utilizador não encontrado.' });
+
+    await client.query('BEGIN');
+
+    // Apagar dependências antes do perfil
+    await client.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM admin_activity_log WHERE user_id = $1', [userId]).catch(() => {});
+    await client.query('DELETE FROM shop_visits WHERE user_id = $1', [userId]).catch(() => {});
+    // Pedidos e vendas não são apagados — apenas desvinculados do utilizador
+    await client.query('UPDATE orders SET user_id = NULL WHERE user_id = $1', [userId]).catch(() => {});
+    await client.query('UPDATE sales SET user_id = NULL WHERE user_id = $1', [userId]).catch(() => {});
+    // Reembolsos
+    await client.query('UPDATE refund_requests SET user_id = NULL WHERE user_id = $1', [userId]).catch(() => {});
+    await client.query('UPDATE refund_requests SET reviewed_by = NULL WHERE reviewed_by = $1', [userId]).catch(() => {});
+    // Cupões criados por este utilizador
+    await client.query('UPDATE coupons SET created_by = NULL WHERE created_by = $1', [userId]).catch(() => {});
+    // Afiliados
+    await client.query('DELETE FROM affiliates WHERE user_id = $1', [userId]).catch(() => {});
+
+    await client.query('DELETE FROM profiles WHERE id = $1', [userId]);
+    await client.query('COMMIT');
+
     res.json({ success: true });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Erro ao remover utilizador:', err);
-    res.status(500).json({ error: 'Erro ao remover utilizador' });
+    res.status(500).json({ error: 'Erro ao remover utilizador: ' + err.message });
+  } finally {
+    client.release();
   }
 });
 

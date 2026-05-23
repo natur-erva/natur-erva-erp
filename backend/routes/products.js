@@ -21,7 +21,9 @@ const mapProduct = (p) => ({
   image3: p.image_url3,
   image4: p.image_url4,
   updatedAt: p.updated_at,
+  createdAt: p.created_at,
   totalSold: Number(p.total_sold || 0),
+  promotionalPrice: p.promotional_price != null ? Number(p.promotional_price) : null,
   showInShop: p.show_in_shop !== undefined ? p.show_in_shop : true,
   description: p.description,
   descriptionLong: p.description_long,
@@ -143,14 +145,15 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO products (name, slug, price, cost_price, type, category, stock, min_stock, unit, image, image_url2, image_url3, image_url4, show_in_shop, description, description_long, benefits, how_to_use, ingredients)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      `INSERT INTO products (name, slug, price, cost_price, type, category, stock, min_stock, unit, image, image_url2, image_url3, image_url4, show_in_shop, description, description_long, benefits, how_to_use, ingredients, promotional_price)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
        RETURNING *`,
       [p.name, slug, p.price, p.costPrice || 0,
        p.type, p.category, p.stock || 0, p.minStock || 0, p.unit,
        p.image || null, p.image2 || null, p.image3 || null, p.image4 || null,
        p.showInShop !== false, p.description || null, p.descriptionLong || null,
-       p.benefits || null, p.howToUse || null, p.ingredients || null]
+       p.benefits || null, p.howToUse || null, p.ingredients || null,
+       p.promotionalPrice || null]
     );
     res.status(201).json(mapProduct(rows[0]));
   } catch (err) {
@@ -186,6 +189,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (p.benefits !== undefined) { fields.push(`benefits = $${i++}`); values.push(p.benefits); }
     if (p.howToUse !== undefined) { fields.push(`how_to_use = $${i++}`); values.push(p.howToUse); }
     if (p.ingredients !== undefined) { fields.push(`ingredients = $${i++}`); values.push(p.ingredients); }
+    if (p.promotionalPrice !== undefined) { fields.push(`promotional_price = $${i++}`); values.push(p.promotionalPrice || null); }
 
     if (fields.length === 0) return res.json({ success: true });
 

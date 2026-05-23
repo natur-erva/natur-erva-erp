@@ -33,7 +33,9 @@ const mapUser = (raw: any): AuthUser => ({
   isActive: raw.isActive !== false,
   isSuperAdmin: raw.isSuperAdmin || false,
   lastLogin: raw.lastLogin || undefined,
-  requiresStrongPassword: raw.requiresStrongPassword === true
+  requiresStrongPassword: raw.requiresStrongPassword === true,
+  points: raw.points ?? 0,
+  totalPointsEarned: raw.totalPointsEarned ?? 0
 });
 
 export const authService = {

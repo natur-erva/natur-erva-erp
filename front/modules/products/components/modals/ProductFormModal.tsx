@@ -33,6 +33,7 @@ export interface ProductFormData {
   benefits: string;
   howToUse: string;
   ingredients: string;
+  promotionalPrice: number | null;
 }
 
 interface ProductFormModalProps {
@@ -66,6 +67,7 @@ const defaultFormData: ProductFormData = {
   benefits: '',
   howToUse: '',
   ingredients: '',
+  promotionalPrice: null,
 };
 
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
@@ -114,6 +116,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         benefits: (product as any).benefits || '',
         howToUse: (product as any).howToUse || '',
         ingredients: (product as any).ingredients || '',
+        promotionalPrice: (product as any).promotionalPrice ?? null,
       });
     } else {
       const defaultCategory = categories.length > 0 ? categories[0].name : '';
@@ -382,6 +385,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   placeholder="0.00"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Preço Promocional <span className="text-gray-400 font-normal">(opcional — deixa vazio para desativar)</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.promotionalPrice ?? ''}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  setFormData((prev) => ({ ...prev, promotionalPrice: isNaN(v) || v <= 0 ? null : v }));
+                }}
+                className="input-number-simple w-full px-3 py-2 border border-orange-300 dark:border-orange-600/50 rounded-lg bg-orange-50 dark:bg-orange-900/10 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-400 placeholder-gray-400"
+                placeholder="Ex: 450.00"
+              />
+              {formData.promotionalPrice && formData.price > 0 && formData.promotionalPrice < formData.price && (
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                  Desconto de {Math.round((1 - formData.promotionalPrice / formData.price) * 100)}% aplicado
+                </p>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

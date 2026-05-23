@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
     ShoppingCart, Heart, Star, Truck, Shield,
     RotateCcw, Check, Loader2, Package, ArrowLeft,
@@ -15,6 +15,7 @@ import {
     RatingStats,
 } from '../../products/services/reviewService';
 import uploadService from '../../../services/uploadService';
+import { ProductCarousel } from '../components/ProductCarousel';
 
 interface CartItem {
     productId: string;
@@ -131,6 +132,10 @@ export const ProductLandingPage: React.FC = () => {
     }, [product, selectedVariant, quantity, shopContext]);
 
     const displayPrice = (selectedVariant?.price ?? product?.price ?? 0).toFixed(2);
+    const basePrice = selectedVariant?.price ?? product?.price ?? 0;
+    const promoPrice = product?.promotionalPrice && product.promotionalPrice > 0 && product.promotionalPrice < basePrice
+        ? product.promotionalPrice : null;
+    const promoPct = promoPrice ? Math.round((1 - promoPrice / basePrice) * 100) : 0;
 
     const galleryImages: string[] = product
         ? [
@@ -219,9 +224,22 @@ export const ProductLandingPage: React.FC = () => {
                         </div>
 
                         {/* Price */}
-                        <div className="flex items-baseline gap-2 mb-5">
-                            <span className="text-5xl text-green-700 font-semibold">{displayPrice}</span>
-                            <span className="text-2xl text-gray-400">MT</span>
+                        <div className="flex flex-wrap items-center gap-3 mb-5">
+                            {promoPrice ? (
+                                <>
+                                    <span className="text-5xl text-red-500 font-semibold">{promoPrice.toFixed(2)}</span>
+                                    <div className="flex flex-col">
+                                        <span className="text-xl text-gray-400 line-through">{displayPrice} MT</span>
+                                        <span className="text-sm font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full w-fit">-{promoPct}%</span>
+                                    </div>
+                                    <span className="text-2xl text-gray-400">MT</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="text-5xl text-green-700 font-semibold">{displayPrice}</span>
+                                    <span className="text-2xl text-gray-400">MT</span>
+                                </>
+                            )}
                         </div>
 
                         <p className="text-gray-600 leading-relaxed mb-6">{product.description}</p>
@@ -546,35 +564,12 @@ export const ProductLandingPage: React.FC = () => {
 
             {/* Related Products */}
             {relatedProducts.length > 0 && (
-                <section className="max-w-7xl mx-auto px-4 py-10">
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-6">Produtos Relacionados</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {relatedProducts.map(p => (
-                            <Link key={p.id} to={`/loja/produto/${p.slug}`} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 group">
-                                <div className="relative h-48 overflow-hidden bg-gray-50">
-                                    <img
-                                        src={p.image ? uploadService.getPublicUrl(p.image) : 'https://via.placeholder.com/400?text=Sem+Imagem'}
-                                        alt={p.name}
-                                        className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500"
-                                    />
-                                    {p.category && (
-                                        <span className="absolute top-3 right-3 bg-green-600 text-white px-2 py-0.5 rounded-full text-xs">{p.category}</span>
-                                    )}
-                                </div>
-                                <div className="p-4">
-                                    <h3 className="font-semibold text-gray-800 mb-1 line-clamp-1">{p.name}</h3>
-                                    <p className="text-gray-500 text-xs mb-3 line-clamp-2">{p.description}</p>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-green-700 font-semibold">{(p.price || 0).toFixed(2)} MT</span>
-                                        <span className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs flex items-center gap-1">
-                                            <ShoppingCart className="w-3.5 h-3.5" />
-                                            Ver
-                                        </span>
-                                    </div>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
+                <section className="max-w-7xl mx-auto px-8 sm:px-12 py-10">
+                    <ProductCarousel
+                        title="Produtos Relacionados"
+                        products={relatedProducts}
+                        onAddToCart={(p, v) => shopContext.onAddToCart?.(p, v, 1)}
+                    />
                 </section>
             )}
         </div>

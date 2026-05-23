@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, Loader2, Package, Truck, CheckCircle, Clock, XCircle, MapPin, Tag, Copy, Check, Scan } from 'lucide-react';
+import { ChevronLeft, Loader2, Package, Truck, CheckCircle, Clock, XCircle, MapPin, Tag, Copy, Check, Scan, CreditCard, ThumbsUp } from 'lucide-react';
 import api from '../../core/services/apiClient';
 import { Order, OrderStatus } from '../../core/types/order';
 
@@ -23,33 +23,22 @@ const buildTimeline = (order: Order): TimelineStep[] => {
       { label: 'Cancelada', icon: <XCircle className="w-5 h-5" />, done: true, date: fmtDate(order.updatedAt) || undefined, isCancelled: true },
     ];
   }
-  const statusOrder = [OrderStatus.PENDING, OrderStatus.PROCESSING, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED, OrderStatus.COMPLETED];
+  const statusOrder = [
+    OrderStatus.PENDING,
+    OrderStatus.CONFIRMED,
+    OrderStatus.PROCESSING,
+    OrderStatus.OUT_FOR_DELIVERY,
+    OrderStatus.DELIVERED,
+    OrderStatus.COMPLETED,
+  ];
   const currentIdx = statusOrder.indexOf(order.status as OrderStatus);
   return [
-    {
-      label: 'Encomenda Recebida',
-      icon: <Package className="w-5 h-5" />,
-      done: currentIdx >= 0,
-      date: currentIdx >= 0 ? fmtDate(order.createdAt) || undefined : undefined,
-    },
-    {
-      label: 'Em Processamento',
-      icon: <Clock className="w-5 h-5" />,
-      done: currentIdx >= 1,
-      date: currentIdx >= 1 ? fmtDate(order.updatedAt) || undefined : undefined,
-    },
-    {
-      label: 'A Caminho',
-      icon: <Truck className="w-5 h-5" />,
-      done: currentIdx >= 2,
-      date: currentIdx >= 2 ? fmtDate(order.updatedAt) || undefined : undefined,
-    },
-    {
-      label: 'Entregue',
-      icon: <CheckCircle className="w-5 h-5" />,
-      done: currentIdx >= 3,
-      date: currentIdx >= 3 ? fmtDate(order.deliveredAt || order.updatedAt) || undefined : undefined,
-    },
+    { label: 'Encomenda Recebida',     icon: <Package className="w-5 h-5" />,     done: currentIdx >= 0, date: currentIdx >= 0 ? fmtDate(order.createdAt) || undefined : undefined },
+    { label: 'Pagamento Confirmado',   icon: <CreditCard className="w-5 h-5" />,   done: currentIdx >= 1, date: currentIdx >= 1 ? fmtDate(order.updatedAt) || undefined : undefined },
+    { label: 'Em Processamento',       icon: <Clock className="w-5 h-5" />,        done: currentIdx >= 2, date: currentIdx >= 2 ? fmtDate(order.updatedAt) || undefined : undefined },
+    { label: 'Saiu para Entrega',      icon: <Truck className="w-5 h-5" />,        done: currentIdx >= 3, date: currentIdx >= 3 ? fmtDate(order.updatedAt) || undefined : undefined },
+    { label: 'Entregue',               icon: <CheckCircle className="w-5 h-5" />,  done: currentIdx >= 4, date: currentIdx >= 4 ? fmtDate(order.deliveredAt || order.updatedAt) || undefined : undefined },
+    { label: 'Receção Confirmada',     icon: <ThumbsUp className="w-5 h-5" />,     done: currentIdx >= 5, date: currentIdx >= 5 ? fmtDate(order.updatedAt) || undefined : undefined },
   ];
 };
 
@@ -60,6 +49,22 @@ export const CustomerOrderDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
+  const handleConfirmDelivery = async () => {
+    if (!order) return;
+    setConfirming(true);
+    try {
+      await api.put(`/orders/my-orders/${order.id}/confirm`);
+      setOrder(o => o ? { ...o, status: OrderStatus.COMPLETED } : o);
+      setConfirmed(true);
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   const copyTracking = (code: string) => {
     navigator.clipboard.writeText(code).then(() => {
@@ -211,8 +216,41 @@ export const CustomerOrderDetail: React.FC = () => {
           </div>
         )}
 
+        {/* Confirmar Receção */}
+        {(order.status === OrderStatus.DELIVERED || order.status === 'delivered') && !confirmed && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-5">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-800/50 flex items-center justify-center shrink-0">
+                <ThumbsUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Recebeste a tua encomenda?</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Confirma a receção para que possamos fechar o processo de entrega.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleConfirmDelivery}
+              disabled={confirming}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold text-sm transition-colors"
+            >
+              {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Confirmar que recebi a encomenda
+            </button>
+          </div>
+        )}
+
+        {/* Confirmado com sucesso */}
+        {(order.status === OrderStatus.COMPLETED || order.status === 'completed' || confirmed) && (
+          <div className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+            <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">Receção confirmada. Obrigado pela tua compra!</p>
+          </div>
+        )}
+
         {/* Ação: Solicitar Reembolso */}
-        {(order.status === OrderStatus.DELIVERED || order.status === 'delivered' || order.status === OrderStatus.COMPLETED) && (
+        {(order.status === OrderStatus.DELIVERED || order.status === 'delivered' || order.status === OrderStatus.COMPLETED || order.status === 'completed') && (
           <button
             onClick={() => navigate('/minha-conta/reembolsos', { state: { orderId: order.id, orderNumber: order.orderNumber } })}
             className="w-full py-3 rounded-xl border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 dark:hover:text-red-400 transition-colors font-medium text-sm"

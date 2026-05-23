@@ -49,6 +49,10 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'refunds': '/admin/reembolsos',
   // Afiliados
   'affiliates': '/admin/afiliados',
+  // Logística
+  'logistics': '/admin/logistica',
+  // Zonas de entrega
+  'delivery-zones': '/admin/zonas-entrega',
   // Perfil
   'profile': '/admin/perfis'
 };

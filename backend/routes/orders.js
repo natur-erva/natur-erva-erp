@@ -141,6 +141,29 @@ router.get('/my-orders/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// PUT /api/orders/my-orders/:id/confirm — cliente confirma receção
+router.put('/my-orders/:id/confirm', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { rows } = await pool.query(
+      `SELECT id, status FROM orders
+       WHERE id = $1 AND (user_id = $2 OR customer_id IN (SELECT customer_id FROM profiles WHERE id = $2))`,
+      [req.params.id, userId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Pedido não encontrado' });
+    if (rows[0].status !== 'delivered') return res.status(400).json({ error: 'Só é possível confirmar encomendas no estado "Entregue".' });
+
+    await pool.query(
+      `UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`,
+      [req.params.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[PUT /orders/my-orders/:id/confirm]', err);
+    res.status(500).json({ error: 'Erro ao confirmar receção' });
+  }
+});
+
 // GET /api/orders/tracking/:code — público, sem autenticação
 router.get('/tracking/:code', async (req, res) => {
   try {

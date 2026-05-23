@@ -1,12 +1,11 @@
 import React, { useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { User, LogIn, LogOut, Moon, Sun, Settings, ShoppingCart, Menu, X, ShoppingBag, Search } from 'lucide-react';
+import { User, LogIn, LogOut, Settings, ShoppingCart, Menu, X, ShoppingBag, Home, Info, Shield, Phone } from 'lucide-react';
 import { UserRole } from '../../../core/types/types';
 import { Logo } from '../ui/Logo';
 import { useMobile } from '../../../core/hooks/useMobile';
 import { User as UserType } from '../../../core/types/types';
-import { useShopContextSafe } from '../../../../contexts/ShopContext';
 
 interface HeaderProps {
   currentUser: UserType | null;
@@ -36,83 +35,57 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const isMobile = useMobile(768);
   const isTablet = useMobile(1024);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const closeSidebar = () => setSidebarOpen(false);
 
-  const shopContext = useShopContextSafe();
-  const searchTerm = shopContext?.searchTerm || '';
-  const setSearchTerm = shopContext?.setSearchTerm;
-
   const handleLogout = () => { onLogout?.(); };
+
+  const navLinks = [
+    { to: '/',          label: 'Início',         icon: <Home className="h-4 w-4" /> },
+    { to: '/sobre',     label: 'Sobre nós',      icon: <Info className="h-4 w-4" /> },
+    { to: '/politica',  label: 'Nossa Política', icon: <Shield className="h-4 w-4" /> },
+    { to: '/contactos', label: 'Fale Connosco',  icon: <Phone className="h-4 w-4" /> },
+  ];
+
+  const isActive = (to: string) => to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
 
   if (isShopMode) {
     return (
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border-b border-gray-100/80 dark:border-gray-800/80 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-[68px] gap-3">
+          <div className="flex items-center justify-between h-16 sm:h-[68px] gap-4">
 
             {/* Logo */}
             <Link to="/" className="flex-shrink-0 flex items-center hover:opacity-80 transition-opacity" aria-label="Início">
               <Logo
-                width={isMobile ? 110 : isTablet ? 130 : 150}
-                height={isMobile ? 38 : isTablet ? 44 : 48}
+                width={isMobile ? 100 : isTablet ? 120 : 140}
+                height={isMobile ? 34 : isTablet ? 40 : 44}
                 className="w-auto"
                 isDarkMode={isDarkMode}
               />
             </Link>
 
-            {/* Search — desktop/tablet expandida, mobile ícone */}
-            {!isMobile ? (
-              <div className="flex-1 max-w-md mx-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar produtos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm?.(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition-all"
-                  />
-                </div>
-              </div>
-            ) : searchOpen ? (
-              <div className="flex-1 flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    autoFocus
-                    type="text"
-                    placeholder="Buscar..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm?.(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition-all"
-                  />
-                </div>
-                <button onClick={() => { setSearchOpen(false); setSearchTerm?.(''); }} className="p-2 text-gray-500">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : null}
+            {/* Nav links — desktop */}
+            {!isMobile && (
+              <nav className="hidden md:flex items-center gap-1 flex-1 justify-center">
+                {navLinks.map(link => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive(link.to)
+                        ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+            )}
 
             {/* Actions */}
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-
-              {/* Search icon — mobile only */}
-              {isMobile && !searchOpen && (
-                <button onClick={() => setSearchOpen(true)} className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                  <Search className="h-5 w-5" />
-                </button>
-              )}
-
-              {/* Dark mode */}
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title={isDarkMode ? 'Modo claro' : 'Modo escuro'}
-              >
-                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </button>
 
               {/* Admin link */}
               {currentUser && currentUser.role !== UserRole.CLIENTE && !(currentUser.roles?.length === 1 && currentUser.roles[0] === 'CLIENTE') && (
@@ -142,7 +115,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               )}
 
               {/* Cart */}
-              {onCartClick && !searchOpen && (
+              {onCartClick && (
                 <button onClick={onCartClick} className="relative p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                   <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6" />
                   {cartItemCount > 0 && (
@@ -154,11 +127,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               )}
 
               {/* Hamburger — mobile/tablet */}
-              {!searchOpen && (
-                <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" aria-label="Menu">
-                  <Menu className="h-5 w-5" />
-                </button>
-              )}
+              <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" aria-label="Menu">
+                <Menu className="h-5 w-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -168,7 +139,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           <>
             <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm" onClick={closeSidebar} />
             <aside className="fixed left-0 top-0 bottom-0 w-[80vw] max-w-[320px] z-[101] bg-white dark:bg-gray-950 shadow-2xl flex flex-col overflow-y-auto">
-              {/* Header da sidebar */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
                 <Logo width={120} height={40} className="w-auto" isDarkMode={isDarkMode} />
                 <button onClick={closeSidebar} className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
@@ -176,12 +146,21 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 </button>
               </div>
 
-              {/* Nav */}
               <nav className="flex-1 px-4 py-5 space-y-1">
-                <Link to="/loja" onClick={closeSidebar} className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all ${location.pathname === '/loja' || location.pathname === '/' ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'}`}>
-                  <ShoppingBag className="h-5 w-5" />
-                  Loja
-                </Link>
+                {navLinks.map(link => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={closeSidebar}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all ${
+                      isActive(link.to)
+                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'
+                    }`}
+                  >
+                    {link.icon}{link.label}
+                  </Link>
+                ))}
 
                 <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-800 space-y-1">
                   {onCartClick && (
@@ -210,11 +189,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                       <LogIn className="h-5 w-5" />Entrar
                     </button>
                   )}
-
-                  <button onClick={toggleTheme} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-all">
-                    {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                    {isDarkMode ? 'Modo claro' : 'Modo escuro'}
-                  </button>
                 </div>
               </nav>
             </aside>
@@ -234,9 +208,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             <Logo width={140} height={46} className="w-auto" isDarkMode={isDarkMode} />
           </Link>
           <div className="flex items-center gap-2">
-            <button onClick={toggleTheme} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
             {currentUser && (
               <button onClick={() => navigate('/')} className="px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-sm font-medium shadow-lg shadow-green-500/25 transition-all hover:shadow-xl hover:shadow-green-500/30">
                 Voltar ao Site

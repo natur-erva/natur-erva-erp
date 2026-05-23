@@ -68,11 +68,11 @@ export const ShopMidBanner: React.FC<ShopMidBannerProps> = ({ isAdmin = false, p
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !uploadImage) return;
+    if (!file) return;
     setUploading(true);
     try {
-      const url = await uploadImage(file);
-      if (url) setDraft(prev => ({ ...prev, imageUrl: url }));
+      const result = await uploadService.uploadImage(file, 'banners', 1920);
+      if (result?.url) setDraft(prev => ({ ...prev, imageUrl: result.url }));
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -124,13 +124,13 @@ export const ShopMidBanner: React.FC<ShopMidBannerProps> = ({ isAdmin = false, p
   // ── Placeholder para admin quando ainda não tem banner ───────────
   if (!banner && isAdmin) {
     return (
-      <section className="max-w-7xl mx-auto px-4 sm:px-8 py-4">
+      <section className="w-full px-4 py-4">
         <button
           onClick={openEdit}
-          className="w-full h-28 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center gap-2 text-gray-400 dark:text-gray-500 hover:border-green-400 hover:text-green-500 transition-colors"
+          className="w-full h-28 border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center gap-2 text-gray-400 dark:text-gray-500 hover:border-green-400 hover:text-green-500 transition-colors"
         >
           <ImageIcon className="w-7 h-7" />
-          <span className="text-sm font-medium">Adicionar banner promocional (após produtos)</span>
+          <span className="text-sm font-medium">Adicionar banner intermédio (largura total)</span>
         </button>
         {editing && renderModal()}
       </section>
@@ -154,7 +154,7 @@ export const ShopMidBanner: React.FC<ShopMidBannerProps> = ({ isAdmin = false, p
             {/* Imagem */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
-                Imagem <span className="text-gray-400 font-normal">Recomendado: 900×280px, produto em PNG</span>
+                Imagem <span className="text-gray-400 font-normal">Recomendado: 1920×600px · proporção 16:5</span>
               </label>
               <div className="relative rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 h-36 flex items-center justify-center">
                 {draft.imageUrl ? (
@@ -302,10 +302,10 @@ export const ShopMidBanner: React.FC<ShopMidBannerProps> = ({ isAdmin = false, p
   }
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-8 py-6">
+    <section className="w-full mt-8">
       <div
-        className="relative rounded-2xl overflow-hidden cursor-pointer group"
-        style={{ backgroundColor: banner!.bgColor, minHeight: '180px' }}
+        className="relative w-full overflow-hidden cursor-pointer group flex items-center"
+        style={{ backgroundColor: banner!.bgColor, height: 'clamp(280px, calc(100vw / 3.2), 600px)' }}
         onClick={handleClick}
       >
         {/* Imagem cobre o banner todo */}
@@ -320,20 +320,27 @@ export const ShopMidBanner: React.FC<ShopMidBannerProps> = ({ isAdmin = false, p
           </>
         )}
 
-        {/* Conteúdo de texto */}
-        <div className="relative z-10 px-8 py-8 md:px-12 max-w-lg">
-          <h2 className="font-extrabold text-white leading-tight mb-2" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>
-            {banner!.title}
-          </h2>
-          {banner!.subtitle && (
-            <p className="text-white/80 mb-4 text-sm md:text-base leading-relaxed">
-              {banner!.subtitle}
-            </p>
-          )}
-          <button className="inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-5 py-2.5 rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-md text-sm md:text-base">
-            {banner!.buttonText}
-            <ArrowRight className="w-4 h-4" />
-          </button>
+        {/* Conteúdo de texto — centrado verticalmente, alinhado à esquerda */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12">
+          <div className="max-w-xl drop-shadow-lg">
+            {banner!.productSlug && (
+              <span className="inline-block bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1 rounded-full mb-3 border border-white/30">
+                Produto em destaque
+              </span>
+            )}
+            <h2 className="font-extrabold text-white leading-tight mb-3" style={{ fontSize: 'clamp(1.5rem, 4vw, 3rem)' }}>
+              {banner!.title}
+            </h2>
+            {banner!.subtitle && (
+              <p className="text-white/80 mb-6 leading-relaxed" style={{ fontSize: 'clamp(0.85rem, 1.5vw, 1.1rem)' }}>
+                {banner!.subtitle}
+              </p>
+            )}
+            <button className="inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-6 py-3 rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-lg hover:shadow-xl text-sm md:text-base">
+              {banner!.buttonText}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Botão de edição (admin) */}

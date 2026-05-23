@@ -448,6 +448,7 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
       benefits: (data as any).benefits || undefined,
       howToUse: (data as any).howToUse || undefined,
       ingredients: (data as any).ingredients || undefined,
+      promotionalPrice: (data as any).promotionalPrice ?? null,
     };
     let success = false;
     let productId: string | null = null;

@@ -58,9 +58,9 @@ function extractObjectKey(urlOrPath: string): string | null {
 }
 
 export const uploadService = {
-  async uploadImage(file: File, folder = 'products'): Promise<UploadResult | null> {
+  async uploadImage(file: File, folder = 'products', maxSize = 1200): Promise<UploadResult | null> {
     try {
-      const compressed = await compressImage(file);
+      const compressed = await compressImage(file, maxSize);
 
       const formData = new FormData();
       formData.append('image', compressed);

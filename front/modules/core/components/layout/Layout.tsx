@@ -289,7 +289,6 @@ export const Layout: React.FC<LayoutProps> = ({
           onNavigate={onNavigate}
           onLogout={handleLogout}
           isDarkMode={isDarkMode}
-          toggleTheme={toggleTheme}
           isOpen={sidebarOpen}
           onToggle={toggleSidebar}
         />
@@ -395,22 +394,6 @@ export const Layout: React.FC<LayoutProps> = ({
                             EN
                           </button>
                         </div>
-                        <button
-                          onClick={toggleTheme}
-                          className="w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium text-content-secondary hover:bg-surface-raised rounded-lg transition-colors touch-manipulation min-h-[44px]"
-                        >
-                          {isDarkMode ? (
-                            <>
-                              <Sun className="w-5 h-5" />
-                              <span>{t.settings.lightMode}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Moon className="w-5 h-5" />
-                              <span>{t.settings.darkMode}</span>
-                            </>
-                          )}
-                        </button>
                         <button
                           onClick={() => {
                             setUserMenuOpen(false);
@@ -596,23 +579,6 @@ export const Layout: React.FC<LayoutProps> = ({
                   EN
                 </button>
               </div>
-              {/* Botéo Alternar Tema */}
-              <button
-                onClick={toggleTheme}
-                className="w-full flex items-center space-x-2 px-3 py-2 border border-border-default rounded-lg text-sm font-medium text-content-secondary hover:bg-surface-raised transition-colors"
-              >
-                {isDarkMode ? (
-                  <>
-                    <Sun className="w-4 h-4" />
-                    <span>{t.settings.lightMode}</span>
-                  </>
-                ) : (
-                  <>
-                    <Moon className="w-4 h-4" />
-                    <span>{t.settings.darkMode}</span>
-                  </>
-                )}
-              </button>
 
               {/* Botéo Voltar ao Site */}
               <button

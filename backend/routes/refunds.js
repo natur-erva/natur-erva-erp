@@ -64,12 +64,21 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const userId = req.user.id;
 
-    // Verificar que o pedido pertence ao utilizador
-    const { rows: orderRows } = await pool.query(
-      'SELECT id, customer_id FROM orders WHERE id = $1',
-      [orderId]
-    );
-    if (!orderRows.length) return res.status(404).json({ error: 'Pedido não encontrado' });
+    // Aceitar UUID ou número de pedido (ex: "8", "Pedido#8")
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+    let orderRows;
+    if (isUUID) {
+      ({ rows: orderRows } = await pool.query(
+        'SELECT id, customer_id FROM orders WHERE id = $1', [orderId]
+      ));
+    } else {
+      const numStr = orderId.replace(/\D/g, '') || orderId.trim();
+      ({ rows: orderRows } = await pool.query(
+        'SELECT id, customer_id FROM orders WHERE order_number = $1 OR order_number = $2 LIMIT 1',
+        [orderId.trim(), numStr]
+      ));
+    }
+    if (!orderRows.length) return res.status(404).json({ error: 'Pedido não encontrado. Verifica o número do pedido.' });
 
     // Verificar se já existe pedido de reembolso para este pedido
     const { rows: existing } = await pool.query(

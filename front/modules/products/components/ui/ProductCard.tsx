@@ -122,6 +122,9 @@ const ProductCardComponent: React.FC<{
     };
 
     const currentPrice = selectedVariant?.price || product.price;
+    const promoPrice = (product.promotionalPrice && product.promotionalPrice > 0 && product.promotionalPrice < currentPrice)
+      ? product.promotionalPrice : null;
+    const discountPct = promoPrice ? Math.round((1 - promoPrice / currentPrice) * 100) : 0;
     const currentStock = selectedVariant?.stock ?? product.variants?.[0]?.stock ?? product.stock ?? 0;
     const currentUnit = selectedVariant?.unit || product.unit;
     const hasStock = currentStock > 0;
@@ -162,7 +165,11 @@ const ProductCardComponent: React.FC<{
                             {product.category}
                         </span>
                     )}
-                    {showFeaturedBadge && (
+                    {promoPrice ? (
+                        <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold shadow-sm">
+                            -{discountPct}%
+                        </span>
+                    ) : showFeaturedBadge && (
                         <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400 text-amber-900 text-[10px] font-bold shadow-sm">
                             <Star className="w-2.5 h-2.5 fill-current" />
                             Destaque
@@ -204,10 +211,21 @@ const ProductCardComponent: React.FC<{
 
                 {/* Preço + Botão */}
                 <div className="flex items-center justify-between mt-auto pt-1">
-                    <div className="flex flex-col">
-                        <span className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'} font-bold text-green-600 dark:text-green-400 leading-tight`}>
-                            {currentPrice.toFixed(2)} MT
-                        </span>
+                    <div className="flex flex-col gap-0.5">
+                        {promoPrice ? (
+                            <>
+                                <span className="text-xs text-gray-400 dark:text-gray-500 line-through leading-none">
+                                    {currentPrice.toFixed(2)} MT
+                                </span>
+                                <span className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'} font-bold text-red-500 leading-tight`}>
+                                    {promoPrice.toFixed(2)} MT
+                                </span>
+                            </>
+                        ) : (
+                            <span className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'} font-bold text-green-600 dark:text-green-400 leading-tight`}>
+                                {currentPrice.toFixed(2)} MT
+                            </span>
+                        )}
                     </div>
 
                     {hasStock ? (
@@ -330,6 +348,7 @@ export const ProductCard = memo(ProductCardComponent, (prevProps, nextProps) => 
   return (
     prevProps.product.id === nextProps.product.id &&
     prevProps.product.price === nextProps.product.price &&
+    prevProps.product.promotionalPrice === nextProps.product.promotionalPrice &&
     prevStock === nextStock &&
     prevProps.isMobile === nextProps.isMobile &&
     prevProps.showFeaturedBadge === nextProps.showFeaturedBadge &&

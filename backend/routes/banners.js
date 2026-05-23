@@ -213,6 +213,52 @@ router.patch('/:id/order', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/banners/page/:key — banner de cabeçalho de página institucional (público)
+router.get('/page/:key', async (req, res) => {
+  try {
+    await ensureTable();
+    const bannerType = `page:${req.params.key}`;
+    const { rows } = await pool.query(
+      `SELECT * FROM shop_banners WHERE is_active = true AND banner_type = $1 ORDER BY updated_at DESC LIMIT 1`,
+      [bannerType]
+    );
+    if (!rows.length) return res.json(null);
+    res.json(mapBanner(rows[0]));
+  } catch (err) {
+    console.error('[Banners GET page]', err);
+    res.status(500).json({ error: 'Erro ao carregar banner' });
+  }
+});
+
+// PUT /api/banners/page/:key — guardar banner de cabeçalho de página (admin)
+router.put('/page/:key', authMiddleware, async (req, res) => {
+  try {
+    await ensureTable();
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(req.user?.role)) {
+      return res.status(403).json({ error: 'Sem permissão' });
+    }
+    const bannerType = `page:${req.params.key}`;
+    const { imageUrl, title, subtitle, bgColor } = req.body;
+    const { rows: existing } = await pool.query(`SELECT id FROM shop_banners WHERE banner_type = $1 LIMIT 1`, [bannerType]);
+    if (existing.length > 0) {
+      await pool.query(
+        `UPDATE shop_banners SET image_url=$1, title=$2, subtitle=$3, bg_color=$4, is_active=true, updated_at=NOW() WHERE id=$5`,
+        [imageUrl || null, title, subtitle, bgColor || '#14532d', existing[0].id]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO shop_banners (image_url, title, subtitle, bg_color, banner_type, button_text, is_active)
+         VALUES ($1,$2,$3,$4,$5,'',true)`,
+        [imageUrl || null, title, subtitle, bgColor || '#14532d', bannerType]
+      );
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Banners PUT page]', err);
+    res.status(500).json({ error: 'Erro ao guardar banner' });
+  }
+});
+
 // DELETE /api/banners/:id
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {

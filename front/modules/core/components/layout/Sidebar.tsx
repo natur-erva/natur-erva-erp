@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, ShoppingCart, Package, LogOut, Award, TrendingUp, Warehouse, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, Egg, UserCheck, Repeat, Truck, FileText, BarChart3, ArrowLeftRight, Wallet, Download, Activity, ArrowRight, Upload, Globe, CreditCard, Megaphone, Target, Share2, Eye, MapPin, Moon, Sun, Store, Image, Tv, List, Layers, Ruler, Tag, ClipboardCheck, Scale, AlertTriangle, Shield, Boxes } from 'lucide-react';
+import { LayoutDashboard, Users, ShoppingCart, Package, LogOut, Award, TrendingUp, Warehouse, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, Egg, UserCheck, Repeat, Truck, FileText, BarChart3, ArrowLeftRight, Wallet, Download, Activity, ArrowRight, Upload, Globe, CreditCard, Megaphone, Target, Share2, Eye, MapPin, Store, Image, Tv, List, Layers, Ruler, Tag, ClipboardCheck, Scale, AlertTriangle, Shield, Boxes } from 'lucide-react';
 import { User, UserRole } from '../../../core/types/types';
 import { useLanguage } from '../../../core/contexts/LanguageContext';
 import { Logo } from '../ui/Logo';
@@ -16,7 +16,6 @@ interface SidebarProps {
   onNavigate: (page: string) => void;
   onLogout: () => void;
   isDarkMode: boolean;
-  toggleTheme: () => void;
   isOpen: boolean;
   onToggle: () => void;
 }
@@ -44,7 +43,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   onLogout,
   isDarkMode,
-  toggleTheme,
   isOpen,
   onToggle
 }) => {
@@ -249,9 +247,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'users.view' },
+    { id: 'logistics', label: 'Logística', icon: Truck, permission: 'logistics.manage' },
     { id: 'coupons', label: 'Cupões', icon: Tag, permission: 'admin.access' },
     { id: 'refunds', label: 'Reembolsos', icon: Repeat, permission: 'orders.view' },
     { id: 'affiliates', label: 'Afiliados', icon: Share2, permission: 'admin.access' },
+    { id: 'delivery-zones', label: 'Zonas de Entrega', icon: MapPin, permission: 'admin.access' },
   ];
 
   // Filtrar itens baseado apenas nas permisséµes (sistema simplificado)
@@ -514,13 +514,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`flex items-center justify-center ${isOpen ? 'flex-1 px-3 py-2' : 'w-full py-2'} rounded-lg text-content-secondary hover:bg-surface-raised hover:text-content-primary transition-colors relative group`}
             >
               <Globe className="w-4 h-4" />
-            </button>
-            <button
-              onClick={toggleTheme}
-              title={isDarkMode ? t.settings.lightMode : t.settings.darkMode}
-              className={`flex items-center justify-center ${isOpen ? 'flex-1 px-3 py-2' : 'w-full py-2'} rounded-lg text-content-secondary hover:bg-surface-raised hover:text-content-primary transition-colors relative group`}
-            >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
             <button
               onClick={onLogout}

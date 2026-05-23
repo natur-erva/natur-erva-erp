@@ -116,11 +116,11 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !uploadImage || !editing) return;
+    if (!file || !editing) return;
     setUploading(true);
     try {
-      const url = await uploadImage(file);
-      if (url) setEditing(prev => prev ? { ...prev, imageUrl: url } : prev);
+      const result = await uploadService.uploadImage(file, 'banners', 1920);
+      if (result?.url) setEditing(prev => prev ? { ...prev, imageUrl: result.url } : prev);
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -201,7 +201,7 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
   // ─── Skeleton ─────────────────────────────────────────────────────
   if (loading) {
     return (
-      <section className="w-full h-[420px] md:h-[580px]">
+      <section className="w-full" style={{ height: 'clamp(280px, calc(100vw / 3.2), 600px)' }}>
         <div className="w-full h-full bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 animate-pulse" />
       </section>
     );
@@ -215,7 +215,7 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
   return (
     <>
       {/* ── Slider ───────────────────────────────────────────────── */}
-      <section className="relative w-full overflow-hidden" style={{ height: 'clamp(420px, 60vw, 680px)' }}>
+      <section className="relative w-full overflow-hidden" style={{ height: 'clamp(280px, calc(100vw / 3.2), 600px)' }}>
 
         {/* Slides track */}
         <div
@@ -414,7 +414,7 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                   Imagem do slide
-                  <span className="text-gray-400 font-normal ml-2">Recomendado: 1920×520px</span>
+                  <span className="text-gray-400 font-normal ml-2">Recomendado: 1920×600px · proporção 16:5</span>
                 </label>
                 <div className="relative rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 h-44 flex items-center justify-center">
                   {editing.imageUrl ? (

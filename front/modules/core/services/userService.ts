@@ -39,10 +39,8 @@ export const userService = {
   },
 
   async deleteUser(userId: string): Promise<boolean> {
-    try {
-      await api.delete(`/users/${userId}`);
-      return true;
-    } catch { return false; }
+    await api.delete(`/users/${userId}`);
+    return true;
   },
 
   async getRoles(): Promise<any[]> {

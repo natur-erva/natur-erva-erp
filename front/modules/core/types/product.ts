@@ -65,6 +65,8 @@ export interface Product {
   benefits?: string;
   howToUse?: string;
   ingredients?: string;
+  promotionalPrice?: number | null;
+  createdAt?: string;
   landingPageEnabled?: boolean;
   landingPageData?: {
     heroTitle?: string;
