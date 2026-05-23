@@ -32,6 +32,7 @@ import { ProductCarousel } from '../components/ProductCarousel';
 import { TestimonialsSection } from '../components/TestimonialsSection';
 import { ShopInstagram } from '../components/ShopInstagram';
 import { ShopMidBanner } from '../components/ShopMidBanner';
+import { InlineAdBanner } from '../components/InlineAdBanner';
 
 // Base path para deploy na raiz
 const BASE_PATH = '/';
@@ -1224,18 +1225,39 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                 )}
               </div>
             ) : (
-              <div className={`grid ${isMobile ? 'grid-cols-2 gap-3' : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5'}`}>
-                {filteredProductsMemo.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onAddToCart={addToCart}
-                    onNotify={() => showToast('Será notificado quando este produto estiver disponível!', 'info', 4000)}
-                    isMobile={isMobile}
-                    currentUserName={currentUser?.name}
-                  />
-                ))}
-              </div>
+              <>
+                {(() => {
+                  const CHUNK = 8;
+                  const gridClass = `grid ${isMobile ? 'grid-cols-2 gap-3' : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5'}`;
+                  const chunks: typeof filteredProductsMemo[] = [];
+                  for (let i = 0; i < filteredProductsMemo.length; i += CHUNK) {
+                    chunks.push(filteredProductsMemo.slice(i, i + CHUNK));
+                  }
+                  return chunks.map((chunk, chunkIndex) => (
+                    <React.Fragment key={chunkIndex}>
+                      <div className={gridClass}>
+                        {chunk.map((product) => (
+                          <ProductCard
+                            key={product.id}
+                            product={product}
+                            onAddToCart={addToCart}
+                            onNotify={() => showToast('Será notificado quando este produto estiver disponível!', 'info', 4000)}
+                            isMobile={isMobile}
+                            currentUserName={currentUser?.name}
+                          />
+                        ))}
+                      </div>
+                      {chunkIndex < chunks.length - 1 && (
+                        <InlineAdBanner
+                          slot={(chunkIndex % 2) + 1}
+                          isAdmin={isAdmin}
+                          products={products}
+                        />
+                      )}
+                    </React.Fragment>
+                  ));
+                })()}
+              </>
             )}
           </main>
 

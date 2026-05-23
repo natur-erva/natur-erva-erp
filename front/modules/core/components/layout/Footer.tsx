@@ -81,14 +81,10 @@ const FooterComponent: React.FC<FooterProps> = ({ isShopMode = false }) => {
           <div>
             <h4 className="mb-4 font-semibold text-white text-sm uppercase tracking-wide">Ajuda</h4>
             <ul className="space-y-2.5 text-gray-400 text-sm">
-              <li><Link to="/loja" className="hover:text-green-400 transition-colors">Sobre Nós</Link></li>
-              <li>
-                <a href="https://wa.me/258874209440" target="_blank" rel="noopener noreferrer" className="hover:text-green-400 transition-colors">
-                  Fale Connosco
-                </a>
-              </li>
-              <li><Link to="/loja" className="hover:text-green-400 transition-colors">Política de Troca</Link></li>
-              <li><Link to="/loja" className="hover:text-green-400 transition-colors">Perguntas Frequentes</Link></li>
+              <li><Link to="/sobre" className="hover:text-green-400 transition-colors">Sobre Nós</Link></li>
+              <li><Link to="/contactos" className="hover:text-green-400 transition-colors">Fale Connosco</Link></li>
+              <li><Link to="/politica" className="hover:text-green-400 transition-colors">Política de Troca</Link></li>
+              <li><Link to="/politica" className="hover:text-green-400 transition-colors">Perguntas Frequentes</Link></li>
             </ul>
           </div>
 
