@@ -177,8 +177,21 @@ export const authService = {
     }
   },
 
+  async signInWithGoogleCredential(credential: string): Promise<LoginResult> {
+    try {
+      const result = await api.post<{ token: string; user: any }>('/auth/google', { credential }, { noAuth: true });
+      if (!result?.token || !result?.user)
+        return { user: null, error: 'Resposta inválida do servidor' };
+      setApiToken(result.token);
+      currentUser = mapUser(result.user);
+      return { user: currentUser };
+    } catch (err: any) {
+      return { user: null, error: err.message || 'Erro ao autenticar com Google' };
+    }
+  },
+
   async signInWithGoogle(): Promise<LoginResult> {
-    return { user: null, error: 'Login com Google não suportado. Use email e password.' };
+    return { user: null, error: 'Use o botão Google para autenticar.' };
   },
 
   async signInWithGooglePopup(): Promise<LoginResult> {
@@ -194,7 +207,21 @@ export const authService = {
   },
 
   async resetPassword(email: string): Promise<{ error?: string }> {
-    return { error: 'Recuperação de senha não configurada. Contacte o administrador.' };
+    try {
+      await api.post('/auth/forgot-password', { email }, { noAuth: true });
+      return {};
+    } catch (err: any) {
+      return { error: err.message || 'Erro ao enviar email de recuperação' };
+    }
+  },
+
+  async applyPasswordReset(token: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api.post('/auth/reset-password', { token, newPassword }, { noAuth: true });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao redefinir senha' };
+    }
   }
 };
 

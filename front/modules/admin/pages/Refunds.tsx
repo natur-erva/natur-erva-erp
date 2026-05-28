@@ -10,6 +10,7 @@ interface RefundRequest {
   customerName?: string;
   reason: string;
   details?: string;
+  photos?: string[];
   status: 'pending' | 'approved' | 'rejected';
   adminNotes?: string;
   createdAt: string;
@@ -124,6 +125,18 @@ export const Refunds: React.FC<{
                       <div>
                         <p className="text-xs font-medium text-content-secondary mb-1">Detalhes do cliente</p>
                         <p className="text-sm text-content-primary bg-surface-raised rounded-lg p-3">{r.details}</p>
+                      </div>
+                    )}
+                    {r.photos && r.photos.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-content-secondary mb-2">Fotos enviadas pelo cliente</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {r.photos.map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-20 h-20 rounded-lg overflow-hidden border border-border-default hover:opacity-80 transition-opacity flex-shrink-0">
+                              <img src={url} alt="" className="w-full h-full object-cover" />
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     )}
                     {r.adminNotes && (

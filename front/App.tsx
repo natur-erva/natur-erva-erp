@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation as useRouterLocation } from 'react-router-dom';
 import { dataService } from './modules/core/services/dataService';
 import { applyTheme } from './modules/core/utils/theme';
@@ -51,6 +52,8 @@ const CustomerAffiliate = lazy(() => import('./modules/shop/pages/CustomerAffili
 const AdminAffiliates = lazy(() => import('./modules/admin/pages/Affiliates').then(m => ({ default: m.Affiliates })));
 const AdminDeliveryZones = lazy(() => import('./modules/admin/pages/DeliveryZones').then(m => ({ default: m.DeliveryZones })));
 const AdminLogistics = lazy(() => import('./modules/admin/pages/Logistics').then(m => ({ default: m.Logistics })));
+const AdminMarketing = lazy(() => import('./modules/admin/pages/Marketing').then(m => ({ default: m.Marketing })));
+const ResetPasswordPage = lazy(() => import('./modules/shop/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const SobreNos = lazy(() => import('./modules/shop/pages/SobreNos'));
 const Politica = lazy(() => import('./modules/shop/pages/Politica'));
 const Contactos = lazy(() => import('./modules/shop/pages/Contactos'));
@@ -162,6 +165,12 @@ const App = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [counts, setCounts] = useState<{ customers: number; orders: number; products: number; sales: number; purchases: number; suppliers: number } | null>(null);
+
+  // Capturar código de afiliado do URL e persistir em localStorage para não se perder na navegação
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref) localStorage.setItem('affiliate_ref', ref);
+  }, []);
 
   // Initialize Dark Mode
   useEffect(() => {
@@ -337,6 +346,7 @@ const App = () => {
             <Route path="sobre" element={<Suspense fallback={<PageLoadingFallback />}><SobreNos /></Suspense>} />
             <Route path="politica" element={<Suspense fallback={<PageLoadingFallback />}><Politica /></Suspense>} />
             <Route path="contactos" element={<Suspense fallback={<PageLoadingFallback />}><Contactos /></Suspense>} />
+            <Route path="reset-password" element={<Suspense fallback={<PageLoadingFallback />}><ResetPasswordPage /></Suspense>} />
             {/* Home: mostra loja */}
             <Route index element={
               <LocationProvider>
@@ -725,6 +735,13 @@ const App = () => {
                 <ProtectedRoute user={currentUser} permission="logistics.manage">
                   <TrackedPage pagePath="/admin/logistica" pageTitle="Logística">
                     <AdminLogistics showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="marketing" element={
+                <ProtectedRoute user={currentUser} permission="admin.access">
+                  <TrackedPage pagePath="/admin/marketing" pageTitle="Marketing">
+                    <AdminMarketing showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />

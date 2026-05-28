@@ -148,7 +148,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, params.id, params.seriesId, params.chapterId, params.seriesSlug, params.chapterSlug]);
   const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<Array<{id: string; name: string; color: string; isActive: boolean}>>([]);
+  const [categories, setCategories] = useState<Array<{id: string; name: string; color: string; imageUrl?: string; isActive: boolean}>>([]);
   const [darkMode, setDarkMode] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -1106,10 +1106,14 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                       className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 w-full ${selectedCategory === cat.name ? 'ring-2 ring-green-500' : ''}`}
                     >
                       <div
-                        className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                        className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center mx-auto mb-4"
                         style={{ backgroundColor: cat.color || '#22c55e' }}
                       >
-                        <Icon className="w-8 h-8 text-white" />
+                        {cat.imageUrl ? (
+                          <img src={cat.imageUrl} alt={cat.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Icon className="w-8 h-8 text-white" />
+                        )}
                       </div>
                       <h3 className="text-base font-semibold mb-1 text-gray-800 dark:text-white">{cat.name}</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{count} produtos</p>

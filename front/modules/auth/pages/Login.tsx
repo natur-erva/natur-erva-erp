@@ -4,7 +4,7 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../core/contexts/LanguageContext';
 import { Logo } from '../../core/components/ui/Logo';
 import { authService } from '../../auth/services/authService';
-import { isSupabaseConfigured } from '../../core/services/supabaseClient';
+import { GoogleLogin } from '@react-oauth/google';
 import { ForgotPasswordModal } from '../../core/components/modals/ForgotPasswordModal';
 import { SignUpModal } from '../../core/components/modals/SignUpModal';
 import { type User } from '../../core/types/types';
@@ -90,14 +90,12 @@ export const Login = ({ onLogin }: { onLogin: (user: User) => void }) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
-    const [isConfigured, setIsConfigured] = useState(false);
+    const isGoogleConfigured = !!import.meta.env.VITE_GOOGLE_CLIENT_ID;
     const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
     const [showSignUpModal, setShowSignUpModal] = useState(false);
     const [lockoutMessage, setLockoutMessage] = useState<string | null>(null);
 
     useEffect(() => {
-        setIsConfigured(isSupabaseConfigured());
-
         // Check for saved email in localStorage
         const savedEmail = localStorage.getItem('quintanicy_saved_email');
         if (savedEmail) {
@@ -188,25 +186,19 @@ export const Login = ({ onLogin }: { onLogin: (user: User) => void }) => {
         }
     };
 
-    const handleGoogleLogin = async () => {
+    const handleGoogleSuccess = async (credentialResponse: any) => {
         setGoogleLoading(true);
         setError('');
-
         try {
-            const { user, error: googleError } = await authService.signInWithGooglePopup();
-            if (googleError) {
-                setError(googleError);
-                setGoogleLoading(false);
-            } else if (user) {
-                // Login bem-sucedido - atualizar estado diretamente
+            const { user, error: googleError } = await authService.signInWithGoogleCredential(credentialResponse.credential);
+            if (user) {
                 onLogin(user);
-                setGoogleLoading(false);
             } else {
-                setError('Erro ao processar autenticaçéo Google.');
-                setGoogleLoading(false);
+                setError(googleError || 'Erro ao autenticar com Google.');
             }
         } catch (e: any) {
             setError(e.message || 'Erro ao iniciar login com Google.');
+        } finally {
             setGoogleLoading(false);
         }
     };
@@ -329,27 +321,38 @@ export const Login = ({ onLogin }: { onLogin: (user: User) => void }) => {
                     </div>
                 </div>
 
-                {/* Botéo Google */}
-                <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={loading || googleLoading || !isConfigured}
-                    className="w-full bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-3 px-4 rounded-lg border-2 border-gray-300 dark:border-gray-600 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-3"
-                >
+                {/* Botão Google */}
+                {isGoogleConfigured ? (
+                  <div className="flex justify-center">
                     {googleLoading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                      <div className="flex items-center gap-2 text-gray-500 py-2"><Loader2 className="w-5 h-5 animate-spin" /> A autenticar...</div>
                     ) : (
-                        <>
-                            <svg className="w-5 h-5" viewBox="0 0 24 24">
-                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                            </svg>
-                            <span>Continuar com Google</span>
-                        </>
+                      <GoogleLogin
+                        onSuccess={handleGoogleSuccess}
+                        onError={() => setError('Erro ao iniciar login com Google.')}
+                        useOneTap={false}
+                        text="continue_with"
+                        shape="rectangular"
+                        width="100%"
+                      />
                     )}
-                </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full bg-white dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-medium py-3 px-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 flex justify-center items-center gap-3 cursor-not-allowed opacity-50"
+                    title="Configure VITE_GOOGLE_CLIENT_ID para activar"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path fill="#9ca3af" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#9ca3af" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#9ca3af" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="#9ca3af" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    <span>Continuar com Google</span>
+                  </button>
+                )}
 
                 <div className="mt-6 text-center pt-4 border-t border-gray-100 dark:border-gray-700 space-y-3">
                     <p className="text-sm text-gray-600 dark:text-gray-400">

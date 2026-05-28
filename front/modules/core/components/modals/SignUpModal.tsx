@@ -49,7 +49,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ onClose, onSuccess }) 
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('ref') || '';
+    return params.get('ref') || localStorage.getItem('affiliate_ref') || '';
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -111,6 +111,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ onClose, onSuccess }) 
     );
 
     if (user) {
+      if (referralCode) localStorage.removeItem('affiliate_ref');
       onSuccess(user);
       onClose();
     } else {

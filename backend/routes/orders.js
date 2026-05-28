@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
+import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -364,6 +365,25 @@ router.post('/', optionalAuth, async (req, res) => {
       console.warn('[Orders] affiliate commission error:', affErr.message);
     }
 
+    // Email de confirmação de pedido (best-effort)
+    try {
+      const buyerId = order.createdBy || req.user?.id;
+      if (buyerId) {
+        const { rows: pRows } = await pool.query('SELECT email, name FROM profiles WHERE id = $1', [buyerId]);
+        if (pRows.length && pRows[0].email) {
+          sendOrderConfirmationEmail({
+            to: pRows[0].email,
+            name: pRows[0].name,
+            orderNumber: orderRows[0].order_number,
+            items: order.items || [],
+            totalAmount: order.totalAmount,
+            isDelivery: order.isDelivery,
+            deliveryLocation: order.deliveryLocation
+          }).catch(() => {});
+        }
+      }
+    } catch {}
+
     res.status(201).json({
       order: mapOrder(orderRows[0]),
       customerCreated,
@@ -412,20 +432,54 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     await pool.query(`UPDATE orders SET ${fields.join(', ')} WHERE id = $${i}`, values);
 
+    // Email de atualização de status (best-effort)
+    if (updates.status) {
+      try {
+        const { rows: oRows } = await pool.query(
+          `SELECT o.order_number, o.created_by, o.customer_id, p.email, p.name
+           FROM orders o
+           LEFT JOIN profiles p ON p.id = o.created_by
+           WHERE o.id = $1`, [req.params.id]
+        );
+        if (oRows.length) {
+          const row = oRows[0];
+          let email = row.email;
+          let name = row.name;
+          // Fallback via customer_id se created_by for nulo
+          if (!email && row.customer_id) {
+            const { rows: cRows } = await pool.query(
+              'SELECT p.email, p.name FROM profiles p WHERE p.customer_id = $1 LIMIT 1', [row.customer_id]
+            );
+            if (cRows.length) { email = cRows[0].email; name = cRows[0].name; }
+          }
+          if (email) {
+            sendOrderStatusEmail({ to: email, name, orderNumber: row.order_number, status: updates.status }).catch(() => {});
+          }
+        }
+      } catch {}
+    }
+
     // Atribuir pontos ao cliente quando pedido é marcado como entregue/concluído (best-effort)
     if (updates.status === 'delivered' || updates.status === 'completed') {
       try {
+        // Fallback: se created_by for nulo (pedido criado pelo admin), procura o perfil via customer_id
         const { rows: orderData } = await pool.query(
-          'SELECT total_amount, created_by FROM orders WHERE id = $1',
+          `SELECT o.total_amount, o.created_by, p.id AS linked_profile_id
+           FROM orders o
+           LEFT JOIN profiles p ON p.customer_id = o.customer_id
+           WHERE o.id = $1`,
           [req.params.id]
         );
-        if (orderData.length && orderData[0].created_by) {
-          const pts = Math.floor(Number(orderData[0].total_amount) / 10);
-          if (pts > 0) {
-            await pool.query(
-              'UPDATE profiles SET points = points + $1, total_points_earned = total_points_earned + $1 WHERE id = $2',
-              [pts, orderData[0].created_by]
-            );
+        if (orderData.length) {
+          const profileId = orderData[0].created_by || orderData[0].linked_profile_id;
+          if (profileId) {
+            const pts = Math.floor(Number(orderData[0].total_amount) / 10);
+            if (pts > 0) {
+              await pool.query(
+                'UPDATE profiles SET points = points + $1, total_points_earned = total_points_earned + $1 WHERE id = $2',
+                [pts, profileId]
+              );
+            }
           }
         }
       } catch (pErr) {

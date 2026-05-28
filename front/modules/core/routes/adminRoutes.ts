@@ -53,6 +53,8 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'logistics': '/admin/logistica',
   // Zonas de entrega
   'delivery-zones': '/admin/zonas-entrega',
+  // Marketing
+  'marketing': '/admin/marketing',
   // Perfil
   'profile': '/admin/perfis'
 };

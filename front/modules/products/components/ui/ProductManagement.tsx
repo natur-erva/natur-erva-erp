@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProductCategory, ProductUnit, VariantTemplate } from '../../../core/types/types';
 import { useProducts } from '../../../core/hooks/useProducts';
-import { Plus, Edit2, Trash2, Save, X, Tag, Ruler, Layers, CheckCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Tag, Ruler, Layers, CheckCircle, Upload } from 'lucide-react';
 import { Toast } from '../../../core/components/ui/Toast';
 import { ConfirmDialog } from '../../../core/components/ui/ConfirmDialog';
 
@@ -38,7 +38,8 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({ showToast,
 
   // Editing states
   const [editingCategory, setEditingCategory] = useState<ProductCategory | null>(null);
-  const [categoryForm, setCategoryForm] = useState({ name: '', description: '', color: '#3B82F6', icon: '' });
+  const [categoryForm, setCategoryForm] = useState({ name: '', description: '', color: '#3B82F6', icon: '', imageUrl: '' });
+  const [pendingImageData, setPendingImageData] = useState<string | null>(null);
 
   const [editingUnit, setEditingUnit] = useState<ProductUnit | null>(null);
   const [unitForm, setUnitForm] = useState({ name: '', abbreviation: '', description: '' });
@@ -86,32 +87,38 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({ showToast,
 
     try {
       if (editingCategory) {
-        const success = await updateCategory(editingCategory.id, {
+        const payload: any = {
           name: categoryForm.name,
           description: categoryForm.description,
           color: categoryForm.color,
           icon: categoryForm.icon,
           isActive: editingCategory.isActive
-        });
+        };
+        if (pendingImageData) payload.imageData = pendingImageData;
+        const success = await updateCategory(editingCategory.id, payload);
         if (success) {
           showToast('Categoria atualizada com sucesso', 'success');
           setEditingCategory(null);
-          setCategoryForm({ name: '', description: '', color: '#3B82F6', icon: '' });
+          setCategoryForm({ name: '', description: '', color: '#3B82F6', icon: '', imageUrl: '' });
+          setPendingImageData(null);
           onDataChanged?.();
         } else {
           showToast('Erro ao atualizar categoria', 'error');
         }
       } else {
-        const newCategory = await addCategory({
+        const payload: any = {
           name: categoryForm.name,
           description: categoryForm.description,
           color: categoryForm.color,
           icon: categoryForm.icon,
           isActive: true
-        });
+        };
+        if (pendingImageData) payload.imageData = pendingImageData;
+        const newCategory = await addCategory(payload);
         if (newCategory) {
           showToast('Categoria criada com sucesso', 'success');
-          setCategoryForm({ name: '', description: '', color: '#3B82F6', icon: '' });
+          setCategoryForm({ name: '', description: '', color: '#3B82F6', icon: '', imageUrl: '' });
+          setPendingImageData(null);
           onDataChanged?.();
         } else {
           showToast('Erro ao criar categoria', 'error');
@@ -354,13 +361,50 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({ showToast,
                   placeholder="Descriçéo opcional da categoria"
                 />
               </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Imagem da Categoria
+                </label>
+                <div className="flex items-center gap-4">
+                  {(pendingImageData || categoryForm.imageUrl) && (
+                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 flex-shrink-0" style={{ borderColor: categoryForm.color || '#3B82F6' }}>
+                      <img src={pendingImageData || categoryForm.imageUrl} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => { setPendingImageData(null); setCategoryForm(f => ({ ...f, imageUrl: '' })); }}
+                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  )}
+                  <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-500 transition-colors text-sm text-gray-500 dark:text-gray-400">
+                    <Upload className="w-4 h-4" />
+                    {pendingImageData || categoryForm.imageUrl ? 'Trocar imagem' : 'Adicionar imagem'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setPendingImageData(ev.target?.result as string);
+                        reader.readAsDataURL(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  <span className="text-xs text-gray-400">A imagem aparece no card da loja</span>
+                </div>
+              </div>
             </div>
             <div className="flex justify-end gap-2 mt-4">
               {editingCategory && (
                 <button
                   onClick={() => {
                     setEditingCategory(null);
-                    setCategoryForm({ name: '', description: '', color: '#3B82F6', icon: '' });
+                    setCategoryForm({ name: '', description: '', color: '#3B82F6', icon: '', imageUrl: '' }); setPendingImageData(null);
                   }}
                   className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
@@ -394,10 +438,15 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({ showToast,
                     <tr key={category.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{category.name}</td>
                       <td className="px-4 py-3">
-                        <div
-                          className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
-                          style={{ backgroundColor: category.color || '#3B82F6' }}
-                        />
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0"
+                            style={{ backgroundColor: category.color || '#3B82F6' }}
+                          />
+                          {(category as any).imageUrl && (
+                            <img src={(category as any).imageUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700" />
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{category.description || '-'}</td>
                       <td className="px-4 py-3">
@@ -410,11 +459,13 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({ showToast,
                           <button
                             onClick={() => {
                               setEditingCategory(category);
+                              setPendingImageData(null);
                               setCategoryForm({
                                 name: category.name,
                                 description: category.description || '',
                                 color: category.color || '#3B82F6',
-                                icon: category.icon || ''
+                                icon: category.icon || '',
+                                imageUrl: (category as any).imageUrl || ''
                               });
                             }}
                             className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded"

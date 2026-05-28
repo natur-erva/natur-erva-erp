@@ -163,7 +163,7 @@ export const productService = {
     } catch { return []; }
   },
 
-  async addCategory(category: { name: string; description?: string; color?: string; icon?: string; isActive?: boolean }): Promise<any | null> {
+  async addCategory(category: { name: string; description?: string; color?: string; icon?: string; imageData?: string; isActive?: boolean }): Promise<any | null> {
     try {
       const result = await api.post<any>('/categories', category);
       clearProductCache('categories');
@@ -174,7 +174,7 @@ export const productService = {
     }
   },
 
-  async updateCategory(id: string, updates: Partial<{ name: string; description: string; color: string; icon: string; isActive: boolean }>): Promise<boolean> {
+  async updateCategory(id: string, updates: Partial<{ name: string; description: string; color: string; icon: string; imageData: string; isActive: boolean }>): Promise<boolean> {
     try {
       await api.put(`/categories/${id}`, updates);
       clearProductCache('categories');

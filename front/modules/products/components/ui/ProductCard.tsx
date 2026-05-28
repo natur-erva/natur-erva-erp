@@ -214,10 +214,10 @@ const ProductCardComponent: React.FC<{
                     <div className="flex flex-col gap-0.5">
                         {promoPrice ? (
                             <>
-                                <span className="text-xs text-gray-400 dark:text-gray-500 line-through leading-none">
+                                <span className="text-sm font-semibold text-red-400 dark:text-red-500 line-through leading-none">
                                     {currentPrice.toFixed(2)} MT
                                 </span>
-                                <span className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'} font-bold text-red-500 leading-tight`}>
+                                <span className={`${isMobile ? 'text-sm' : 'text-base sm:text-lg'} font-bold text-green-600 dark:text-green-400 leading-tight`}>
                                     {promoPrice.toFixed(2)} MT
                                 </span>
                             </>

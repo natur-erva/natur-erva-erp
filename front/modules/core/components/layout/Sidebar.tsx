@@ -251,6 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'coupons', label: 'Cupões', icon: Tag, permission: 'admin.access' },
     { id: 'refunds', label: 'Reembolsos', icon: Repeat, permission: 'orders.view' },
     { id: 'affiliates', label: 'Afiliados', icon: Share2, permission: 'admin.access' },
+    { id: 'marketing', label: 'Marketing', icon: Megaphone, permission: 'admin.access' },
     { id: 'delivery-zones', label: 'Zonas de Entrega', icon: MapPin, permission: 'admin.access' },
   ];
 

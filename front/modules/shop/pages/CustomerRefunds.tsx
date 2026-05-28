@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Loader2, RefreshCw, Plus, X, Check } from 'lucide-react';
+import { Camera, ChevronLeft, Loader2, RefreshCw, Plus, X, Check } from 'lucide-react';
 import api from '../../core/services/apiClient';
 
 interface RefundRequest {
@@ -9,6 +9,7 @@ interface RefundRequest {
   orderNumber?: string;
   reason: string;
   details?: string;
+  photos?: string[];
   status: 'pending' | 'approved' | 'rejected';
   adminNotes?: string;
   createdAt: string;
@@ -33,11 +34,13 @@ export const CustomerRefunds: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const prefill = (location.state as any) || {};
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [refunds, setRefunds] = useState<RefundRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(!!prefill.orderId);
   const [form, setForm] = useState({ orderId: prefill.orderId || '', reason: REASONS[0], details: '' });
+  const [photoFiles, setPhotoFiles] = useState<{ file: File; preview: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -48,16 +51,35 @@ export const CustomerRefunds: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const handlePhotoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = 3 - photoFiles.length;
+    files.slice(0, remaining).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setPhotoFiles(prev => [...prev, { file, preview: ev.target?.result as string }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removePhoto = (idx: number) => {
+    setPhotoFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
     if (!form.orderId.trim()) return setSubmitError('ID do pedido é obrigatório');
     setSubmitting(true);
     try {
-      const created = await api.post<RefundRequest>('/refunds', form);
+      const photos = photoFiles.map(p => p.preview);
+      const created = await api.post<RefundRequest>('/refunds', { ...form, photos });
       setRefunds(prev => [created, ...prev]);
       setShowForm(false);
       setForm({ orderId: '', reason: REASONS[0], details: '' });
+      setPhotoFiles([]);
     } catch (err: any) {
       setSubmitError(err?.message || 'Erro ao enviar pedido');
     } finally {
@@ -92,7 +114,7 @@ export const CustomerRefunds: React.FC = () => {
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-semibold text-gray-900 dark:text-white">Novo Pedido de Reembolso</h2>
-              <button onClick={() => { setShowForm(false); setSubmitError(''); }} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+              <button onClick={() => { setShowForm(false); setSubmitError(''); setPhotoFiles([]); }} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -130,6 +152,43 @@ export const CustomerRefunds: React.FC = () => {
                   placeholder="Descreve o problema em detalhe..."
                 />
               </div>
+
+              {/* Upload de fotos */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Fotos <span className="text-xs text-gray-400 font-normal">(opcional · máx. 3)</span>
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {photoFiles.map((p, i) => (
+                    <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex-shrink-0">
+                      <img src={p.preview} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(i)}
+                        className="absolute top-0.5 right-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full p-0.5 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {photoFiles.length < 3 && (
+                    <label className="w-20 h-20 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl cursor-pointer hover:border-green-500 dark:hover:border-green-500 transition-colors flex-shrink-0">
+                      <Camera className="w-5 h-5 text-gray-400" />
+                      <span className="text-[10px] text-gray-400">Adicionar</span>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handlePhotoAdd}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5">Envia fotos do produto para facilitar a análise.</p>
+              </div>
+
               {submitError && <p className="text-sm text-red-500">{submitError}</p>}
               <button
                 type="submit"
@@ -166,6 +225,15 @@ export const CustomerRefunds: React.FC = () => {
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">{r.reason}</p>
                       {r.details && <p className="text-xs text-gray-500 mt-1">{r.details}</p>}
+                      {r.photos && r.photos.length > 0 && (
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                          {r.photos.map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-14 h-14 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:opacity-80 transition-opacity flex-shrink-0">
+                              <img src={url} alt="" className="w-full h-full object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
                       {r.adminNotes && (
                         <div className="mt-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
                           <span className="font-medium">Resposta: </span>{r.adminNotes}

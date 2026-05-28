@@ -5,6 +5,7 @@ import App from './App';
 import { LanguageProvider } from './modules/core/contexts/LanguageContext';
 import { ToastProvider } from './modules/core/contexts/ToastContext';
 import { BrowserRouter } from 'react-router-dom';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -15,13 +16,15 @@ const root = ReactDOM.createRoot(rootElement);
 try {
   root.render(
     <React.StrictMode>
-      <BrowserRouter>
-        <LanguageProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
-        </LanguageProvider>
-      </BrowserRouter>
+      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ''}>
+        <BrowserRouter>
+          <LanguageProvider>
+            <ToastProvider>
+              <App />
+            </ToastProvider>
+          </LanguageProvider>
+        </BrowserRouter>
+      </GoogleOAuthProvider>
     </React.StrictMode>
   );
 } catch (error) {

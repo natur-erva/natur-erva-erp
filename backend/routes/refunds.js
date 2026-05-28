@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { uploadToMinio } from '../storage/minio.js';
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ const mapRefund = (row) => ({
   customerName: row.customer_name,
   reason: row.reason,
   details: row.details,
+  photos: row.photos || [],
   status: row.status,
   adminNotes: row.admin_notes,
   reviewedBy: row.reviewed_by,
@@ -58,7 +60,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // POST /api/refunds — cliente submete pedido
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { orderId, reason, details } = req.body;
+    const { orderId, reason, details, photos } = req.body;
     if (!orderId || !reason?.trim())
       return res.status(400).json({ error: 'orderId e reason são obrigatórios' });
 
@@ -87,11 +89,28 @@ router.post('/', authMiddleware, async (req, res) => {
     );
     if (existing.length) return res.status(409).json({ error: 'Já existe um pedido de reembolso pendente para este pedido' });
 
+    // Fazer upload das fotos para o MinIO
+    const photoUrls = [];
+    if (Array.isArray(photos) && photos.length > 0) {
+      for (const dataUrl of photos.slice(0, 3)) {
+        try {
+          const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (!match) continue;
+          const [, mime, b64] = match;
+          const buffer = Buffer.from(b64, 'base64');
+          const { url } = await uploadToMinio(buffer, 'refunds', mime);
+          photoUrls.push(url);
+        } catch (e) {
+          console.warn('[POST /refunds] Erro ao fazer upload de foto:', e.message);
+        }
+      }
+    }
+
     const customerId = orderRows[0].customer_id;
     const { rows } = await pool.query(
-      `INSERT INTO refund_requests (order_id, customer_id, user_id, reason, details)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [orderId, customerId, userId, reason.trim(), details?.trim() || null]
+      `INSERT INTO refund_requests (order_id, customer_id, user_id, reason, details, photos)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [orderId, customerId, userId, reason.trim(), details?.trim() || null, photoUrls]
     );
 
     const { rows: full } = await pool.query(

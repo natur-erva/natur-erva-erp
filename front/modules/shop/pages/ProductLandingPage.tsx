@@ -227,9 +227,9 @@ export const ProductLandingPage: React.FC = () => {
                         <div className="flex flex-wrap items-center gap-3 mb-5">
                             {promoPrice ? (
                                 <>
-                                    <span className="text-5xl text-red-500 font-semibold">{promoPrice.toFixed(2)}</span>
+                                    <span className="text-5xl text-green-600 font-semibold">{promoPrice.toFixed(2)}</span>
                                     <div className="flex flex-col">
-                                        <span className="text-xl text-gray-400 line-through">{displayPrice} MT</span>
+                                        <span className="text-xl text-red-400 font-semibold line-through">{displayPrice} MT</span>
                                         <span className="text-sm font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full w-fit">-{promoPct}%</span>
                                     </div>
                                     <span className="text-2xl text-gray-400">MT</span>

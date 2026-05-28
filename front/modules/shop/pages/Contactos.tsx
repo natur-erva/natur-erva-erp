@@ -12,7 +12,7 @@ const Contactos: React.FC = () => {
     const text = encodeURIComponent(
       `Olá Naturerva!\n\nNome: ${form.name}\nEmail: ${form.email}\nTelefone: ${form.phone}\n\nMensagem:\n${form.message}`
     );
-    window.open(`https://wa.me/258840000000?text=${text}`, '_blank');
+    window.open(`https://wa.me/258874209440?text=${text}`, '_blank');
     setSent(true);
     setTimeout(() => setSent(false), 4000);
   };
@@ -39,28 +39,28 @@ const Contactos: React.FC = () => {
               {
                 icon: <Phone className="w-5 h-5" />,
                 label: 'Telefone / WhatsApp',
-                value: '+258 84 000 0000',
-                href: 'https://wa.me/258840000000',
-                color: 'text-green-600 bg-green-50 dark:bg-green-900/20',
+                value: '+258 84 420 9440',
+                href: 'https://wa.me/258874209440',
+                color: 'text-green-600 bg-green-59440 dark:bg-green-900/20',
               },
               {
                 icon: <Mail className="w-5 h-5" />,
                 label: 'Email',
-                value: 'geral@naturerva.co.mz',
-                href: 'mailto:geral@naturerva.co.mz',
+                value: 'info@naturerva.co.mz',
+                href: 'mailto:info@naturerva.co.mz',
                 color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20',
               },
               {
                 icon: <MapPin className="w-5 h-5" />,
                 label: 'Localização',
-                value: 'Maputo, Moçambique',
+                value: 'Beira, Moçambique',
                 href: undefined,
                 color: 'text-red-500 bg-red-50 dark:bg-red-900/20',
               },
               {
                 icon: <Clock className="w-5 h-5" />,
                 label: 'Horário de Atendimento',
-                value: 'Seg – Sáb: 8h00 às 18h00',
+                value: 'Seg – Sáb: 8h00 às 17h00',
                 href: undefined,
                 color: 'text-orange-500 bg-orange-50 dark:bg-orange-900/20',
               },
@@ -86,11 +86,11 @@ const Contactos: React.FC = () => {
             <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Siga-nos nas redes sociais</p>
               <div className="flex gap-3">
-                <a href="https://instagram.com/naturerva" target="_blank" rel="noopener noreferrer"
+                <a href="https://instagram.com/naturervamz" target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 text-white text-sm font-medium hover:opacity-90 transition-opacity">
                   <Instagram className="w-4 h-4" /> Instagram
                 </a>
-                <a href="https://facebook.com/naturerva" target="_blank" rel="noopener noreferrer"
+                <a href="https://facebook.com/naturervamz" target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
                   <Facebook className="w-4 h-4" /> Facebook
                 </a>

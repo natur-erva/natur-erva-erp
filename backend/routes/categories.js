@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { uploadToMinio } from '../storage/minio.js';
 
 const router = express.Router();
 
@@ -10,10 +11,26 @@ const mapCategory = (r) => ({
   description: r.description || null,
   color: r.color || '#3B82F6',
   icon: r.icon || null,
+  imageUrl: r.image_url || null,
   displayOrder: r.display_order ?? 0,
   isActive: r.is_active !== false,
   createdAt: r.created_at
 });
+
+async function processImageData(imageData) {
+  if (!imageData) return null;
+  try {
+    const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return null;
+    const [, mime, b64] = match;
+    const buffer = Buffer.from(b64, 'base64');
+    const { url } = await uploadToMinio(buffer, 'categories', mime);
+    return url;
+  } catch (e) {
+    console.warn('[categories] Erro ao fazer upload de imagem:', e.message);
+    return null;
+  }
+}
 
 // GET /api/categories
 router.get('/', async (req, res) => {
@@ -30,20 +47,22 @@ router.get('/', async (req, res) => {
 
 // POST /api/categories
 router.post('/', authMiddleware, async (req, res) => {
-  const { name, description, color, icon, displayOrder, isActive } = req.body;
+  const { name, description, color, icon, displayOrder, isActive, imageData } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Nome da categoria é obrigatório' });
 
   try {
+    const imageUrl = await processImageData(imageData);
     const { rows } = await pool.query(
-      `INSERT INTO categories (name, description, color, icon, display_order, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      `INSERT INTO categories (name, description, color, icon, display_order, is_active, image_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [
         name.trim(),
         description?.trim() || null,
         color || '#3B82F6',
         icon?.trim() || null,
         displayOrder ?? 0,
-        isActive !== false
+        isActive !== false,
+        imageUrl
       ]
     );
     res.status(201).json(mapCategory(rows[0]));
@@ -56,7 +75,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
 // PUT /api/categories/:id
 router.put('/:id', authMiddleware, async (req, res) => {
-  const { name, description, color, icon, displayOrder, isActive } = req.body;
+  const { name, description, color, icon, displayOrder, isActive, imageData } = req.body;
 
   try {
     const fields = [];
@@ -69,6 +88,14 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (icon !== undefined)         { fields.push(`icon = $${i++}`);          values.push(icon?.trim() || null); }
     if (displayOrder !== undefined) { fields.push(`display_order = $${i++}`); values.push(displayOrder); }
     if (isActive !== undefined)     { fields.push(`is_active = $${i++}`);     values.push(isActive); }
+
+    if (imageData !== undefined) {
+      const imageUrl = await processImageData(imageData);
+      if (imageUrl) {
+        fields.push(`image_url = $${i++}`);
+        values.push(imageUrl);
+      }
+    }
 
     if (!fields.length) return res.json({ success: true });
 
