@@ -1089,10 +1089,10 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             />
           )}
 
-          {/* ── CATEGORIAS ── */}
-          {categories.length > 0 && (
-            <section className={`max-w-7xl mx-auto px-4 relative z-10 ${!isMobile ? '-mt-16' : 'pt-4'}`}>
-              <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
+          {/* ── CATEGORIAS — oculto no mobile ── */}
+          {categories.length > 0 && !isMobile && (
+            <section className="max-w-7xl mx-auto px-4 relative z-10 -mt-16">
+              <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
                 {categories.map((cat, idx) => {
                   const icons = [Leaf, Droplet, Pill, Heart, Sparkles, Tag];
                   const Icon = icons[idx % icons.length];
@@ -1124,9 +1124,8 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             </section>
           )}
 
-          {/* ── BANNER PROMOCIONAL ── */}
-          {!isMobile && (
-            <section className="max-w-7xl mx-auto px-4 mt-16">
+          {/* ── BANNER PROMOCIONAL — visível em todos os tamanhos ── */}
+          <section className={`max-w-7xl mx-auto px-4 ${isMobile ? 'mt-6' : 'mt-16'}`}>
               <div className="bg-gradient-to-r from-green-600 to-green-500 rounded-2xl p-8 text-white flex flex-col md:flex-row items-center justify-between">
                 <div className="mb-4 md:mb-0">
                   <h3 className="text-3xl mb-2">Primeira Compra?</h3>
@@ -1141,8 +1140,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                   Falar connosco
                 </a>
               </div>
-            </section>
-          )}
+          </section>
 
           {/* ── SECÇÕES DE PRODUTOS ── */}
           {!loading && selectedCategory === 'all' && !debouncedSearchTerm && (

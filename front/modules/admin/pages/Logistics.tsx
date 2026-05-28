@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Truck, Package, Clock, CheckCircle, XCircle, Search,
   ChevronDown, MapPin, Phone, Loader2, RefreshCw, CreditCard, User,
+  Mail, MessageCircle,
 } from 'lucide-react';
 import api from '../../core/services/apiClient';
 import { PageShell } from '../../core/components/layout/PageShell';
@@ -53,13 +54,14 @@ const PIPELINE = ['pending', 'confirmed', 'processing', 'out_for_delivery'];
 
 const StatusDropdown: React.FC<{
   order: LogisticsOrder;
-  onUpdate: (orderId: string, status: string) => Promise<void>;
+  onUpdate: (orderId: string, status: string, notify: { email: boolean; whatsapp: boolean }) => Promise<void>;
   updating: boolean;
 }> = ({ order, onUpdate, updating }) => {
   const [open, setOpen] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifyWhatsApp, setNotifyWhatsApp] = useState(!!order.customerPhone);
   const ref = useRef<HTMLDivElement>(null);
   const next = NEXT[order.status] ?? [];
-  const current = getStep(order.status);
 
   useEffect(() => {
     const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -82,7 +84,7 @@ const StatusDropdown: React.FC<{
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-30 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-30 overflow-hidden">
           <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
             Avançar para:
           </div>
@@ -92,7 +94,7 @@ const StatusDropdown: React.FC<{
             return (
               <button
                 key={key}
-                onClick={() => { onUpdate(order.id, key); setOpen(false); }}
+                onClick={() => { onUpdate(order.id, key, { email: notifyEmail, whatsapp: notifyWhatsApp }); setOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left transition-colors ${
                   isCancel
                     ? 'hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400'
@@ -117,6 +119,38 @@ const StatusDropdown: React.FC<{
               </button>
             );
           })}
+
+          {/* Notificações */}
+          <div className="border-t border-gray-100 dark:border-gray-700 px-3 py-2.5 space-y-2">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Notificar cliente:</p>
+            <label className={`flex items-center gap-2 text-xs cursor-pointer rounded-lg px-2 py-1.5 transition-colors ${notifyEmail ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+              <input
+                type="checkbox"
+                checked={notifyEmail}
+                onChange={e => setNotifyEmail(e.target.checked)}
+                className="accent-blue-600 w-3.5 h-3.5"
+                onClick={e => e.stopPropagation()}
+              />
+              <Mail className="w-3.5 h-3.5" />
+              <span className="font-medium">Email</span>
+            </label>
+            <label className={`flex items-center gap-2 text-xs cursor-pointer rounded-lg px-2 py-1.5 transition-colors ${
+              !order.customerPhone ? 'opacity-40 cursor-not-allowed' :
+              notifyWhatsApp ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}>
+              <input
+                type="checkbox"
+                checked={notifyWhatsApp}
+                disabled={!order.customerPhone}
+                onChange={e => setNotifyWhatsApp(e.target.checked)}
+                className="accent-green-600 w-3.5 h-3.5"
+                onClick={e => e.stopPropagation()}
+              />
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span className="font-medium">WhatsApp</span>
+              {!order.customerPhone && <span className="text-[10px] text-gray-400 ml-auto">sem nº</span>}
+            </label>
+          </div>
         </div>
       )}
     </div>
@@ -149,12 +183,17 @@ export const Logistics: React.FC<{
 
   useEffect(() => { load(); }, []);
 
-  const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+  const handleStatusUpdate = async (orderId: string, newStatus: string, notify: { email: boolean; whatsapp: boolean }) => {
     setUpdatingId(orderId);
     try {
-      await api.put(`/orders/${orderId}`, { status: newStatus });
+      await api.put(`/orders/${orderId}`, {
+        status: newStatus,
+        notifyEmail: notify.email,
+        notifyWhatsApp: notify.whatsapp,
+      });
       const step = getStep(newStatus);
-      showToast(`Estado: ${step.label}`, 'success');
+      const notifParts = [notify.email && '📧 email', notify.whatsapp && '📱 WhatsApp'].filter(Boolean).join(' + ');
+      showToast(`Estado: ${step.label}${notifParts ? ` · notificado por ${notifParts}` : ''}`, 'success');
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     } catch (e: any) {
       showToast(e.message || 'Erro ao atualizar estado', 'error');

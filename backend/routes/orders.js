@@ -1,7 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
-import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '../services/emailService.js';
+import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendWhatsAppMessage } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -432,11 +432,15 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     await pool.query(`UPDATE orders SET ${fields.join(', ')} WHERE id = $${i}`, values);
 
-    // Email de atualização de status (best-effort)
-    if (updates.status) {
+    // Notificações de atualização de status (best-effort)
+    const notifyEmail   = updates.notifyEmail   !== false; // default: true
+    const notifyWhatsApp = updates.notifyWhatsApp === true; // default: false
+    if (updates.status && (notifyEmail || notifyWhatsApp)) {
       try {
         const { rows: oRows } = await pool.query(
-          `SELECT o.order_number, o.created_by, o.customer_id, p.email, p.name
+          `SELECT o.order_number, o.created_by, o.customer_id,
+                  o.customer_phone,
+                  p.email, p.name, p.phone AS profile_phone
            FROM orders o
            LEFT JOIN profiles p ON p.id = o.created_by
            WHERE o.id = $1`, [req.params.id]
@@ -445,15 +449,45 @@ router.put('/:id', authMiddleware, async (req, res) => {
           const row = oRows[0];
           let email = row.email;
           let name = row.name;
+          let phone = row.profile_phone || row.customer_phone;
+
           // Fallback via customer_id se created_by for nulo
-          if (!email && row.customer_id) {
+          if ((!email || !phone) && row.customer_id) {
             const { rows: cRows } = await pool.query(
-              'SELECT p.email, p.name FROM profiles p WHERE p.customer_id = $1 LIMIT 1', [row.customer_id]
+              'SELECT p.email, p.name, p.phone FROM profiles p WHERE p.customer_id = $1 LIMIT 1',
+              [row.customer_id]
             );
-            if (cRows.length) { email = cRows[0].email; name = cRows[0].name; }
+            if (cRows.length) {
+              if (!email) { email = cRows[0].email; name = cRows[0].name; }
+              if (!phone) phone = cRows[0].phone;
+            }
           }
-          if (email) {
+
+          if (notifyEmail && email) {
             sendOrderStatusEmail({ to: email, name, orderNumber: row.order_number, status: updates.status }).catch(() => {});
+          }
+
+          if (notifyWhatsApp && phone) {
+            const appUrl = process.env.APP_URL || 'https://www.natur-erva.co.mz';
+            const n = name || 'cliente';
+            const order_num = row.order_number;
+            const waMessages = {
+              confirmed:
+                `Olá *${n}*! 🎉\n\nO pagamento do seu pedido *#${order_num}* foi confirmado e validado com sucesso.\n\nEstamos já a preparar os seus produtos. Obrigado pela confiança!\n\n🌿 *NaturErva*`,
+              processing:
+                `Olá *${n}*! 📦\n\nO seu pedido *#${order_num}* está em processamento — estamos a embalar os seus produtos com todo o cuidado.\n\nEm breve sairá para entrega!\n\n🌿 *NaturErva*`,
+              out_for_delivery:
+                `Olá *${n}*! 🚚\n\nBoa notícia! O seu pedido *#${order_num}* saiu para entrega e está a caminho.\n\nEsteja disponível para o receber. Caso tenha alguma dúvida, contacte-nos.\n\nAcompanhe aqui: ${appUrl}/minha-conta/encomendas\n\n🌿 *NaturErva*`,
+              delivered:
+                `Olá *${n}*! 🎉\n\nO seu pedido *#${order_num}* foi entregue!\n\nEsperamos que goste dos produtos. Confirme a receção na sua conta:\n👉 ${appUrl}/minha-conta/encomendas\n\nObrigado por escolher NaturErva! 🌿`,
+              completed:
+                `Olá *${n}*! ✅\n\nO seu pedido *#${order_num}* foi concluído com sucesso.\n\nAgradeçemos a sua preferência! Volte sempre à NaturErva para mais produtos naturais e saudáveis 🌿\n\n👉 ${appUrl}/loja`,
+              cancelled:
+                `Olá *${n}*. ℹ️\n\nO seu pedido *#${order_num}* foi cancelado.\n\nSe tiver alguma dúvida ou quiser fazer um novo pedido, estamos sempre disponíveis para ajudar.\n\n🌿 *NaturErva* — ${appUrl}`,
+            };
+            const msg = waMessages[updates.status]
+              || `Olá *${n}*! O seu pedido *#${order_num}* foi atualizado. Acompanhe em: ${appUrl}/minha-conta/encomendas\n\n🌿 *NaturErva*`;
+            sendWhatsAppMessage({ phone, message: msg }).catch(() => {});
           }
         }
       } catch {}
