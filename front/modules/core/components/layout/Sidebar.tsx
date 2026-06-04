@@ -248,12 +248,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'users.view' },
     { id: 'logistics', label: 'Logística', icon: Truck, permission: 'logistics.manage' },
-    { id: 'coupons', label: 'Cupões', icon: Tag, permission: 'admin.access' },
+    { id: 'coupons', label: 'Cupões', icon: Tag, permission: 'sales.discount' },
     { id: 'refunds', label: 'Reembolsos', icon: Repeat, permission: 'orders.view' },
-    { id: 'affiliates', label: 'Afiliados', icon: Share2, permission: 'admin.access' },
-    { id: 'marketing', label: 'Marketing', icon: Megaphone, permission: 'admin.access' },
-    { id: 'blog', label: 'Blog', icon: FileText, permission: 'admin.access' },
-    { id: 'delivery-zones', label: 'Zonas de Entrega', icon: MapPin, permission: 'admin.access' },
+    { id: 'affiliates', label: 'Afiliados', icon: Share2, permission: 'users.view' },
+    { id: 'marketing', label: 'Marketing', icon: Megaphone, permission: 'users.view' },
+    { id: 'blog', label: 'Blog', icon: FileText, permission: 'media.view' },
+    { id: 'delivery-zones', label: 'Zonas de Entrega', icon: MapPin, permission: 'users.view' },
   ];
 
   // Filtrar itens baseado apenas nas permisséµes (sistema simplificado)

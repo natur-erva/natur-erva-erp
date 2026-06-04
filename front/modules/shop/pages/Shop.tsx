@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
-import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Product, ProductVariant, OrderItem, Customer, UserRole, OrderStatus, DeliveryZone } from '../../core/types/types';
 import { authService } from '../../auth/services/authService';
 import { deliveryService } from '../../sales/services/deliveryService';
@@ -149,6 +149,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   }, [location.pathname, params.id, params.seriesId, params.chapterId, params.seriesSlug, params.chapterSlug]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Array<{id: string; name: string; color: string; imageUrl?: string; isActive: boolean}>>([]);
+  const [blogPosts, setBlogPosts] = useState<Array<{id: string; title: string; slug: string; summary?: string; coverImage?: string; tags: string[]; publishedAt?: string; createdAt: string}>>([]);
   const [darkMode, setDarkMode] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -317,6 +318,13 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     } catch {
       // falha silenciosa — a loja funciona sem categorias
     }
+  }, []);
+
+  // Carregar últimos posts do blog
+  useEffect(() => {
+    api.get<any[]>('/blog')
+      .then(data => setBlogPosts((data || []).filter((p: any) => p.status === 'published').slice(0, 3)))
+      .catch(() => {});
   }, []);
 
   // Aplicar filtro de categoria vindo do URL (?categoria=...)
@@ -1267,8 +1275,84 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             )}
           </main>
 
-          {/* ── FAQ ── */}
-          <FAQSection />
+          {/* ── AVALIAÇÕES ── */}
+          <TestimonialsSection />
+
+          {/* ── PROGRAMA DE AFILIADOS ── */}
+          <section className="py-4 px-4 pb-12">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 p-8 text-white shadow-lg">
+                <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full bg-white/5" />
+                <div className="absolute -right-4 bottom-0 w-32 h-32 rounded-full bg-white/5" />
+                <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                  <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+                    <Gift className="w-7 h-7 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold mb-1">Programa de Afiliados</h2>
+                    <p className="text-green-100 text-sm leading-relaxed max-w-lg">
+                      Partilha o teu link exclusivo e ganha <strong className="text-white">5% de comissão</strong> em cada compra feita pelos teus referidos. Sem limite de ganhos!
+                    </p>
+                    <div className="flex flex-wrap gap-4 mt-3 text-xs text-green-200">
+                      <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Comissões ilimitadas</span>
+                      <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Partilha com amigos e família</span>
+                      <span className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5" /> Pagamento rápido</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => currentUser ? navigate('/minha-conta/afiliados') : setShowLogin(true)}
+                    className="shrink-0 px-6 py-3 bg-white text-green-700 font-semibold rounded-xl hover:bg-green-50 transition-colors text-sm whitespace-nowrap"
+                  >
+                    {currentUser ? 'Ver o meu painel' : 'Aderir agora'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── BLOG — últimos artigos ── */}
+          {blogPosts.length > 0 && (
+            <section className="max-w-7xl mx-auto px-4 py-14">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className={`font-bold text-gray-900 dark:text-white ${isMobile ? 'text-xl' : 'text-2xl'}`}>Nossos Artigos</h2>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Dicas de saúde e bem-estar natural</p>
+                </div>
+                <Link to="/blog" className="flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400 hover:underline">
+                  Ver todos <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
+              <div className={`grid gap-5 ${isMobile ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                {blogPosts.map(post => (
+                  <Link key={post.id} to={`/blog/${post.slug}`}
+                    className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col">
+                    {post.coverImage ? (
+                      <img src={post.coverImage} alt={post.title} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-44 bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20 flex items-center justify-center">
+                        <Leaf className="w-10 h-10 text-green-400 opacity-40" />
+                      </div>
+                    )}
+                    <div className="p-5 flex flex-col flex-1">
+                      {post.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {post.tags.slice(0, 2).map((t: string) => (
+                            <span key={t} className="px-2 py-0.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-[10px] font-medium">{t}</span>
+                          ))}
+                        </div>
+                      )}
+                      <h3 className="font-bold text-gray-900 dark:text-white text-base leading-snug line-clamp-2 mb-2 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">{post.title}</h3>
+                      {post.summary && <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2 flex-1">{post.summary}</p>}
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400">
+                        <span>{new Date(post.publishedAt || post.createdAt).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        <span className="text-green-600 dark:text-green-400 font-medium group-hover:underline">Ler artigo →</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* ── RASTREAR ENCOMENDA ── */}
           <section className="py-12 px-4">
@@ -1301,12 +1385,9 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                     Rastrear
                   </button>
                 </div>
-
-                {/* Resultado */}
                 {trackingError && (
                   <div className="mt-4 flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl text-sm text-red-600 dark:text-red-400">
-                    <XCircle className="w-4 h-4 shrink-0" />
-                    {trackingError}
+                    <XCircle className="w-4 h-4 shrink-0" />{trackingError}
                   </div>
                 )}
                 {trackingResult && (() => {
@@ -1322,28 +1403,12 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                   const s = STATUS[trackingResult.status] ?? { label: trackingResult.status, bg: 'bg-gray-50', text: 'text-gray-700', icon: <Package className="w-4 h-4" /> };
                   return (
                     <div className="mt-4 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-                      <div className={`flex items-center gap-2 px-4 py-3 font-semibold text-sm ${s.bg} ${s.text}`}>
-                        {s.icon} {s.label}
-                      </div>
+                      <div className={`flex items-center gap-2 px-4 py-3 font-semibold text-sm ${s.bg} ${s.text}`}>{s.icon} {s.label}</div>
                       <div className="px-4 py-3 space-y-1.5 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Pedido nº</span>
-                          <span className="font-mono font-semibold text-gray-900 dark:text-white">{trackingResult.orderNumber}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Código</span>
-                          <span className="font-mono text-gray-700 dark:text-gray-300">{trackingResult.trackingCode}</span>
-                        </div>
-                        {trackingResult.deliveryZoneName && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Zona</span>
-                            <span className="text-gray-700 dark:text-gray-300">{trackingResult.deliveryZoneName}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Data do pedido</span>
-                          <span className="text-gray-700 dark:text-gray-300">{new Date(trackingResult.createdAt).toLocaleDateString('pt-MZ')}</span>
-                        </div>
+                        <div className="flex justify-between"><span className="text-gray-500">Pedido nº</span><span className="font-mono font-semibold text-gray-900 dark:text-white">{trackingResult.orderNumber}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Código</span><span className="font-mono text-gray-700 dark:text-gray-300">{trackingResult.trackingCode}</span></div>
+                        {trackingResult.deliveryZoneName && <div className="flex justify-between"><span className="text-gray-500">Zona</span><span className="text-gray-700 dark:text-gray-300">{trackingResult.deliveryZoneName}</span></div>}
+                        <div className="flex justify-between"><span className="text-gray-500">Data do pedido</span><span className="text-gray-700 dark:text-gray-300">{new Date(trackingResult.createdAt).toLocaleDateString('pt-MZ')}</span></div>
                       </div>
                     </div>
                   );
@@ -1352,41 +1417,8 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             </div>
           </section>
 
-          {/* ── BANNER PROGRAMA DE AFILIADOS ── */}
-          <section className="py-4 px-4 pb-12">
-            <div className="max-w-4xl mx-auto">
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 p-8 text-white shadow-lg">
-                {/* background decoration */}
-                <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full bg-white/5" />
-                <div className="absolute -right-4 bottom-0 w-32 h-32 rounded-full bg-white/5" />
-                <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                  <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
-                    <Gift className="w-7 h-7 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="text-xl font-bold mb-1">Programa de Afiliados</h2>
-                    <p className="text-green-100 text-sm leading-relaxed max-w-lg">
-                      Partilha o teu link exclusivo e ganha <strong className="text-white">5% de comissão</strong> em cada compra feita pelos teus referidos. Sem limite de ganhos!
-                    </p>
-                    <div className="flex flex-wrap gap-4 mt-3 text-xs text-green-200">
-                      <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Comissões ilimitadas</span>
-                      <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Partilha com amigos e família</span>
-                      <span className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5" /> Pagamento rápido</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => currentUser ? navigate('/minha-conta/afiliados') : setShowLogin(true)}
-                    className="shrink-0 px-6 py-3 bg-white text-green-700 font-semibold rounded-xl hover:bg-green-50 transition-colors text-sm whitespace-nowrap"
-                  >
-                    {currentUser ? 'Ver o meu painel' : 'Aderir agora'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── DEPOIMENTOS ── */}
-          <TestimonialsSection />
+          {/* ── FAQ ── */}
+          <FAQSection />
 
           {/* ── INSTAGRAM ── */}
           <ShopInstagram />

@@ -30,7 +30,7 @@ function buildUserResponse(profile, roles) {
     email: profile.email || '',
     name: profile.name || '',
     phone: profile.phone || undefined,
-    role: profile.role || 'STAFF',
+    role: roles[0] || profile.role || 'STAFF',  // user_roles tem prioridade sobre profiles.role
     roles,
     avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || profile.email || 'U')}&background=random`,
     customerId: profile.customer_id || undefined,

@@ -247,24 +247,34 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const { rows } = await client.query('SELECT id FROM profiles WHERE id = $1', [userId]);
     if (!rows.length) return res.status(404).json({ error: 'Utilizador não encontrado.' });
 
+    // Função auxiliar: executa query com SAVEPOINT para não abortar a transação se falhar
+    let spIdx = 0;
+    const safe = async (sql, params = []) => {
+      const sp = `sp_${++spIdx}`;
+      await client.query(`SAVEPOINT ${sp}`);
+      try {
+        await client.query(sql, params);
+        await client.query(`RELEASE SAVEPOINT ${sp}`);
+      } catch {
+        await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+      }
+    };
+
     await client.query('BEGIN');
 
-    // Apagar dependências antes do perfil
-    await client.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
-    await client.query('DELETE FROM admin_activity_log WHERE user_id = $1', [userId]).catch(() => {});
-    await client.query('DELETE FROM shop_visits WHERE user_id = $1', [userId]).catch(() => {});
-    await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]).catch(() => {});
-    // Desvincular (não apagar) registos relacionados
-    await client.query('UPDATE orders SET created_by = NULL WHERE created_by = $1', [userId]).catch(() => {});
-    await client.query('UPDATE sales SET user_id = NULL WHERE user_id = $1', [userId]).catch(() => {});
-    await client.query('UPDATE refund_requests SET user_id = NULL WHERE user_id = $1', [userId]).catch(() => {});
-    await client.query('UPDATE refund_requests SET reviewed_by = NULL WHERE reviewed_by = $1', [userId]).catch(() => {});
-    await client.query('UPDATE coupons SET created_by = NULL WHERE created_by = $1', [userId]).catch(() => {});
-    await client.query('UPDATE marketing_campaigns SET created_by = NULL WHERE created_by = $1', [userId]).catch(() => {});
-    await client.query('UPDATE blog_posts SET author_id = NULL WHERE author_id = $1', [userId]).catch(() => {});
-    // Afiliados
-    await client.query('DELETE FROM affiliate_referrals WHERE referred_profile_id = $1', [userId]).catch(() => {});
-    await client.query('DELETE FROM affiliates WHERE user_id = $1', [userId]).catch(() => {});
+    await safe('DELETE FROM user_roles WHERE user_id = $1', [userId]);
+    await safe('DELETE FROM admin_activity_log WHERE user_id = $1', [userId]);
+    await safe('DELETE FROM shop_visits WHERE user_id = $1', [userId]);
+    await safe('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+    await safe('UPDATE orders SET created_by = NULL WHERE created_by = $1', [userId]);
+    await safe('UPDATE sales SET user_id = NULL WHERE user_id = $1', [userId]);
+    await safe('UPDATE refund_requests SET user_id = NULL WHERE user_id = $1', [userId]);
+    await safe('UPDATE refund_requests SET reviewed_by = NULL WHERE reviewed_by = $1', [userId]);
+    await safe('UPDATE coupons SET created_by = NULL WHERE created_by = $1', [userId]);
+    await safe('UPDATE marketing_campaigns SET created_by = NULL WHERE created_by = $1', [userId]);
+    await safe('UPDATE blog_posts SET author_id = NULL WHERE author_id = $1', [userId]);
+    await safe('DELETE FROM affiliate_referrals WHERE referred_profile_id = $1', [userId]);
+    await safe('DELETE FROM affiliates WHERE user_id = $1', [userId]);
 
     await client.query('DELETE FROM profiles WHERE id = $1', [userId]);
     await client.query('COMMIT');

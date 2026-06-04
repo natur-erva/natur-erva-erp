@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { User, LogIn, LogOut, Settings, ShoppingCart, Menu, X, ShoppingBag, Home, Info, Shield, Phone } from 'lucide-react';
+import { User, LogIn, LogOut, Settings, ShoppingCart, Menu, X, ShoppingBag, Home, Info, Shield, Phone, BookOpen } from 'lucide-react';
 import { UserRole } from '../../../core/types/types';
 import { Logo } from '../ui/Logo';
 import { useMobile } from '../../../core/hooks/useMobile';
@@ -43,6 +43,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const navLinks = [
     { to: '/',          label: 'Início',         icon: <Home className="h-4 w-4" /> },
     { to: '/sobre',     label: 'Sobre nós',      icon: <Info className="h-4 w-4" /> },
+    { to: '/blog',      label: 'Blog',           icon: <BookOpen className="h-4 w-4" /> },
     { to: '/politica',  label: 'Nossa Política', icon: <Shield className="h-4 w-4" /> },
     { to: '/contactos', label: 'Fale Connosco',  icon: <Phone className="h-4 w-4" /> },
   ];

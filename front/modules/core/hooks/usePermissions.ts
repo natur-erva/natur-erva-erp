@@ -27,6 +27,64 @@ export const clearAllPermissionsCache = () => {
   console.log('Cache de permissões limpo para todos os utilizadores');
 };
 
+// Mapa de permissões por role — usado como fallback quando o backend falha
+// Controla quais secções do sidebar cada role consegue ver
+const ROLE_PERMISSION_MAP: Record<string, string[]> = {
+  'GESTOR_BLOG': [
+    'admin.access', 'dashboard.view',
+    'media.view', 'media.upload', 'media.delete',
+  ],
+  'GESTOR_VENDAS': [
+    'admin.access', 'dashboard.view',
+    'sales.view', 'sales.view.all', 'sales.create', 'sales.edit',
+    'sales.discount', 'sales.reports',
+    'customers.view', 'customers.create', 'customers.edit',
+    'orders.view', 'orders.create', 'orders.edit', 'orders.update_status',
+  ],
+  'VENDEDOR': [
+    'admin.access', 'dashboard.view',
+    'sales.view', 'sales.view.own', 'sales.create',
+    'orders.view', 'orders.create',
+    'customers.view',
+  ],
+  'LOGISTICA': [
+    'admin.access', 'dashboard.view',
+    'logistics.manage',
+    'orders.view', 'orders.edit', 'orders.update_status',
+  ],
+  'AFILIADO': [
+    'admin.access', 'dashboard.view',
+  ],
+  'GERENTE': [
+    'admin.access', 'dashboard.view', 'analytics.view',
+    'sales.view', 'sales.view.all', 'sales.create', 'sales.edit',
+    'products.view', 'products.create', 'products.edit',
+    'stock.view', 'stock.movements.view',
+    'orders.view', 'orders.edit', 'orders.update_status',
+    'customers.view', 'customers.create', 'customers.edit',
+    'media.view', 'media.upload',
+    'users.view',
+  ],
+  'STAFF': [
+    'admin.access', 'dashboard.view',
+    'sales.view', 'sales.view.own',
+    'orders.view',
+    'customers.view',
+  ],
+};
+
+// Dado um array de role names, retorna as permissões combinadas do mapa local
+function getPermissionsFromRoles(roleNames: string[]): string[] {
+  const perms = new Set<string>();
+  perms.add('admin.access'); // qualquer role não-CLIENTE acede à dashboard
+  for (const role of roleNames) {
+    const roleName = role.toUpperCase();
+    const mapped = ROLE_PERMISSION_MAP[roleName];
+    if (mapped) mapped.forEach(p => perms.add(p));
+  }
+  return Array.from(perms);
+}
+
 // Lista completa de todas as 96 permissões do sistema
 const getAllPermissionsList = (): string[] => {
   return [
@@ -123,20 +181,24 @@ export const usePermissions = (user: User | null): UsePermissionsReturn => {
       return;
     }
 
-    setIsLoading(true);
+    // Primeiro aplicar o mapa local como base imediata (sem esperar API)
+    const localPerms = getPermissionsFromRoles(userRoles);
+    setPermissions(localPerms);
+    setIsLoading(false);
+
+    // Depois tentar enriquecer com permissões específicas da BD (best-effort)
     try {
-      // Buscar permissões do backend (sem Supabase)
       const data = await api.get<{ roles: string[]; permissions: string[] }>('/auth/my-permissions');
-      const perms = data.permissions || [];
-      setPermissions(perms);
-      permissionsCache[user.id] = { permissions: perms, timestamp: Date.now() };
+      if (data?.permissions?.length) {
+        // Merge: local + BD, sem duplicados
+        const merged = Array.from(new Set([...localPerms, ...data.permissions]));
+        setPermissions(merged);
+        permissionsCache[user.id] = { permissions: merged, timestamp: Date.now() };
+      } else {
+        permissionsCache[user.id] = { permissions: localPerms, timestamp: Date.now() };
+      }
     } catch {
-      // Fallback: se a API falhar, conceder admin.access a utilizadores não-CLIENTE
-      const isStaff = !userRoles.includes('CLIENTE');
-      const fallback = isStaff ? ['admin.access'] : [];
-      setPermissions(fallback);
-    } finally {
-      setIsLoading(false);
+      permissionsCache[user.id] = { permissions: localPerms, timestamp: Date.now() };
     }
   }, [user]);
 
@@ -175,7 +237,12 @@ export const usePermissions = (user: User | null): UsePermissionsReturn => {
       return permissionName !== 'users.delete' && permissionName !== 'system.backup';
     }
 
-    return permissions.includes(permissionName);
+    // Verificar no state carregado (local + BD)
+    if (permissions.includes(permissionName)) return true;
+
+    // Fallback síncrono via mapa local (antes do state carregar)
+    const localPerms = getPermissionsFromRoles(userRoles);
+    return localPerms.includes(permissionName);
   }, [user, permissions]);
 
   const hasAnyPermission = useCallback((permissionNames: string[]): boolean => {
