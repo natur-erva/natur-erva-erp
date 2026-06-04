@@ -108,11 +108,15 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
 
   // Removido sistema de localizações - produtos usam apenas campo stock tradicional
 
+  const [gridKey, setGridKey] = React.useState(0);
+
   const loadProducts = async () => {
     setLoading(true);
     setBrokenImages(new Set()); // reset imagens marcadas como quebradas
+    productService.clearCache('products'); // garantir dados frescos
     const data = await productService.getProducts();
     setProducts(data);
+    setGridKey(k => k + 1); // forçar remount do grid para as animações repetirem
     setLoading(false);
   };
 
@@ -844,7 +848,7 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
       {/* Products View - Cards or Table */}
       {viewMode === 'cards' ? (
         /* Cards View */
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div key={gridKey} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {loading ? (
             <div className="col-span-full text-center py-10 text-gray-500 dark:text-gray-400">A carregar...</div>
           ) : filteredAndSortedProducts.length === 0 ? (

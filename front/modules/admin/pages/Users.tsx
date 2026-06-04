@@ -462,6 +462,12 @@ export const Users: React.FC<{
     );
   }
 
+  const TAB_OPTIONS: { value: UserFilterType; label: string; count: number }[] = [
+    { value: 'all',     label: 'Todos',         count: users.length },
+    { value: 'staff',   label: 'Funcionários',  count: users.filter(isUserStaff).length },
+    { value: 'clients', label: 'Clientes',      count: users.filter(isUserClient).length },
+  ];
+
   return (
     <PageShell
       title="Gestão de Usuários"
@@ -514,6 +520,28 @@ export const Users: React.FC<{
         </div>
       )}
 
+      {/* Tabs Funcionários / Clientes */}
+      <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
+        {TAB_OPTIONS.map(tab => (
+          <button
+            key={tab.value}
+            onClick={() => { setFilterType(tab.value); setCurrentPage(1); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              filterType === tab.value
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            {tab.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+              filterType === tab.value
+                ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+            }`}>{tab.count}</span>
+          </button>
+        ))}
+      </div>
+
       <FilterBar isStickyOnMobile={isMobile} stickyTopClassName="top-0">
         <ViewModeToggle
           value={viewMode === 'grid' ? 'cards' : 'table'}
@@ -528,20 +556,6 @@ export const Users: React.FC<{
           size="compact"
           className="flex-1 min-w-[120px] max-w-[300px]"
         />
-        <div className="hidden sm:block">
-          <SelectFilter
-            value={filterType}
-            onChange={(v) => { setFilterType(v as UserFilterType); setCurrentPage(1); }}
-            options={[
-              { value: 'all', label: 'Tipo' },
-              { value: 'staff', label: 'Staff' },
-              { value: 'clients', label: 'Clientes' }
-            ]}
-            placeholder="Tipo"
-            className="flex-shrink-0"
-            size="compact"
-          />
-        </div>
         <div className="hidden sm:block">
           <SelectFilter
             value={filterRole}

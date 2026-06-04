@@ -421,55 +421,26 @@ export const Customers: React.FC<CustomersProps> = ({
   }, [currentUser?.id]);
 
 
-  const getTierColor = (tier: LoyaltyTier) => {
-    switch (tier) {
-      case LoyaltyTier.GOLD:
-        return {
-          bg: 'bg-yellow-100 dark:bg-yellow-900/30',
-          text: 'text-yellow-800 dark:text-yellow-300',
-          border: 'border-yellow-200 dark:border-yellow-900',
-          badge: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-900',
-          card: 'bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-200 dark:border-yellow-900'
-        };
-      case LoyaltyTier.SILVER:
-        return {
-          bg: 'bg-gray-100 dark:bg-gray-700',
-          text: 'text-gray-800 dark:text-gray-300',
-          border: 'border-gray-200 dark:border-gray-600',
-          badge: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
-          card: 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600'
-        };
-      case LoyaltyTier.BRONZE:
-        return {
-          bg: 'bg-orange-50 dark:bg-orange-900/30',
-          text: 'text-orange-800 dark:text-orange-300',
-          border: 'border-orange-100 dark:border-orange-900',
-          badge: 'bg-orange-50 text-orange-800 border-orange-100 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-900',
-          card: 'bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-900'
-        };
-      default:
-        return {
-          bg: 'bg-gray-50 dark:bg-gray-800',
-          text: 'text-gray-600 dark:text-gray-400',
-          border: 'border-gray-200 dark:border-gray-700',
-          badge: 'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-          card: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-        };
-    }
+  // ── Sistema de Medalhas (igual ao painel do cliente) ──────────────────────
+  const MEDALS = [
+    { label: 'Semente',       emoji: '🌱', min: 0,    max: 99,       gradient: 'from-amber-400 to-yellow-500',   textColor: 'text-amber-700 dark:text-amber-300',   bg: 'bg-amber-50 dark:bg-amber-900/20',   badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800' },
+    { label: 'Raiz',          emoji: '🌿', min: 100,  max: 299,      gradient: 'from-green-400 to-green-500',    textColor: 'text-green-700 dark:text-green-300',   bg: 'bg-green-50 dark:bg-green-900/20',   badge: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800' },
+    { label: 'Broto',         emoji: '🌾', min: 300,  max: 699,      gradient: 'from-emerald-400 to-teal-500',   textColor: 'text-teal-700 dark:text-teal-300',     bg: 'bg-teal-50 dark:bg-teal-900/20',     badge: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800' },
+    { label: 'Flor',          emoji: '🌸', min: 700,  max: 1499,     gradient: 'from-pink-400 to-rose-500',      textColor: 'text-pink-700 dark:text-pink-300',     bg: 'bg-pink-50 dark:bg-pink-900/20',     badge: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-800' },
+    { label: 'Planta Mestre', emoji: '🌳', min: 1500, max: Infinity, gradient: 'from-green-600 to-emerald-700',  textColor: 'text-green-800 dark:text-green-300',   bg: 'bg-green-50 dark:bg-green-900/30',   badge: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800' },
+  ];
+
+  const getMedal = (totalSpent: number) => {
+    const pts = Math.floor((totalSpent || 0) / 10);
+    return MEDALS.find(m => pts >= m.min && pts <= m.max) || MEDALS[0];
   };
 
-  const getTierIcon = (tier: LoyaltyTier) => {
-    switch (tier) {
-      case LoyaltyTier.GOLD:
-        return '🥇';
-      case LoyaltyTier.SILVER:
-        return '🥈';
-      case LoyaltyTier.BRONZE:
-        return '🥉';
-      default:
-        return '⭐';
-    }
+  // Manter retrocompatibilidade com código que usa getTierColor/getTierIcon
+  const getTierColor = (tier: LoyaltyTier) => {
+    const fallback = { bg: 'bg-gray-50 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700', badge: 'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400', card: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' };
+    return fallback;
   };
+  const getTierIcon = (_tier: LoyaltyTier) => '⭐';
 
   const handleRecalculateTiers = async () => {
     setIsRecalculating(true);
@@ -1865,10 +1836,12 @@ export const Customers: React.FC<CustomersProps> = ({
 
                   <div className="space-y-2 mb-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Tier:</span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getTierColor(customer.tier).badge}`}>
-                        {customer.tier}
-                      </span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Fidelidade:</span>
+                      {(() => { const m = getMedal(customer.totalSpent); return (
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${m.badge}`}>
+                          {m.emoji} {m.label}
+                        </span>
+                      ); })()}
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Total Gasto:</span>
@@ -2086,11 +2059,13 @@ export const Customers: React.FC<CustomersProps> = ({
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <Tooltip content={customer.tier} position="top">
-                    <span className="text-xl cursor-help">
-                      {getTierIcon(customer.tier)}
-                    </span>
-                  </Tooltip>
+                  {(() => { const m = getMedal(customer.totalSpent); return (
+                    <Tooltip content={`${m.label} — ${Math.floor((customer.totalSpent||0)/10)} pts`} position="top">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border cursor-help ${m.badge}`}>
+                        {m.emoji} {m.label}
+                      </span>
+                    </Tooltip>
+                  ); })()}
                 </td>
                 <td className="px-4 py-3 text-gray-900 dark:text-white font-medium text-sm">
                   {formatMoney(customer.totalSpent)}

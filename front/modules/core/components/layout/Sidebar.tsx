@@ -3,6 +3,25 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, ShoppingCart, Package, LogOut, Award, TrendingUp, Warehouse, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, Egg, UserCheck, Repeat, Truck, FileText, BarChart3, ArrowLeftRight, Wallet, Download, Activity, ArrowRight, Upload, Globe, CreditCard, Megaphone, Target, Share2, Eye, MapPin, Store, Image, Tv, List, Layers, Ruler, Tag, ClipboardCheck, Scale, AlertTriangle, Shield, Boxes } from 'lucide-react';
 import { User, UserRole } from '../../../core/types/types';
 import { useLanguage } from '../../../core/contexts/LanguageContext';
+
+const ROLE_LABELS: Record<string, string> = {
+  'SUPER_ADMIN': 'Super Administrador',
+  'ADMIN': 'Administrador',
+  'GESTOR_VENDAS': 'Gestor de Vendas',
+  'GESTOR_BLOG': 'Gestor de Blog',
+  'VENDEDOR': 'Vendedor',
+  'LOGISTICA': 'Logística',
+  'GERENTE': 'Gerente',
+  'AFILIADO': 'Afiliado',
+  'STAFF': 'Staff',
+  'CLIENTE': 'Cliente',
+};
+
+function getRoleLabel(user: User): string {
+  if ((user as any).roleDisplayName) return (user as any).roleDisplayName;
+  const primary = ((user.roles?.[0] || user.role) ?? 'STAFF').toUpperCase();
+  return ROLE_LABELS[primary] || primary.replace(/_/g, ' ');
+}
 import { Logo } from '../ui/Logo';
 import { Avatar } from '../ui/Avatar';
 import { LanguageFlag } from '../ui/LanguageFlag';
@@ -464,7 +483,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-xs font-medium text-content-primary truncate">{currentUser.name}</p>
                 <p className="text-[10px] text-content-muted truncate">
-                  {currentUser.roleDisplayName || (currentUser.role === UserRole.ADMIN ? t.ui.admin : t.ui.staff)}
+                  {getRoleLabel(currentUser)}
                 </p>
               </div>
             )}

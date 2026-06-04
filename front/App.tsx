@@ -512,21 +512,21 @@ const App = () => {
               <Route path="produtos" element={
                 <ProtectedRoute user={currentUser} permission="products.view">
                   <TrackedPage pagePath="/admin/produtos" pageTitle="Produtos">
-                    <Products showToast={showToast} onReloadData={loadData} totalProductsCount={counts?.products} />
+                    <Products key="tab-produtos" showToast={showToast} onReloadData={loadData} totalProductsCount={counts?.products} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />
               <Route path="produtos/categorias" element={
                 <ProtectedRoute user={currentUser} permission="products.view">
                   <TrackedPage pagePath="/admin/produtos/categorias" pageTitle="Categorias de Produtos">
-                    <Products showToast={showToast} onReloadData={loadData} totalProductsCount={counts?.products} showManagementTab="categories" />
+                    <Products key="tab-categorias" showToast={showToast} onReloadData={loadData} totalProductsCount={counts?.products} showManagementTab="categories" />
                   </TrackedPage>
                 </ProtectedRoute>
               } />
               <Route path="produtos/unidades" element={
                 <ProtectedRoute user={currentUser} permission="products.view">
                   <TrackedPage pagePath="/admin/produtos/unidades" pageTitle="Unidades de Produtos">
-                    <Products showToast={showToast} onReloadData={loadData} totalProductsCount={counts?.products} showManagementTab="units" />
+                    <Products key="tab-unidades" showToast={showToast} onReloadData={loadData} totalProductsCount={counts?.products} showManagementTab="units" />
                   </TrackedPage>
                 </ProtectedRoute>
               } />
