@@ -199,6 +199,20 @@
         -moz-appearance: textfield;
       }
     </style>
+    <!-- LeadsFlow Chat Widget -->
+<script>
+  (function(w,d,s,o,f,js,fjs){
+    w['LeadsFlowWidget']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
+    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];
+    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
+  }(window,document,'script','lfw','https://api.leadsflowapi.com/w'));
+  lfw('init', {
+    channelId: '662d73c3-914d-4ae3-ab74-1ffebd518755',
+    primaryColor: '#70cd32',
+    welcomeMessage: '',
+    position: 'bottom-right'
+  });
+</script>
 </head>
   <body>
     <div id="root"></div>
