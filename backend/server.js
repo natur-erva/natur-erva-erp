@@ -33,6 +33,7 @@ import couponRoutes from './routes/coupons.js';
 import refundRoutes from './routes/refunds.js';
 import affiliateRoutes from './routes/affiliates.js';
 import marketingRoutes from './routes/marketing.js';
+import blogRoutes from './routes/blog.js';
 
 const app = express();
 const PORT = process.env.PORT || 3060;
@@ -128,6 +129,7 @@ app.use('/api/coupons', couponRoutes);
 app.use('/api/refunds', refundRoutes);
 app.use('/api/affiliates', affiliateRoutes);
 app.use('/api/marketing', marketingRoutes);
+app.use('/api/blog', blogRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

@@ -343,4 +343,63 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// ─── GET /api/auth/my-permissions ────────────────────────────────────────────
+// Retorna as permissões do utilizador autenticado baseadas nos seus roles (sem Supabase)
+router.get('/my-permissions', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer '))
+      return res.status(401).json({ error: 'Não autenticado' });
+
+    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+    const { rows: roleRows } = await pool.query(
+      `SELECT r.name AS role_name, p.name AS permission_name
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       LEFT JOIN role_permissions rp ON rp.role_id = ur.role_id
+       LEFT JOIN permissions p ON p.id = rp.permission_id
+       WHERE ur.user_id = $1`,
+      [decoded.id]
+    );
+
+    const roleNames = [...new Set(roleRows.map(r => r.role_name).filter(Boolean))];
+    const permNames = [...new Set(roleRows.map(r => r.permission_name).filter(Boolean))];
+
+    // Qualquer utilizador com pelo menos um role de staff tem acesso à dashboard admin
+    const isStaff = roleNames.length > 0 && !roleNames.every(r => r === 'CLIENTE');
+    if (isStaff && !permNames.includes('admin.access')) {
+      permNames.push('admin.access');
+    }
+
+    res.json({ roles: roleNames, permissions: permNames });
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError')
+      return res.status(401).json({ error: 'Token inválido' });
+    res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+// ─── POST /api/auth/refresh-token ─────────────────────────────────────────────
+// Devolve um novo JWT com os roles/permissões actualizados da BD
+router.post('/refresh-token', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer '))
+      return res.status(401).json({ error: 'Não autenticado' });
+
+    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+    const { rows } = await pool.query('SELECT * FROM profiles WHERE id = $1', [decoded.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Utilizador não encontrado' });
+
+    const profile = rows[0];
+    const roles = await getRoles(profile.id, profile.role);
+    const token = jwt.sign(buildTokenPayload(profile, roles), JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    res.json({ token, user: buildUserResponse(profile, roles) });
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError')
+      return res.status(401).json({ error: 'Token inválido' });
+    res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
 export default router;

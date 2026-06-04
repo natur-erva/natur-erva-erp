@@ -215,7 +215,17 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     await client.query('COMMIT');
-    res.json({ success: true });
+
+    // Devolver o utilizador atualizado com os roles correctos
+    const { rows: updated } = await pool.query(`
+      SELECT p.*,
+        COALESCE(array_agg(r.name ORDER BY r.name) FILTER (WHERE r.name IS NOT NULL), ARRAY[]::text[]) AS role_names
+      FROM profiles p
+      LEFT JOIN user_roles ur ON ur.user_id = p.id
+      LEFT JOIN roles r ON r.id = ur.role_id
+      WHERE p.id = $1 GROUP BY p.id`, [userId]);
+
+    res.json({ success: true, user: updated.length ? mapUser(updated[0]) : null });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Erro ao atualizar utilizador:', err);
@@ -243,15 +253,17 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await client.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
     await client.query('DELETE FROM admin_activity_log WHERE user_id = $1', [userId]).catch(() => {});
     await client.query('DELETE FROM shop_visits WHERE user_id = $1', [userId]).catch(() => {});
-    // Pedidos e vendas não são apagados — apenas desvinculados do utilizador
-    await client.query('UPDATE orders SET user_id = NULL WHERE user_id = $1', [userId]).catch(() => {});
+    await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]).catch(() => {});
+    // Desvincular (não apagar) registos relacionados
+    await client.query('UPDATE orders SET created_by = NULL WHERE created_by = $1', [userId]).catch(() => {});
     await client.query('UPDATE sales SET user_id = NULL WHERE user_id = $1', [userId]).catch(() => {});
-    // Reembolsos
     await client.query('UPDATE refund_requests SET user_id = NULL WHERE user_id = $1', [userId]).catch(() => {});
     await client.query('UPDATE refund_requests SET reviewed_by = NULL WHERE reviewed_by = $1', [userId]).catch(() => {});
-    // Cupões criados por este utilizador
     await client.query('UPDATE coupons SET created_by = NULL WHERE created_by = $1', [userId]).catch(() => {});
+    await client.query('UPDATE marketing_campaigns SET created_by = NULL WHERE created_by = $1', [userId]).catch(() => {});
+    await client.query('UPDATE blog_posts SET author_id = NULL WHERE author_id = $1', [userId]).catch(() => {});
     // Afiliados
+    await client.query('DELETE FROM affiliate_referrals WHERE referred_profile_id = $1', [userId]).catch(() => {});
     await client.query('DELETE FROM affiliates WHERE user_id = $1', [userId]).catch(() => {});
 
     await client.query('DELETE FROM profiles WHERE id = $1', [userId]);

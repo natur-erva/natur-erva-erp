@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { type User, Role, Permission } from '../../core/types/types';
 import { userService } from '../../core/services/userService';
+import { authService } from '../../auth/services/authService';
 import { Plus, Edit, Trash2, Shield, User as UserIcon, Phone, Check, X, Users as UsersIcon, ShoppingBag, Lock } from 'lucide-react';
 import { Avatar } from '../../core/components/ui/Avatar';
 import { isClientUser, isStaffUser, canManageUsers } from '../../core/hooks/useUserPermissions';
@@ -254,8 +255,11 @@ export const Users: React.FC<{
       setShowUserModal(false);
       setEditingUser(null);
 
-      // Disparar evento para limpar cache de permissões
+      // Limpar cache de permissões e renovar token se for o próprio utilizador
       window.dispatchEvent(new CustomEvent('roles-updated', { detail: { userId } }));
+      if (userId === currentUser?.id) {
+        authService.refreshToken().catch(() => {});
+      }
 
       loadData();
     } catch (error: any) {
@@ -266,26 +270,30 @@ export const Users: React.FC<{
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Tem certeza que deseja apagar este usuário? Esta açéo não pode ser desfeita.')) return;
+  const handleDeleteUser = (userId: string) => {
     if (userId === currentUser?.id) {
-      showToast('Néo pode apagar seu prãoprio usuário', 'error');
+      showToast('Não pode apagar o seu próprio utilizador', 'error');
       return;
     }
-
-    setIsSubmitting(true);
-    try {
-      await userService.deleteUser(userId);
-
-      showToast('Usuário apagado com sucesso', 'success');
-      loadData();
-    } catch (error: any) {
-      console.error('Erro ao apagar usuário:', error);
-      const errorMessage = error.message || 'Erro ao apagar usuário';
-      showToast(errorMessage, 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      message: 'Tem certeza que deseja apagar este utilizador? Esta ação não pode ser desfeita.',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        setIsSubmitting(true);
+        try {
+          await userService.deleteUser(userId);
+          showToast('Utilizador apagado com sucesso', 'success');
+          loadData();
+        } catch (error: any) {
+          console.error('Erro ao apagar utilizador:', error);
+          showToast(error.message || 'Erro ao apagar utilizador', 'error');
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    });
   };
 
   // Usar helpers importados

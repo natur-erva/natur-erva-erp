@@ -190,6 +190,18 @@ export const authService = {
     }
   },
 
+  async refreshToken(): Promise<LoginResult> {
+    try {
+      const result = await api.post<{ token: string; user: any }>('/auth/refresh-token', {});
+      if (!result?.token) return { user: null, error: 'Erro ao renovar sessão' };
+      setApiToken(result.token);
+      currentUser = mapUser(result.user);
+      return { user: currentUser };
+    } catch (err: any) {
+      return { user: null, error: err.message };
+    }
+  },
+
   async signInWithGoogle(): Promise<LoginResult> {
     return { user: null, error: 'Use o botão Google para autenticar.' };
   },

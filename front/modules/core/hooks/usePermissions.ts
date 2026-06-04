@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '../../core/types/types';
-import { authService } from '../../auth/services/authService';
-import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClient';
+import api from '../../core/services/apiClient';
 
 interface UsePermissionsReturn {
   hasPermission: (permissionName: string) => boolean;
@@ -90,8 +89,28 @@ export const usePermissions = (user: User | null): UsePermissionsReturn => {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadPermissions = useCallback(async () => {
-    if (!user || !isSupabaseConfigured()) {
+    if (!user) {
       setPermissions([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const userRoles = user.roles || [user.role || 'STAFF'];
+
+    // SUPER_ADMIN — todas as permissões localmente, sem chamada à API
+    if (user.isSuperAdmin || userRoles.includes('SUPER_ADMIN')) {
+      const all = getAllPermissionsList();
+      setPermissions(all);
+      permissionsCache[user.id] = { permissions: all, timestamp: Date.now() };
+      setIsLoading(false);
+      return;
+    }
+
+    // ADMIN — todas menos users.delete e system.backup
+    if (userRoles.includes('ADMIN')) {
+      const all = getAllPermissionsList().filter(p => p !== 'users.delete' && p !== 'system.backup');
+      setPermissions(all);
+      permissionsCache[user.id] = { permissions: all, timestamp: Date.now() };
       setIsLoading(false);
       return;
     }
@@ -106,64 +125,16 @@ export const usePermissions = (user: User | null): UsePermissionsReturn => {
 
     setIsLoading(true);
     try {
-      // Verificar roles do usuário (user.roles é um array de strings)
-      const userRoles = user.roles || [];
-
-      // Se for SUPER_ADMIN, retornar todas as permissões (sem exceções)
-      if (userRoles.includes('SUPER_ADMIN')) {
-        const allPermissions = getAllPermissionsList();
-        setPermissions(allPermissions);
-        permissionsCache[user.id] = { permissions: allPermissions, timestamp: Date.now() };
-        setIsLoading(false);
-        return;
-      }
-
-      // Se for ADMIN, retornar todas as permissões exceto users.delete e system.backup
-      if (userRoles.includes('ADMIN')) {
-        const allPermissions = getAllPermissionsList();
-        const adminPermissions = allPermissions.filter(
-          p => p !== 'users.delete' && p !== 'system.backup'
-        );
-        setPermissions(adminPermissions);
-        permissionsCache[user.id] = { permissions: adminPermissions, timestamp: Date.now() };
-        setIsLoading(false);
-        return;
-      }
-
-      // Buscar permisséµes do usué¡rio via RPC ou consulta direta
-      const userPermissions: string[] = [];
-
-      // Buscar roles do usué¡rio
-      if (supabase) {
-        const { data: userRoles, error: rolesError } = await supabase
-          .from('user_roles')
-          .select('role_id, roles(name)')
-          .eq('user_id', user.id);
-
-        if (!rolesError && userRoles && userRoles.length > 0) {
-          const roleIds = userRoles.map((ur: any) => ur.role_id);
-
-          // Buscar permisséµes dos roles
-          const { data: rolePermissions, error: permError } = await supabase
-            .from('role_permissions')
-            .select('permission_id, permissions(name)')
-            .in('role_id', roleIds);
-
-          if (!permError && rolePermissions) {
-            rolePermissions.forEach((rp: any) => {
-              if (rp.permissions?.name && !userPermissions.includes(rp.permissions.name)) {
-                userPermissions.push(rp.permissions.name);
-              }
-            });
-          }
-        }
-      }
-
-      setPermissions(userPermissions);
-      permissionsCache[user.id] = { permissions: userPermissions, timestamp: Date.now() };
-    } catch (error) {
-      console.error('Erro ao carregar permisséµes:', error);
-      setPermissions([]);
+      // Buscar permissões do backend (sem Supabase)
+      const data = await api.get<{ roles: string[]; permissions: string[] }>('/auth/my-permissions');
+      const perms = data.permissions || [];
+      setPermissions(perms);
+      permissionsCache[user.id] = { permissions: perms, timestamp: Date.now() };
+    } catch {
+      // Fallback: se a API falhar, conceder admin.access a utilizadores não-CLIENTE
+      const isStaff = !userRoles.includes('CLIENTE');
+      const fallback = isStaff ? ['admin.access'] : [];
+      setPermissions(fallback);
     } finally {
       setIsLoading(false);
     }
@@ -196,20 +167,12 @@ export const usePermissions = (user: User | null): UsePermissionsReturn => {
 
   const hasPermission = useCallback((permissionName: string): boolean => {
     if (!user) return false;
+    const userRoles = user.roles || [user.role || 'STAFF'];
 
-    const userRoles = user.roles || [];
+    if (user.isSuperAdmin || userRoles.includes('SUPER_ADMIN')) return true;
 
-    // SUPER_ADMIN sempre tem todas as permissões
-    if (userRoles.includes('SUPER_ADMIN')) {
-      return true;
-    }
-
-    // ADMIN tem todas exceto users.delete e system.backup
     if (userRoles.includes('ADMIN')) {
-      if (permissionName === 'users.delete' || permissionName === 'system.backup') {
-        return false;
-      }
-      return true;
+      return permissionName !== 'users.delete' && permissionName !== 'system.backup';
     }
 
     return permissions.includes(permissionName);

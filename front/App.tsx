@@ -53,6 +53,9 @@ const AdminAffiliates = lazy(() => import('./modules/admin/pages/Affiliates').th
 const AdminDeliveryZones = lazy(() => import('./modules/admin/pages/DeliveryZones').then(m => ({ default: m.DeliveryZones })));
 const AdminLogistics = lazy(() => import('./modules/admin/pages/Logistics').then(m => ({ default: m.Logistics })));
 const AdminMarketing = lazy(() => import('./modules/admin/pages/Marketing').then(m => ({ default: m.Marketing })));
+const AdminBlog = lazy(() => import('./modules/admin/pages/Blog').then(m => ({ default: m.Blog })));
+const BlogPage = lazy(() => import('./modules/shop/pages/BlogPage').then(m => ({ default: m.BlogPage })));
+const BlogPostPage = lazy(() => import('./modules/shop/pages/BlogPostPage').then(m => ({ default: m.BlogPostPage })));
 const ResetPasswordPage = lazy(() => import('./modules/shop/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const SobreNos = lazy(() => import('./modules/shop/pages/SobreNos'));
 const Politica = lazy(() => import('./modules/shop/pages/Politica'));
@@ -343,6 +346,8 @@ const App = () => {
             <Route path="minha-conta/reembolsos" element={currentUser ? <CustomerRefunds /> : <Navigate to="/" replace />} />
             <Route path="minha-conta/afiliado" element={currentUser ? <CustomerAffiliate /> : <Navigate to="/" replace />} />
             {/* Páginas institucionais */}
+            <Route path="blog" element={<Suspense fallback={<PageLoadingFallback />}><BlogPage /></Suspense>} />
+            <Route path="blog/:slug" element={<Suspense fallback={<PageLoadingFallback />}><BlogPostPage currentUser={currentUser} /></Suspense>} />
             <Route path="sobre" element={<Suspense fallback={<PageLoadingFallback />}><SobreNos /></Suspense>} />
             <Route path="politica" element={<Suspense fallback={<PageLoadingFallback />}><Politica /></Suspense>} />
             <Route path="contactos" element={<Suspense fallback={<PageLoadingFallback />}><Contactos /></Suspense>} />
@@ -742,6 +747,13 @@ const App = () => {
                 <ProtectedRoute user={currentUser} permission="admin.access">
                   <TrackedPage pagePath="/admin/marketing" pageTitle="Marketing">
                     <AdminMarketing showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="blog" element={
+                <ProtectedRoute user={currentUser} permission="admin.access">
+                  <TrackedPage pagePath="/admin/blog" pageTitle="Blog">
+                    <AdminBlog showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />
