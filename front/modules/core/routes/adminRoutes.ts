@@ -57,6 +57,8 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'marketing': '/admin/marketing',
   // Blog
   'blog': '/admin/blog',
+  // POS
+  'pos': '/admin/caixa',
   // Perfil
   'profile': '/admin/perfis'
 };

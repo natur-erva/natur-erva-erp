@@ -39,6 +39,7 @@ const StockLotsPage = lazy(() => import('./modules/products/pages/StockLotsPage'
 const StockAlerts = lazy(() => import('./modules/products/pages/StockAlerts').then(m => ({ default: m.StockAlerts })));
 const AuditReportPage = lazy(() => import('./modules/products/pages/AuditReportPage').then(m => ({ default: m.AuditReportPage })));
 const ShopReceipts = lazy(() => import('./modules/sales/pages/ShopReceipts').then(m => ({ default: m.ShopReceipts })));
+const POS = lazy(() => import('./modules/sales/pages/POS').then(m => ({ default: m.POS })));
 const Shop = lazy(() => import('./modules/shop/pages/Shop').then(m => ({ default: m.Shop })));
 const ProductLandingPage = lazy(() => import('./modules/shop/pages/ProductLandingPage').then(m => ({ default: m.ProductLandingPage })));
 const UserManagement = lazy(() => import('./modules/admin/pages/UserManagement').then(m => ({ default: m.UserManagement })));
@@ -503,6 +504,13 @@ const App = () => {
                       onReloadData={loadData}
                       currentUser={currentUser}
                     />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="caixa" element={
+                <ProtectedRoute user={currentUser} permission="sales.view">
+                  <TrackedPage pagePath="/admin/caixa" pageTitle="Caixa (POS)">
+                    <POS showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />

@@ -1,6 +1,15 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy — evita crash no arranque ESM antes do dotenv carregar
+let _resend = null;
+function getResend() {
+  if (_resend) return _resend;
+  const key = process.env.RESEND_API_KEY;
+  if (!key || key.startsWith('re_your')) return null;
+  _resend = new Resend(key);
+  return _resend;
+}
+
 const FROM = process.env.RESEND_FROM_EMAIL || 'NaturErva <noreply@natur-erva.co.mz>';
 const APP_URL = (process.env.APP_URL || 'https://www.natur-erva.co.mz').replace(/\/$/, '');
 const APP_NAME = 'NaturErva';
@@ -67,12 +76,13 @@ function statusLabel(status) {
 }
 
 async function send(to, subject, html) {
-  if (!process.env.RESEND_API_KEY) {
+  const client = getResend();
+  if (!client) {
     console.warn('[Email] RESEND_API_KEY não configurado — email não enviado:', subject);
     return;
   }
   try {
-    await resend.emails.send({ from: FROM, to, subject, html });
+    await client.emails.send({ from: FROM, to, subject, html });
     console.log(`[Email] Enviado: "${subject}" → ${to}`);
   } catch (err) {
     console.error('[Email] Erro ao enviar:', err.message);
@@ -172,7 +182,8 @@ export async function sendMarketingEmail({ to, subject, body, unsubscribeToken, 
     : '';
   const html = baseTemplate(`${body}${footer}`);
 
-  if (!process.env.RESEND_API_KEY) {
+  const client = getResend();
+  if (!client) {
     console.warn('[Email] RESEND_API_KEY não configurado — email não enviado:', subject);
     return;
   }
@@ -181,10 +192,10 @@ export async function sendMarketingEmail({ to, subject, body, unsubscribeToken, 
     if (attachments?.length) {
       payload.attachments = attachments.map(a => ({
         filename: a.filename,
-        content: a.content // base64 string
+        content: a.content
       }));
     }
-    await resend.emails.send(payload);
+    await client.emails.send(payload);
     console.log(`[Email] Enviado: "${subject}" → ${to}`);
   } catch (err) {
     console.error('[Email] Erro ao enviar:', err.message);

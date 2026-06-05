@@ -144,7 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Estrutura do menu com submenus (definida aqui para usar no useEffect)
   const menuItemsWithChildren: { id: string; children?: { path: string }[] }[] = [
-    { id: 'sales', children: [{ path: '/admin/vendas' }, { path: '/admin/vendas/por-produto' }, { path: '/admin/vendas/pedidos' }, { path: '/admin/vendas/clientes' }] },
+    { id: 'sales', children: [{ path: '/admin/vendas' }, { path: '/admin/vendas/por-produto' }, { path: '/admin/vendas/pedidos' }, { path: '/admin/vendas/clientes' }, { path: '/admin/caixa' }] },
     { id: 'purchases', children: [{ path: '/admin/compras' }, { path: '/admin/compras/por-produto' }, { path: '/admin/compras/fornecedores' }] },
     { id: 'products', children: [{ path: '/admin/produtos' }, { path: '/admin/produtos/categorias' }, { path: '/admin/produtos/unidades' }] },
     { id: 'stock-management', children: [{ path: '/admin/stock' }, { path: '/admin/stock/alertas' }, { path: '/admin/stock/movimentos' }, { path: '/admin/stock/lotes' }, { path: '/admin/stock/auditoria' }, { path: '/admin/stock/ajustes' }] },
@@ -212,6 +212,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: TrendingUp,
       permission: 'sales.view',
       children: [
+        { id: 'pos', label: 'Caixa (POS)', icon: Store, path: '/admin/caixa' },
         { id: 'sales-orders', label: t.nav.orders, icon: ShoppingCart, path: '/admin/vendas/pedidos' },
         { id: 'sales-customers', label: t.nav.customers, icon: Users, path: '/admin/vendas/clientes' },
         { id: 'sales-summaries', label: 'Resumos', icon: List, path: '/admin/vendas' },
