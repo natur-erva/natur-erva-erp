@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
 import bcrypt from 'bcryptjs';
+import { uploadToMinio } from '../storage/minio.js';
 
 const router = express.Router();
 
@@ -286,6 +287,27 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Erro ao remover utilizador: ' + err.message });
   } finally {
     client.release();
+  }
+});
+
+// POST /api/users/:id/avatar — upload de foto de perfil para MinIO
+router.post('/:id/avatar', authMiddleware, async (req, res) => {
+  try {
+    const { imageData } = req.body;
+    if (!imageData) return res.status(400).json({ error: 'imageData obrigatório' });
+
+    const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return res.status(400).json({ error: 'Formato base64 inválido' });
+
+    const [, mime, b64] = match;
+    const buffer = Buffer.from(b64, 'base64');
+    const { url } = await uploadToMinio(buffer, 'avatars', mime);
+
+    await pool.query('UPDATE profiles SET avatar_url = $1, updated_at = NOW() WHERE id = $2', [url, req.params.id]);
+    res.json({ url });
+  } catch (err) {
+    console.error('[POST /users/:id/avatar]', err);
+    res.status(500).json({ error: 'Erro ao fazer upload do avatar' });
   }
 });
 

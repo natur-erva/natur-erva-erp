@@ -504,65 +504,32 @@ export const uploadPaymentProof = async (
  * @param userId ID do usué¡rio (para organizar por usué¡rio)
  * @returns URL péºblica da imagem ou null em caso de erro
  */
+/**
+ * Upload de avatar via backend → MinIO (não usa Supabase)
+ */
 export const uploadAvatar = async (
   file: File,
   userId: string
 ): Promise<string | null> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    console.error('[uploadAvatar] Supabase néo configurado');
-    return null;
-  }
-
   try {
-    // Tentar garantir que o bucket existe
-    const bucketCheck = await ensureBucketExists();
-    if (!bucketCheck.success) {
-      console.warn('[uploadAvatar] Aviso na verificaçéo do bucket:', bucketCheck.error);
-    }
-
-    // Validar tipo de arquivo
     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!validTypes.includes(file.type)) {
-      throw new Error('Tipo de arquivo néo suportado. Use JPEG, PNG, WEBP ou GIF.');
-    }
+    if (!validTypes.includes(file.type))
+      throw new Error('Tipo não suportado. Use JPEG, PNG, WEBP ou GIF.');
+    if (file.size > 2 * 1024 * 1024)
+      throw new Error('Ficheiro demasiado grande. Máximo: 2MB.');
 
-    // Validar tamanho (mé¡ximo 2MB para avatares)
-    const maxSize = 2 * 1024 * 1024; // 2MB
-    if (file.size > maxSize) {
-      throw new Error('Arquivo muito grande. Tamanho mé¡ximo: 2MB.');
-    }
+    const imageData = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve(ev.target?.result as string);
+      reader.onerror = () => reject(new Error('Erro ao ler ficheiro'));
+      reader.readAsDataURL(file);
+    });
 
-    // Gerar nome éºnico para o arquivo
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 15);
-    const fileExtension = file.name.split('.').pop() || 'jpg';
-    const fileName = `avatars/${userId}/${timestamp}-${randomString}.${fileExtension}`;
-
-    // Fazer upload
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) {
-      console.error('[uploadAvatar] Erro no upload:', error);
-      throw error;
-    }
-
-    // Obter URL péºblica
-    const { data: urlData } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(fileName);
-
-    if (!urlData?.publicUrl) {
-      throw new Error('Erro ao obter URL péºblica do avatar');
-    }
-
-    return urlData.publicUrl;
+    const { default: api } = await import('../../core/services/apiClient');
+    const result = await (api as any).post(`/users/${userId}/avatar`, { imageData });
+    return result?.url || null;
   } catch (error: any) {
-    console.error('[uploadAvatar] Erro:', error);
+    console.error('[uploadAvatar]', error);
     throw error;
   }
 };

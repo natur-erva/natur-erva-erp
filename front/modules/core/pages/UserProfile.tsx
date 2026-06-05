@@ -41,17 +41,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validar tipo de arquivo
     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!validTypes.includes(file.type)) {
-      showToast?.('Tipo de arquivo néo suportado. Use JPEG, PNG, WEBP ou GIF.', 'error');
+      showToast?.('Tipo de arquivo não suportado. Use JPEG, PNG, WEBP ou GIF.', 'error');
       return;
     }
 
-    // Validar tamanho (mé¡ximo 2MB)
     const maxSize = 2 * 1024 * 1024;
     if (file.size > maxSize) {
-      showToast?.('Arquivo muito grande. Tamanho mé¡ximo: 2MB.', 'error');
+      showToast?.('Arquivo muito grande. Tamanho máximo: 2MB.', 'error');
       return;
     }
 
@@ -60,6 +58,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       const avatarUrl = await uploadAvatar(file, currentUser.id);
       if (avatarUrl) {
         setAvatar(avatarUrl);
+        onUpdate?.({ ...currentUser, avatar: avatarUrl });
         showToast?.('Foto atualizada com sucesso!', 'success');
       } else {
         showToast?.('Erro ao fazer upload da foto. Tente novamente.', 'error');
@@ -69,7 +68,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       showToast?.(error.message || 'Erro ao fazer upload da foto.', 'error');
     } finally {
       setIsUploading(false);
-      // Limpar o input para permitir selecionar o mesmo arquivo novamente
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -78,7 +76,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      showToast?.('O nome é© obrigaté³rio.', 'error');
+      showToast?.('O nome é obrigatório.', 'error');
       return;
     }
 
@@ -87,27 +85,19 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       const result = await authService.updateProfile(currentUser.id, {
         name: name.trim(),
         phone: phone.trim() || undefined,
-        avatar_url: avatar || undefined
+        avatar: avatar || undefined
       });
 
       if (result.success) {
         showToast?.('Perfil atualizado com sucesso!', 'success');
 
-        // Atualizar o usué¡rio localmente
         const updatedUser: User = {
           ...currentUser,
           name: name.trim(),
           phone: phone.trim() || undefined,
           avatar: avatar || currentUser.avatar
         };
-
         onUpdate?.(updatedUser);
-
-        // Recarregar o usué¡rio atual para garantir sincronizaçéo
-        const refreshedUser = await authService.getCurrentUser();
-        if (refreshedUser) {
-          onUpdate?.(refreshedUser);
-        }
       } else {
         showToast?.(result.error || 'Erro ao atualizar perfil.', 'error');
       }
@@ -120,7 +110,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   };
 
 
-  // Açéµes do cabeçalho (modo claro/escuro e logout)
+  // Ações do cabeçalho (modo claro/escuro e logout)
   const headerActions = (
     <div className="flex gap-2 flex-wrap">
       {toggleTheme && (
@@ -197,10 +187,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                 />
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-4 text-center">
-                Clique no é­cone da cé¢mera para alterar sua foto
+                Clique no ícone da câmera para alterar sua foto
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 text-center">
-                Formatos: JPEG, PNG, WEBP, GIF â€¢ Mé¡ximo: 2MB
+                Formatos: JPEG, PNG, WEBP, GIF • Máximo: 2MB
               </p>
             </div>
 
@@ -233,7 +223,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 />
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  O email néo pode ser alterado
+                  O email não pode ser alterado
                 </p>
               </div>
 
@@ -254,7 +244,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               {/* Role (readonly) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Funçéo
+                  Função
                 </label>
                 <input
                   type="text"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, Eye, Globe, FileText, Image, X, Save, Loader2, Tag, RefreshCw } from 'lucide-react';
 import api from '../../core/services/apiClient';
 import { PageShell } from '../../core/components/layout/PageShell';
+import { RichTextEditor } from '../components/RichTextEditor';
 
 interface BlogPost {
   id: string;
@@ -178,12 +179,14 @@ export const Blog: React.FC<{ showToast: (m: string, t: 'success' | 'error' | 'i
                   placeholder="Breve descrição do artigo..." />
               </div>
 
-              {/* Conteúdo */}
-              <div>
+              {/* Conteúdo — Editor Rico */}
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conteúdo</label>
-                <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} rows={10}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none font-mono"
-                  placeholder="Conteúdo do artigo (HTML suportado)..." />
+                <RichTextEditor
+                  value={form.content}
+                  onChange={content => setForm(f => ({ ...f, content }))}
+                  placeholder="Escreva o conteúdo do artigo..."
+                />
               </div>
 
               {/* Tags e Status */}

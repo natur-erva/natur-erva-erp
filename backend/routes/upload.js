@@ -58,6 +58,23 @@ router.delete('/', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/upload/base64 — converte base64 → MinIO (usado pelo editor de blog)
+router.post('/base64', authMiddleware, async (req, res) => {
+  try {
+    const { imageData, folder = 'blog' } = req.body;
+    if (!imageData) return res.status(400).json({ error: 'imageData obrigatório' });
+    const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return res.status(400).json({ error: 'Formato inválido' });
+    const [, mime, b64] = match;
+    const buffer = Buffer.from(b64, 'base64');
+    const { url } = await uploadToMinio(buffer, folder, mime);
+    res.json({ url });
+  } catch (err) {
+    console.error('[POST /upload/base64]', err);
+    res.status(500).json({ error: 'Erro ao fazer upload' });
+  }
+});
+
 // Rota de retrocompatibilidade (ignora ficheiros base64 antigos)
 router.delete('/:filename', authMiddleware, (req, res) => {
   res.json({ success: true });
