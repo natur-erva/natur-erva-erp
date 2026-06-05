@@ -4,6 +4,20 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 
+// Cria a tabela automaticamente se não existir
+pool.query(`
+  CREATE TABLE IF NOT EXISTS pos_sessions (
+    id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    cashier_id     UUID,
+    cashier_name   VARCHAR(150)  NOT NULL DEFAULT 'Caixa',
+    opened_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    closed_at      TIMESTAMPTZ,
+    initial_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    is_open        BOOLEAN       NOT NULL DEFAULT TRUE,
+    summary        JSONB
+  )
+`).catch(err => console.error('[POS] Erro ao criar tabela pos_sessions:', err.message));
+
 // GET /api/pos/session/current
 router.get('/session/current', authMiddleware, async (req, res) => {
   try {
