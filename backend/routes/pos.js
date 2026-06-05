@@ -81,14 +81,14 @@ router.post('/session/close', authMiddleware, async (req, res) => {
                                 .reduce((s, r) => s + parseFloat(r.total || 0), 0);
 
     const summary = {
-      totalSales,
+      totalSales:   Math.round(totalSales   * 100) / 100,
       totalOrders,
       byMethod: byMethod.map(r => ({
         method: r.method,
         count:  parseInt(r.count),
-        total:  parseFloat(r.total),
+        total:  Math.round(parseFloat(r.total) * 100) / 100,
       })),
-      expectedCash: parseFloat(session.initial_amount) + cashSales,
+      expectedCash: Math.round((parseFloat(String(session.initial_amount)) + cashSales) * 100) / 100,
     };
 
     const { rows } = await pool.query(

@@ -34,7 +34,7 @@ type CloseReport = {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const PAY_LABELS: Record<string, string> = { cash: 'Dinheiro', mpesa: 'M-Pesa', transfer: 'Transferência' };
-const fmt = (n: number) => `MT ${n.toFixed(2)}`;
+const fmt = (n: number | string | undefined | null) => `MT ${Number(n ?? 0).toFixed(2)}`;
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
 const fmtDuration = (from: string) => {
   const mins = Math.floor((Date.now() - new Date(from).getTime()) / 60000);
