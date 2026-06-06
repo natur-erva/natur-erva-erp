@@ -13,6 +13,26 @@ declare class BarcodeDetector {
   static getSupportedFormats(): Promise<string[]>;
 }
 
+// Som de beep de scanner POS via Web Audio API (sem ficheiro externo)
+function playScanBeep() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1850, ctx.currentTime);
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.12);
+    osc.onended = () => ctx.close();
+  } catch {}
+}
+
 export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -51,6 +71,7 @@ export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
             const barcodes = await detector.detect(videoRef.current);
             if (barcodes.length > 0) {
               const code = barcodes[0].rawValue;
+              playScanBeep();
               cleanup();
               onScan(code.trim());
               return;

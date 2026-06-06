@@ -46,6 +46,38 @@ type SessionHistoryItem = {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TZ = 'Africa/Maputo';
+
+// Beep de scanner POS via Web Audio API
+function playScanBeep(type: 'ok' | 'error' = 'ok') {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    if (type === 'ok') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1850, ctx.currentTime);
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.12);
+    } else {
+      // Dois beeps curtos descendentes para erro
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.setValueAtTime(400, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.22);
+    }
+    osc.onended = () => ctx.close();
+  } catch {}
+}
 const PAY_LABELS: Record<string, string> = { cash: 'Dinheiro', mpesa: 'M-Pesa', transfer: 'Transferência' };
 const fmt = (n: number | string | undefined | null) => `MT ${Number(n ?? 0).toFixed(2)}`;
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
@@ -358,12 +390,15 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
     try {
       const product = await api.get<Product>(`/products/barcode/${encodeURIComponent(code)}`);
       if (product.hasVariants && product.variants?.length) {
+        playScanBeep('ok');
         setVariantPicker(product);
       } else {
+        playScanBeep('ok');
         addItem(product.id, product.name, product.price, product.unit, product.stock);
         showToast?.(`${product.name} adicionado`, 'success');
       }
     } catch {
+      playScanBeep('error');
       showToast?.(`Código "${code}" não encontrado`, 'error');
     }
   };

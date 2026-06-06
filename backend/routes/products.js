@@ -4,6 +4,23 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// ── Auto-migrations para colunas adicionadas por migrations ───────────────────
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode VARCHAR(100)`).catch(() => {});
+pool.query(`CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode) WHERE barcode IS NOT NULL`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS vat_regime VARCHAR(20) NOT NULL DEFAULT 'standard'`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS promotional_price DECIMAL(12,2)`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS description_long TEXT`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS benefits TEXT`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS how_to_use TEXT`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS ingredients TEXT`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS landing_page_enabled BOOLEAN DEFAULT false`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS landing_page_data JSONB`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url2 TEXT`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url3 TEXT`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url4 TEXT`).catch(() => {});
+pool.query(`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0`).catch(() => {});
+pool.query(`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS image TEXT`).catch(() => {});
+
 // Mapeamento DB -> JS
 const mapProduct = (p) => ({
   id: p.id,
