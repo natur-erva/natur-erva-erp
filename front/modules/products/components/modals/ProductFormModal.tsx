@@ -1,7 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { Product } from '../../../core/types/types';
 import { Modal } from '../shared/Modal';
-import { Upload, X, ImageOff, Loader2 } from 'lucide-react';
+import { Upload, X, ImageOff, Loader2, Camera } from 'lucide-react';
+
+// Comprime imagens > 2 MB ou > 1920 px antes de enviar (fotos de câmera chegam a 8–12 MB)
+async function compressImage(file: File, maxSizeMB = 2, maxDim = 1920): Promise<File> {
+  return new Promise((resolve) => {
+    if (file.size <= maxSizeMB * 1024 * 1024) { resolve(file); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(maxDim / img.width, maxDim / img.height, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => resolve(blob
+          ? new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
+          : file),
+        'image/jpeg', 0.85
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
 import uploadService from '../../../../services/uploadService';
 
 export interface ProductCategoryOption {
@@ -143,12 +168,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   }, [open]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, imageKey: keyof ProductFormData) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const raw = event.target.files?.[0];
+    if (!raw) return;
 
-    const validation = validateImageFile(file);
+    // Validar tipo (antes de comprimir)
+    const validation = validateImageFile(raw);
     if (!validation.valid) {
       showToast(validation.error || 'Erro ao validar imagem', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    // Comprimir se necessário (fotos de câmera chegam a 8–12 MB)
+    const file = await compressImage(raw);
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Imagem demasiado grande mesmo após compressão. Máximo 5 MB.', 'error');
+      event.target.value = '';
       return;
     }
 
@@ -255,39 +290,48 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <X className="w-3 h-3" />
             </button>
             {!hasError && (
-              <label className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-brand-600 hover:bg-brand-700 text-white rounded-full p-1 cursor-pointer shadow-lg transition-colors" title="Trocar imagem">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(e, imageKey)}
-                  className="hidden"
-                  disabled={isUploading}
-                />
-                <Upload className="w-3 h-3" />
-              </label>
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                {/* Galeria */}
+                <label className="bg-brand-600 hover:bg-brand-700 text-white rounded-full p-1 cursor-pointer shadow-lg transition-colors" title="Trocar — Galeria">
+                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, imageKey)} className="hidden" disabled={isUploading} />
+                  <Upload className="w-3 h-3" />
+                </label>
+                {/* Câmera */}
+                <label className="bg-green-600 hover:bg-green-700 text-white rounded-full p-1 cursor-pointer shadow-lg transition-colors" title="Trocar — Câmera">
+                  <input type="file" accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, imageKey)} className="hidden" disabled={isUploading} />
+                  <Camera className="w-3 h-3" />
+                </label>
+              </div>
             )}
           </div>
         ) : (
-          <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-gray-700 transition-all group">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleImageUpload(e, imageKey)}
-              className="hidden"
-              disabled={isUploading}
-            />
+          <div className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
             {isUploading ? (
               <div className="flex flex-col items-center">
                 <Loader2 className="w-5 h-5 text-brand-600 animate-spin mb-1" />
                 <p className="text-[10px] text-gray-500">Enviando...</p>
               </div>
             ) : (
-              <>
-                <Upload className="w-5 h-5 text-gray-400 group-hover:text-brand-600 transition-colors mb-1" />
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 text-center">Upload</p>
-              </>
+              <div className="flex gap-2">
+                {/* Galeria */}
+                <label className="flex flex-col items-center cursor-pointer group" title="Galeria de fotos">
+                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, imageKey)} className="hidden" disabled={isUploading} />
+                  <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 group-hover:bg-brand-50 dark:group-hover:bg-brand-900/30 transition-colors">
+                    <Upload className="w-4 h-4 text-gray-400 group-hover:text-brand-600 transition-colors" />
+                  </div>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Galeria</p>
+                </label>
+                {/* Câmera */}
+                <label className="flex flex-col items-center cursor-pointer group" title="Tirar foto">
+                  <input type="file" accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, imageKey)} className="hidden" disabled={isUploading} />
+                  <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 group-hover:bg-green-50 dark:group-hover:bg-green-900/30 transition-colors">
+                    <Camera className="w-4 h-4 text-gray-400 group-hover:text-green-600 transition-colors" />
+                  </div>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Câmera</p>
+                </label>
+              </div>
             )}
-          </label>
+          </div>
         )}
       </div>
     );

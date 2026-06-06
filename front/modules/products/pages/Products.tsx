@@ -70,10 +70,10 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
   const [showManagement, setShowManagement] = useState(!!showManagementTab);
 
   // Sorting
-  type SortField = 'name' | 'price' | 'costPrice' | 'margin' | 'stock';
+  type SortField = 'name' | 'price' | 'costPrice' | 'margin' | 'stock' | 'updatedAt';
   type SortDirection = 'asc' | 'desc';
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortField, setSortField] = useState<SortField>('updatedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   // Modals: form (create/edit product) and variant management (per product)
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
@@ -288,6 +288,10 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
           aValue = a.type === 'variant' ? a.variant.stock : calculateTotalStock(getProduct(a));
           bValue = b.type === 'variant' ? b.variant.stock : calculateTotalStock(getProduct(b));
           break;
+        case 'updatedAt':
+          aValue = getProduct(a).updatedAt || getProduct(a).createdAt || '';
+          bValue = getProduct(b).updatedAt || getProduct(b).createdAt || '';
+          break;
         default:
           return 0;
       }
@@ -323,6 +327,7 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
           aVal = getMargin(a); bVal = getMargin(b); break;
         }
         case 'stock': aVal = calculateTotalStock(a); bVal = calculateTotalStock(b); break;
+        case 'updatedAt': aVal = a.updatedAt || a.createdAt || ''; bVal = b.updatedAt || b.createdAt || ''; break;
         default: return 0;
       }
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;

@@ -877,10 +877,11 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{c.productName}{c.variantName ? ` · ${c.variantName}` : ''}</p>
                         <p className="text-xs text-gray-500">{fmt(c.price)} × {c.quantity} = <span className="font-semibold text-gray-700 dark:text-gray-300">{fmt(c.price * c.quantity)}</span></p>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => setQty(idx, c.quantity - 1)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-red-100 dark:hover:bg-red-900/40 active:scale-95"><Minus className="w-3.5 h-3.5" /></button>
                         <span className="w-6 text-center text-sm font-semibold">{c.quantity}</span>
                         <button onClick={() => setQty(idx, c.quantity + 1)} disabled={c.maxStock > 0 && c.quantity >= c.maxStock} className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-green-100 disabled:opacity-40 active:scale-95"><Plus className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setCart(prev => prev.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 active:scale-95 ml-0.5"><X className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                   ))}
