@@ -50,20 +50,23 @@ function playScanBeep(type: 'ok' | 'error' = 'ok') {
   } catch {}
 }
 
-// Carrega jsQR do CDN (QR codes — fallback leve, 18 KB)
-let jsQRPromise: Promise<((data: Uint8ClampedArray, w: number, h: number) => { data: string } | null)> | null = null;
-function loadJsQR() {
-  if (!jsQRPromise) {
-    jsQRPromise = new Promise((resolve, reject) => {
-      if ((window as any).jsQR) { resolve((window as any).jsQR); return; }
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-      s.onload = () => resolve((window as any).jsQR);
-      s.onerror = () => reject(new Error('jsQR load failed'));
-      document.head.appendChild(s);
-    });
-  }
-  return jsQRPromise;
+// ZXing — suporta EAN-13, QR, Code128, etc. (fallback para iOS < 17 e Firefox)
+let _zxing: any = null;
+async function getZXing() {
+  if (_zxing) return _zxing;
+  const lib = await import('@zxing/library');
+  const hints = new Map();
+  hints.set(lib.DecodeHintType.POSSIBLE_FORMATS, [
+    lib.BarcodeFormat.EAN_13, lib.BarcodeFormat.EAN_8,
+    lib.BarcodeFormat.CODE_128, lib.BarcodeFormat.CODE_39,
+    lib.BarcodeFormat.QR_CODE, lib.BarcodeFormat.UPC_A, lib.BarcodeFormat.UPC_E,
+    lib.BarcodeFormat.DATA_MATRIX, lib.BarcodeFormat.PDF_417,
+  ]);
+  hints.set(lib.DecodeHintType.TRY_HARDER, true);
+  const reader = new lib.MultiFormatReader();
+  reader.setHints(hints);
+  _zxing = { reader, lib };
+  return _zxing;
 }
 
 const BARCODE_FORMATS = ['ean_13', 'ean_8', 'qr_code', 'code_128', 'code_39', 'upc_a', 'upc_e', 'data_matrix', 'pdf417'];
@@ -185,12 +188,18 @@ export const RemoteScannerPage: React.FC = () => {
 
       if (hasNative) {
         // ── Modo A: BarcodeDetector nativo (Chrome Android, Safari 17+ iOS) ──
+        // Safari ignora detect() em <video> diretamente — snapshot para canvas primeiro
         const detector = new BarcodeDetector({ formats: BARCODE_FORMATS });
+        const snapCanvas = document.createElement('canvas');
+        const snapCtx = snapCanvas.getContext('2d')!;
         const scan = async () => {
           if (!loopActiveRef.current || !video) return;
           try {
             if (video.readyState >= 2 && video.videoWidth > 0) {
-              const barcodes = await detector.detect(video);
+              if (snapCanvas.width !== video.videoWidth) snapCanvas.width = video.videoWidth;
+              if (snapCanvas.height !== video.videoHeight) snapCanvas.height = video.videoHeight;
+              snapCtx.drawImage(video, 0, 0);
+              const barcodes = await detector.detect(snapCanvas);
               if (barcodes.length > 0) {
                 const code = barcodes[0].rawValue.trim();
                 const now = Date.now();
@@ -206,37 +215,35 @@ export const RemoteScannerPage: React.FC = () => {
         };
         rafRef.current = requestAnimationFrame(scan);
       } else {
-        // ── Modo B: Canvas + jsQR real-time (iOS < 17, Firefox, Desktop Chrome)
-        const jsQR = await loadJsQR().catch(() => null);
-        if (jsQR) {
+        // ── Modo B: ZXing (EAN-13, QR, Code128, etc.) — iOS < 17, Firefox
+        try {
+          const { reader, lib } = await getZXing();
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
           const scan = () => {
             if (!loopActiveRef.current || !video) return;
             if (video.readyState >= 2 && video.videoWidth > 0) {
-              const w = video.videoWidth; const h = video.videoHeight;
-              if (canvas.width !== w) canvas.width = w;
-              if (canvas.height !== h) canvas.height = h;
-              ctx.drawImage(video, 0, 0, w, h);
+              if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+              if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+              ctx.drawImage(video, 0, 0);
               try {
-                const imgData = ctx.getImageData(0, 0, w, h);
-                const result = jsQR(imgData.data, w, h);
-                if (result?.data) {
-                  const code = result.data.trim();
-                  const now = Date.now();
-                  if (code && (code !== lastCodeRef.current || now - lastTimeRef.current > 2000)) {
-                    lastCodeRef.current = code;
-                    lastTimeRef.current = now;
-                    sendCode(code);
-                  }
+                const lum = new lib.HTMLCanvasElementLuminanceSource(canvas);
+                const bmp = new lib.BinaryBitmap(new lib.HybridBinarizer(lum));
+                const result = reader.decode(bmp);
+                const code = result.getText().trim();
+                const now = Date.now();
+                if (code && (code !== lastCodeRef.current || now - lastTimeRef.current > 2000)) {
+                  lastCodeRef.current = code;
+                  lastTimeRef.current = now;
+                  sendCode(code);
                 }
-              } catch {}
+              } catch { /* NotFoundException = sem código no frame */ }
             }
             rafRef.current = requestAnimationFrame(scan);
           };
           rafRef.current = requestAnimationFrame(scan);
-        } else {
-          // jsQR CDN falhou — mostrar modo foto como último recurso
+        } catch {
+          // ZXing falhou — modo foto como último recurso
           setStatus('idle');
           setScanMode('photo');
         }
@@ -297,14 +304,15 @@ export const RemoteScannerPage: React.FC = () => {
         } catch {}
       }
 
-      // 2º: jsQR (QR codes via CDN)
+      // 2º: ZXing (EAN-13, QR, Code128, etc.)
       try {
-        const jsQR = await loadJsQR();
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const result = jsQR(imgData.data, imgData.width, imgData.height);
-        if (result?.data) {
+        const { reader, lib } = await getZXing();
+        const lum = new lib.HTMLCanvasElementLuminanceSource(canvas);
+        const bmp = new lib.BinaryBitmap(new lib.HybridBinarizer(lum));
+        const result = reader.decode(bmp);
+        if (result?.getText()) {
           URL.revokeObjectURL(objectUrl);
-          await sendCode(result.data.trim());
+          await sendCode(result.getText().trim());
           return;
         }
       } catch {}

@@ -64,19 +64,23 @@ function playScanBeep() {
   } catch {}
 }
 
-// jsQR — decoder QR puro JS, carregado do CDN só quando necessário
-let _jsQR: ((d: Uint8ClampedArray, w: number, h: number) => { data: string } | null) | null = null;
-async function getJsQR() {
-  if (_jsQR) return _jsQR;
-  if ((window as any).jsQR) { _jsQR = (window as any).jsQR; return _jsQR!; }
-  await new Promise<void>((res, rej) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-    s.onload = () => { _jsQR = (window as any).jsQR; res(); };
-    s.onerror = rej;
-    document.head.appendChild(s);
-  });
-  return _jsQR!;
+// ZXing — suporta EAN-13, QR, Code128, etc. (fallback para iOS < 17 e Firefox)
+let _zxing: any = null;
+async function getZXing() {
+  if (_zxing) return _zxing;
+  const lib = await import('@zxing/library');
+  const hints = new Map();
+  hints.set(lib.DecodeHintType.POSSIBLE_FORMATS, [
+    lib.BarcodeFormat.EAN_13, lib.BarcodeFormat.EAN_8,
+    lib.BarcodeFormat.CODE_128, lib.BarcodeFormat.CODE_39,
+    lib.BarcodeFormat.QR_CODE, lib.BarcodeFormat.UPC_A, lib.BarcodeFormat.UPC_E,
+    lib.BarcodeFormat.DATA_MATRIX, lib.BarcodeFormat.PDF_417,
+  ]);
+  hints.set(lib.DecodeHintType.TRY_HARDER, true);
+  const reader = new lib.MultiFormatReader();
+  reader.setHints(hints);
+  _zxing = { reader, lib };
+  return _zxing;
 }
 
 export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
@@ -137,14 +141,20 @@ export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
 
       if (hasNative) {
         // ── Modo A: BarcodeDetector nativo (Chrome Android, Safari 17+) ──────
+        // Safari ignora detect() em <video> diretamente — snapshot para canvas primeiro
         const detector = new BarcodeDetector({ formats: FORMATS });
         const lastSeen = { code: '', time: 0 };
+        const snap = canvasRef.current!;
+        const snapCtx = snap.getContext('2d', { willReadFrequently: true })!;
 
         const scanNative = async () => {
           if (!activeRef.current || !video) return;
           try {
             if (video.readyState >= 2 && video.videoWidth > 0) {
-              const results = await detector.detect(video);
+              if (snap.width !== video.videoWidth) snap.width = video.videoWidth;
+              if (snap.height !== video.videoHeight) snap.height = video.videoHeight;
+              snapCtx.drawImage(video, 0, 0);
+              const results = await detector.detect(snap);
               if (results.length > 0) {
                 const code = results[0].rawValue.trim();
                 const now = Date.now();
@@ -162,31 +172,25 @@ export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
         rafRef.current = requestAnimationFrame(scanNative);
 
       } else {
-        // ── Modo B: Canvas + jsQR em tempo real (iOS, Desktop Chrome, Firefox)
-        const jsQR = await getJsQR().catch(() => null);
-        if (!jsQR) {
-          // jsQR falhou: mostrar aviso mas continuar com vídeo + input manual
-          setShowManual(true);
-          return;
-        }
-
+        // ── Modo B: ZXing (EAN-13, QR, Code128, etc.) — iOS < 17, Firefox
         const canvas = canvasRef.current!;
         const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
         const lastSeen = { code: '', time: 0 };
 
-        const scanCanvas = () => {
-          if (!activeRef.current || !video) return;
-          if (video.readyState >= 2 && video.videoWidth > 0) {
-            const w = video.videoWidth;
-            const h = video.videoHeight;
-            if (canvas.width !== w) canvas.width = w;
-            if (canvas.height !== h) canvas.height = h;
-            ctx.drawImage(video, 0, 0, w, h);
-            try {
-              const imgData = ctx.getImageData(0, 0, w, h);
-              const result = jsQR(imgData.data, w, h);
-              if (result?.data) {
-                const code = result.data.trim();
+        try {
+          const { reader, lib } = await getZXing();
+
+          const scanZXing = () => {
+            if (!activeRef.current || !video) return;
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+              if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+              if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+              ctx.drawImage(video, 0, 0);
+              try {
+                const lum = new lib.HTMLCanvasElementLuminanceSource(canvas);
+                const bmp = new lib.BinaryBitmap(new lib.HybridBinarizer(lum));
+                const result = reader.decode(bmp);
+                const code = result.getText().trim();
                 const now = Date.now();
                 if (code && (code !== lastSeen.code || now - lastSeen.time > 2000)) {
                   lastSeen.code = code;
@@ -194,12 +198,15 @@ export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
                   handleFound(code);
                   return;
                 }
-              }
-            } catch {}
-          }
-          rafRef.current = requestAnimationFrame(scanCanvas);
-        };
-        rafRef.current = requestAnimationFrame(scanCanvas);
+              } catch { /* NotFoundException = sem código no frame */ }
+            }
+            rafRef.current = requestAnimationFrame(scanZXing);
+          };
+          rafRef.current = requestAnimationFrame(scanZXing);
+        } catch {
+          // ZXing falhou a carregar (improvável) → mostrar input manual
+          setShowManual(true);
+        }
       }
 
     } catch (e: any) {

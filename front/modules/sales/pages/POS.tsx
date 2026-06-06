@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Plus, Minus, ShoppingCart, CheckCircle, X, Printer, Store, LogOut, Clock, ScanLine, Smartphone, Wifi } from 'lucide-react';
+import { Search, Plus, Minus, ShoppingCart, CheckCircle, X, Printer, Store, LogOut, Clock, ScanLine, Smartphone, Wifi, ChevronLeft } from 'lucide-react';
 import api from '../../core/services/apiClient';
 import { orderService } from '../services/orderService';
 import { Product, OrderItem, OrderStatus } from '../../core/types/types';
@@ -27,6 +27,7 @@ type TaxConfig = {
   companyName: string; companyNuit: string; companyAddress: string;
   companyPhone: string; companyEmail: string;
   vatRate: number; invoicePrefix: string;
+  logoUrl?: string;
 };
 type PosSession = {
   id: string; cashier_name: string; cashier_id: string;
@@ -87,7 +88,7 @@ const fmtDuration = (from: string) => {
   return mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
 };
 
-function printReceipt(r: SaleReceipt, vatRate = 16) {
+function printReceipt(r: SaleReceipt, vatRate = 16, logoUrl = `${window.location.origin}/logo.png`) {
   const vatMult = 1 + vatRate / 100;
   const baseIva = r.total / vatMult;
   const ivaAmt  = r.total - baseIva;
@@ -98,9 +99,9 @@ function printReceipt(r: SaleReceipt, vatRate = 16) {
      <td style="padding:3px 0;text-align:right;white-space:nowrap">MT ${(c.price * c.quantity).toFixed(2)}</td></tr>`
   ).join('');
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Recibo #${r.orderNumber}</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;width:80mm;margin:0 auto;padding:12px}.c{text-align:center}.b{font-weight:bold}.lg{font-size:15px}hr{border:none;border-top:1px dashed #000;margin:7px 0}table{width:100%;border-collapse:collapse}.totrow{font-weight:bold;font-size:13px}.iva{font-size:10px;color:#666}</style>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;width:80mm;margin:0 auto;padding:12px}.c{text-align:center}.b{font-weight:bold}.lg{font-size:15px}hr{border:none;border-top:1px dashed #000;margin:7px 0}table{width:100%;border-collapse:collapse}.totrow{font-weight:bold;font-size:13px}.iva{font-size:10px;color:#666}img.logo{display:block;margin:0 auto 6px;max-width:120px;max-height:60px;object-fit:contain}</style>
 </head><body>
-<div class="c"><p class="b lg">NATUR ERVA</p><p>natural é saudável</p><p>${r.date}</p><p>Recibo #${r.orderNumber}</p>
+<div class="c"><img class="logo" src="${logoUrl}" alt="Logo" onerror="this.style.display='none'"><p class="b lg">NATUR ERVA</p><p>natural é saudável</p><p>${r.date}</p><p>Recibo #${r.orderNumber}</p>
 ${r.customerName !== 'Cliente POS' ? `<p>Cliente: ${r.customerName}</p>` : ''}</div>
 <hr><table>${rows}</table><hr>
 <table>
@@ -120,7 +121,7 @@ ${r.customerName !== 'Cliente POS' ? `<p>Cliente: ${r.customerName}</p>` : ''}</
   if (win) { win.document.write(html); win.document.close(); }
 }
 
-function printInvoice(r: SaleReceipt, tax: TaxConfig, invoiceNumber: string) {
+function printInvoice(r: SaleReceipt, tax: TaxConfig, invoiceNumber: string, logoUrl = `${window.location.origin}/logo.png`) {
   const vatMult  = 1 + tax.vatRate / 100;
   const baseIva  = r.total / vatMult;
   const ivaAmt   = r.total - baseIva;
@@ -160,11 +161,14 @@ function printInvoice(r: SaleReceipt, tax: TaxConfig, invoiceNumber: string) {
   .footer{margin-top:32px;font-size:10px;color:#999;text-align:center;border-top:1px solid #e5e7eb;padding-top:12px}
 </style></head><body>
 <div class="header">
-  <div>
-    <div class="company">${tax.companyName}</div>
-    <div style="font-size:11px;color:#666;margin-top:4px">NUIT: ${tax.companyNuit || '—'}</div>
-    <div style="font-size:11px;color:#666">${tax.companyAddress || ''}</div>
-    <div style="font-size:11px;color:#666">${tax.companyPhone || ''} | ${tax.companyEmail || ''}</div>
+  <div style="display:flex;align-items:center;gap:14px">
+    <img src="${logoUrl}" alt="Logo" onerror="this.style.display='none'" style="max-width:100px;max-height:60px;object-fit:contain;display:block">
+    <div>
+      <div class="company">${tax.companyName}</div>
+      <div style="font-size:11px;color:#666;margin-top:4px">NUIT: ${tax.companyNuit || '—'}</div>
+      <div style="font-size:11px;color:#666">${tax.companyAddress || ''}</div>
+      <div style="font-size:11px;color:#666">${tax.companyPhone || ''} | ${tax.companyEmail || ''}</div>
+    </div>
   </div>
   <div style="text-align:right">
     <div style="font-size:18px;font-weight:700;color:#111">FACTURA</div>
@@ -215,7 +219,7 @@ function printInvoice(r: SaleReceipt, tax: TaxConfig, invoiceNumber: string) {
   if (win) { win.document.write(html); win.document.close(); }
 }
 
-function printCloseReport(s: PosSession, summary: CloseReport['summary'], companyName = 'NaturErva') {
+function printCloseReport(s: PosSession, summary: CloseReport['summary'], companyName = 'NaturErva', logoUrl = `${window.location.origin}/logo.png`) {
   const fmt2 = (n: number) => `MT ${Number(n).toFixed(2)}`;
   const rows = summary.byMethod.map(m =>
     `<tr><td>${PAY_LABELS[m.method] || m.method}</td><td style="text-align:center">${m.count}</td><td style="text-align:right">${fmt2(m.total)}</td></tr>`
@@ -223,9 +227,9 @@ function printCloseReport(s: PosSession, summary: CloseReport['summary'], compan
   const openDt = new Date(s.opened_at).toLocaleString('pt-PT', { timeZone: TZ });
   const closeDt = s.closed_at ? new Date(s.closed_at).toLocaleString('pt-PT', { timeZone: TZ }) : '—';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fecho de Caixa</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;width:80mm;margin:0 auto;padding:12px}.c{text-align:center}.b{font-weight:bold}.lg{font-size:15px}hr{border:none;border-top:1px dashed #000;margin:7px 0}table{width:100%;border-collapse:collapse}td{padding:2px 0}</style>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;width:80mm;margin:0 auto;padding:12px}.c{text-align:center}.b{font-weight:bold}.lg{font-size:15px}hr{border:none;border-top:1px dashed #000;margin:7px 0}table{width:100%;border-collapse:collapse}td{padding:2px 0}img.logo{display:block;margin:0 auto 6px;max-width:110px;max-height:55px;object-fit:contain}</style>
 </head><body>
-<div class="c"><p class="b lg">${companyName}</p><p>FECHO DE CAIXA</p></div><hr>
+<div class="c"><img class="logo" src="${logoUrl}" alt="Logo" onerror="this.style.display='none'"><p class="b lg">${companyName}</p><p>FECHO DE CAIXA</p></div><hr>
 <p>Caixa: ${s.cashier_name}</p><p>Abertura: ${openDt}</p><p>Fecho: ${closeDt}</p><p>Fundo inicial: ${fmt2(Number(s.initial_amount))}</p><hr>
 <table><tr><td class="b">Método</td><td class="b" style="text-align:center">Qtd</td><td class="b" style="text-align:right">Total</td></tr>${rows}</table><hr>
 <table>
@@ -262,6 +266,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<SaleReceipt | null>(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [taxConfig, setTaxConfig] = useState<TaxConfig>({ companyName: 'NaturErva', companyNuit: '', companyAddress: '', companyPhone: '', companyEmail: '', vatRate: 16, invoicePrefix: 'FACT' });
   const [sessions, setSessions] = useState<SessionHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -319,7 +324,17 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
     Promise.all([
       api.get<Product[]>('/products').then(d => setProducts(d || [])),
       api.get<PosSession | null>('/pos/session/current').then(s => setSession(s)),
-      api.get<TaxConfig>('/tax/config').then(c => { if (c?.vatRate) setTaxConfig(c); }).catch(() => {}),
+      api.get<TaxConfig>('/tax/config').then(async c => {
+        if (c?.vatRate) {
+          try {
+            const { getSystemSettings } = await import('../../core/services/systemSettingsService');
+            const sys = await getSystemSettings();
+            setTaxConfig({ ...c, logoUrl: sys.logo_light || sys.logo_dark || `${window.location.origin}/logo.png` });
+          } catch {
+            setTaxConfig(c);
+          }
+        }
+      }).catch(() => {}),
     ]).catch(() => {
       setSession(null);
       showToast?.('Erro ao carregar dados', 'error');
@@ -412,6 +427,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
           customerPhone: customerPhone.trim() || undefined,
           date: nowMaputo(),
         });
+        setMobileCartOpen(false);
         setCart([]);
         setCustomerName(''); setCustomerPhone('');
         setAmountPaid(''); setDiscount('');
@@ -513,7 +529,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
                       <p className="text-xs text-gray-400">{sh.totalOrders} venda{sh.totalOrders !== 1 ? 's' : ''}</p>
                     </div>
                     {!sh.isOpen && sh.summary && (
-                      <button onClick={() => { const ps: PosSession = { id: sh.id, cashier_name: sh.cashierName, cashier_id: '', opened_at: sh.openedAt, closed_at: sh.closedAt, initial_amount: sh.initialAmount, is_open: false }; printCloseReport(ps, sh.summary!, taxConfig.companyName); }}
+                      <button onClick={() => { const ps: PosSession = { id: sh.id, cashier_name: sh.cashierName, cashier_id: '', opened_at: sh.openedAt, closed_at: sh.closedAt, initial_amount: sh.initialAmount, is_open: false }; printCloseReport(ps, sh.summary!, taxConfig.companyName, taxConfig.logoUrl); }}
                         className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-xs font-medium">
                         <Printer className="w-3.5 h-3.5" />Imprimir
                       </button>
@@ -589,7 +605,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
 
           <div className="px-6 pb-6 space-y-2">
             <div className="flex gap-2">
-              <button onClick={() => printCloseReport(s, summary, taxConfig.companyName)}
+              <button onClick={() => printCloseReport(s, summary, taxConfig.companyName, taxConfig.logoUrl)}
                 className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm flex items-center justify-center gap-1.5">
                 <Printer className="w-4 h-4" />Imprimir Fecho
               </button>
@@ -631,7 +647,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
                       <p className="text-xs text-gray-400">{sh.totalOrders} venda{sh.totalOrders !== 1 ? 's' : ''}</p>
                     </div>
                     {!sh.isOpen && sh.summary && (
-                      <button onClick={() => { const ps: PosSession = { id: sh.id, cashier_name: sh.cashierName, cashier_id: '', opened_at: sh.openedAt, closed_at: sh.closedAt, initial_amount: sh.initialAmount, is_open: false }; printCloseReport(ps, sh.summary!, taxConfig.companyName); }}
+                      <button onClick={() => { const ps: PosSession = { id: sh.id, cashier_name: sh.cashierName, cashier_id: '', opened_at: sh.openedAt, closed_at: sh.closedAt, initial_amount: sh.initialAmount, is_open: false }; printCloseReport(ps, sh.summary!, taxConfig.companyName, taxConfig.logoUrl); }}
                         className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-xs font-medium">
                         <Printer className="w-3.5 h-3.5" />Imprimir
                       </button>
@@ -649,26 +665,27 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
 
   // ── POS Principal ─────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950 -mx-3 -mt-3 sm:-mx-4 sm:-mt-4 md:mx-0 md:mt-0 md:h-[calc(100vh-64px)]">
 
       {/* Barra de sessão */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-brand-600 text-white text-sm shrink-0">
+      <div className="flex items-center gap-2 px-3 md:px-4 py-2 bg-brand-600 text-white text-sm shrink-0">
         <Store className="w-4 h-4 shrink-0" />
-        <span className="font-medium">{(session as PosSession).cashier_name}</span>
-        <span className="text-brand-200">·</span>
-        <Clock className="w-3.5 h-3.5 text-brand-200" />
-        <span className="text-brand-100">Abertura: {fmtTime((session as PosSession).opened_at)}</span>
-        <span className="text-brand-200">·</span>
-        <span className="text-brand-100">Fundo: {fmt((session as PosSession).initial_amount)}</span>
+        <span className="font-medium truncate max-w-[110px] sm:max-w-none">{(session as PosSession).cashier_name}</span>
+        <span className="hidden md:inline text-brand-200">·</span>
+        <Clock className="hidden md:inline w-3.5 h-3.5 text-brand-200" />
+        <span className="hidden md:inline text-brand-100">Abertura: {fmtTime((session as PosSession).opened_at)}</span>
+        <span className="hidden md:inline text-brand-200">·</span>
+        <span className="hidden md:inline text-brand-100">Fundo: {fmt((session as PosSession).initial_amount)}</span>
         <button onClick={handleCloseSession} disabled={closingSession}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-white/15 hover:bg-white/25 rounded-lg transition-colors disabled:opacity-50 text-xs font-medium">
+          className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-white/15 hover:bg-white/25 rounded-lg transition-colors disabled:opacity-50 text-xs font-medium whitespace-nowrap">
           <LogOut className="w-3.5 h-3.5" />
-          {closingSession ? 'A fechar...' : 'Fechar Caixa'}
+          <span className="hidden sm:inline">{closingSession ? 'A fechar...' : 'Fechar Caixa'}</span>
+          <span className="sm:hidden">{closingSession ? '...' : 'Fechar'}</span>
         </button>
       </div>
 
-      {/* Conteúdo */}
-      <div className="flex flex-1 overflow-hidden gap-4 p-4">
+      {/* ── DESKTOP (md+): lado a lado ─────────────────────────────────────────── */}
+      <div className="hidden md:flex flex-1 overflow-hidden gap-4 p-4">
 
         {/* Produtos */}
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -678,16 +695,16 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar produto..."
                 className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none" />
             </div>
-            <button onClick={() => setShowScanner(true)} title="Escanear com câmera deste dispositivo"
+            <button onClick={() => setShowScanner(true)} title="Câmera"
               className="px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors shrink-0 flex items-center gap-1.5">
               <ScanLine className="w-4 h-4" />
-              <span className="text-xs font-medium hidden sm:inline">Câmera</span>
+              <span className="text-xs font-medium">Câmera</span>
             </button>
             <button onClick={() => remoteSession ? setShowRemoteModal(true) : startRemoteScanner()}
-              title="Escanear com telemóvel"
+              title="Telemóvel"
               className={`px-3 py-2 rounded-lg transition-colors shrink-0 flex items-center gap-1.5 text-xs font-medium ${remoteSession ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'}`}>
               {remoteSession ? <Wifi className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
-              <span className="hidden sm:inline">{remoteSession ? 'Activo' : 'Telemóvel'}</span>
+              {remoteSession ? 'Activo' : 'Telemóvel'}
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -709,14 +726,13 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
           </div>
         </div>
 
-        {/* Carrinho */}
+        {/* Carrinho (desktop) */}
         <div className="w-80 lg:w-96 flex flex-col bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-brand-600" />
             <span className="font-semibold text-gray-900 dark:text-white">Carrinho</span>
             {cart.length > 0 && <span className="ml-auto text-xs bg-brand-600 text-white rounded-full px-2 py-0.5">{cart.reduce((s, c) => s + c.quantity, 0)}</span>}
           </div>
-
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {cart.length === 0
               ? <p className="text-center text-gray-400 text-sm py-8">Carrinho vazio</p>
@@ -734,14 +750,11 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
                 </div>
               ))}
           </div>
-
-          {/* Checkout */}
           <div className="border-t border-gray-100 dark:border-gray-700 p-4 space-y-3">
             <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nome do cliente (opcional)"
               className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
             <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="Telefone (opcional)"
               className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
-
             <div className="flex gap-1.5">
               {(['cash', 'mpesa', 'transfer'] as PayMethod[]).map(m => (
                 <button key={m} onClick={() => setPayMethod(m)}
@@ -750,20 +763,17 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
                 </button>
               ))}
             </div>
-
             <div className="flex items-center gap-2">
               <label className="text-xs text-gray-500 shrink-0">Desconto MT</label>
               <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} min={0} placeholder="0.00"
                 className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
             </div>
-
             <div>
               <input type="number" value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
                 placeholder={`Valor recebido (total: ${fmt(total)})`}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
               {paid > 0 && change >= 0 && <p className="text-xs text-green-600 font-medium mt-1 px-1">Troco: {fmt(change)}</p>}
             </div>
-
             <div className="space-y-1 py-2 border-t border-gray-100 dark:border-gray-700">
               {discountAmt > 0 && (
                 <>
@@ -776,13 +786,150 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
                 <span className="text-xl font-bold text-gray-900 dark:text-white">{fmt(total)}</span>
               </div>
             </div>
-
             <button onClick={handleCheckout} disabled={!cart.length || submitting}
               className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               {submitting ? 'A processar...' : 'Finalizar Venda'}
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ── MOBILE (<md): tabs produtos / carrinho ──────────────────────────────── */}
+      <div className="flex md:hidden flex-1 flex-col overflow-hidden min-h-0">
+        {!mobileCartOpen ? (
+          /* Vista de produtos */
+          <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+            {/* Pesquisa + scan */}
+            <div className="flex gap-2 px-3 pt-3 pb-2 shrink-0">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar produto..."
+                  className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none" />
+              </div>
+              <button onClick={() => setShowScanner(true)} title="Câmera"
+                className="px-3 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white rounded-lg transition-colors shrink-0">
+                <ScanLine className="w-5 h-5" />
+              </button>
+              <button onClick={() => remoteSession ? setShowRemoteModal(true) : startRemoteScanner()} title="Scanner remoto"
+                className={`px-3 py-2 rounded-lg transition-colors shrink-0 ${remoteSession ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                {remoteSession ? <Wifi className="w-5 h-5" /> : <Smartphone className="w-5 h-5" />}
+              </button>
+            </div>
+
+            {/* Grelha de produtos */}
+            <div className="flex-1 overflow-y-auto min-h-0 px-3 pb-2">
+              <div className="grid grid-cols-2 gap-2.5">
+                {filtered.map(p => (
+                  <button key={p.id}
+                    onClick={() => p.hasVariants && p.variants?.length ? setVariantPicker(p) : addItem(p.id, p.name, p.price, p.unit, p.stock)}
+                    className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-2.5 text-left active:scale-95 transition-transform">
+                    {p.image
+                      ? <img src={p.image} alt={p.name} className="w-full aspect-square object-cover rounded-lg mb-2" />
+                      : <div className="w-full aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg mb-2 flex items-center justify-center text-2xl">🌿</div>}
+                    <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{p.name}</p>
+                    <p className="text-xs text-brand-600 font-semibold mt-0.5">{fmt(p.price)}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Stock: {p.stock} {p.unit}</p>
+                  </button>
+                ))}
+                {filtered.length === 0 && <p className="col-span-full text-center text-gray-400 py-12 text-sm">Nenhum produto encontrado</p>}
+              </div>
+            </div>
+
+            {/* Barra inferior → abre carrinho */}
+            <div className="shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-3">
+              <button onClick={() => setMobileCartOpen(true)}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white rounded-xl transition-colors">
+                <div className="relative">
+                  <ShoppingCart className="w-5 h-5" />
+                  {cart.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-white text-brand-600 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                      {cart.reduce((s, c) => s + c.quantity, 0)}
+                    </span>
+                  )}
+                </div>
+                <span className="font-semibold flex-1 text-left">Ver Carrinho</span>
+                <span className="font-bold text-base">{fmt(total)}</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Vista do carrinho */
+          <div className="flex flex-col flex-1 overflow-hidden min-h-0 bg-white dark:bg-gray-800">
+            {/* Cabeçalho */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700 shrink-0">
+              <button onClick={() => setMobileCartOpen(false)}
+                className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 transition-colors">
+                <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+              <ShoppingCart className="w-5 h-5 text-brand-600" />
+              <span className="font-semibold text-gray-900 dark:text-white">Carrinho</span>
+              {cart.length > 0 && <span className="ml-auto text-xs bg-brand-600 text-white rounded-full px-2 py-0.5">{cart.reduce((s, c) => s + c.quantity, 0)}</span>}
+            </div>
+
+            {/* Itens + checkout (scroll conjunto) */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-3 space-y-2">
+                {cart.length === 0
+                  ? <p className="text-center text-gray-400 text-sm py-8">Carrinho vazio</p>
+                  : cart.map((c, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{c.productName}{c.variantName ? ` · ${c.variantName}` : ''}</p>
+                        <p className="text-xs text-gray-500">{fmt(c.price)} × {c.quantity} = <span className="font-semibold text-gray-700 dark:text-gray-300">{fmt(c.price * c.quantity)}</span></p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button onClick={() => setQty(idx, c.quantity - 1)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-red-100 dark:hover:bg-red-900/40 active:scale-95"><Minus className="w-3.5 h-3.5" /></button>
+                        <span className="w-6 text-center text-sm font-semibold">{c.quantity}</span>
+                        <button onClick={() => setQty(idx, c.quantity + 1)} disabled={c.maxStock > 0 && c.quantity >= c.maxStock} className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-green-100 disabled:opacity-40 active:scale-95"><Plus className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              <div className="border-t border-gray-100 dark:border-gray-700 p-4 space-y-3">
+                <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nome do cliente (opcional)"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
+                <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="Telefone (opcional)"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
+                <div className="flex gap-1.5">
+                  {(['cash', 'mpesa', 'transfer'] as PayMethod[]).map(m => (
+                    <button key={m} onClick={() => setPayMethod(m)}
+                      className={`flex-1 py-2.5 text-xs rounded-lg border font-medium transition-colors ${payMethod === m ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-brand-400'}`}>
+                      {PAY_LABELS[m]}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 shrink-0">Desconto MT</label>
+                  <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} min={0} placeholder="0.00"
+                    className="flex-1 px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
+                </div>
+                <div>
+                  <input type="number" value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
+                    placeholder={`Valor recebido (total: ${fmt(total)})`}
+                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
+                  {paid > 0 && change >= 0 && <p className="text-xs text-green-600 font-medium mt-1.5 px-1">Troco: {fmt(change)}</p>}
+                </div>
+                <div className="space-y-1.5 py-2 border-t border-gray-100 dark:border-gray-700">
+                  {discountAmt > 0 && (
+                    <>
+                      <div className="flex justify-between text-xs text-gray-400"><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
+                      <div className="flex justify-between text-xs text-red-500"><span>Desconto</span><span>- {fmt(discountAmt)}</span></div>
+                    </>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Total</span>
+                    <span className="text-2xl font-bold text-gray-900 dark:text-white">{fmt(total)}</span>
+                  </div>
+                </div>
+                <button onClick={handleCheckout} disabled={!cart.length || submitting}
+                  className="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold text-base rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
+                  {submitting ? 'A processar...' : 'Finalizar Venda'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Scanner de código de barras */}
@@ -886,15 +1033,15 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
             </div>
             <div className="px-5 pb-5 space-y-2">
               <div className="flex gap-2">
-                <button onClick={() => printReceipt(done, taxConfig.vatRate)}
+                <button onClick={() => printReceipt(done, taxConfig.vatRate, taxConfig.logoUrl)}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-xs font-medium">
                   <Printer className="w-3.5 h-3.5" />Recibo
                 </button>
                 <button onClick={async () => {
                   try {
                     const { number } = await api.post<{ number: string }>('/tax/invoice/number', {});
-                    printInvoice(done, taxConfig, number);
-                  } catch { printInvoice(done, taxConfig, `FACT/${new Date().getFullYear()}/----`); }
+                    printInvoice(done, taxConfig, number, taxConfig.logoUrl);
+                  } catch { printInvoice(done, taxConfig, `FACT/${new Date().getFullYear()}/----`, taxConfig.logoUrl); }
                 }}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-brand-400 text-brand-600 dark:text-brand-400 rounded-xl hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors text-xs font-medium">
                   <Printer className="w-3.5 h-3.5" />Factura A4
