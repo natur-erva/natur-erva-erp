@@ -40,6 +40,7 @@ const StockAlerts = lazy(() => import('./modules/products/pages/StockAlerts').th
 const AuditReportPage = lazy(() => import('./modules/products/pages/AuditReportPage').then(m => ({ default: m.AuditReportPage })));
 const ShopReceipts = lazy(() => import('./modules/sales/pages/ShopReceipts').then(m => ({ default: m.ShopReceipts })));
 const POS = lazy(() => import('./modules/sales/pages/POS').then(m => ({ default: m.POS })));
+const RemoteScannerPage = lazy(() => import('./modules/sales/pages/RemoteScannerPage').then(m => ({ default: m.RemoteScannerPage })));
 const Financas = lazy(() => import('./modules/admin/pages/Financas').then(m => ({ default: m.Financas })));
 const Shop = lazy(() => import('./modules/shop/pages/Shop').then(m => ({ default: m.Shop })));
 const ProductLandingPage = lazy(() => import('./modules/shop/pages/ProductLandingPage').then(m => ({ default: m.ProductLandingPage })));
@@ -354,6 +355,8 @@ const App = () => {
             <Route path="politica" element={<Suspense fallback={<PageLoadingFallback />}><Politica /></Suspense>} />
             <Route path="contactos" element={<Suspense fallback={<PageLoadingFallback />}><Contactos /></Suspense>} />
             <Route path="reset-password" element={<Suspense fallback={<PageLoadingFallback />}><ResetPasswordPage /></Suspense>} />
+            {/* Scanner remoto POS — público, token na URL */}
+            <Route path="scanner-remoto" element={<Suspense fallback={<PageLoadingFallback />}><RemoteScannerPage /></Suspense>} />
             {/* Home: mostra loja */}
             <Route index element={
               <LocationProvider>

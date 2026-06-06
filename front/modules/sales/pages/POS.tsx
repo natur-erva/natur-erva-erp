@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, Plus, Minus, ShoppingCart, CheckCircle, X, Printer, Store, LogOut, Clock, ScanLine } from 'lucide-react';
 import api from '../../core/services/apiClient';
 import { orderService } from '../services/orderService';
@@ -266,6 +266,44 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
   const [sessions, setSessions] = useState<SessionHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(false);
+
+  // Scanner remoto (telemóvel → computador)
+  const [remoteSession, setRemoteSession] = useState<{ sessionId: string; url: string } | null>(null);
+  const [showRemoteModal, setShowRemoteModal] = useState(false);
+  const remotePollerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startRemoteScanner = async () => {
+    try {
+      const result = await api.post<{ sessionId: string }>('/pos/scan-relay', {});
+      const sessionId = result.sessionId;
+      const origin = window.location.origin;
+      const url = `${origin}/scanner-remoto?session=${sessionId}`;
+      setRemoteSession({ sessionId, url });
+      setShowRemoteModal(true);
+      // Polling a cada 600ms
+      if (remotePollerRef.current) clearInterval(remotePollerRef.current);
+      remotePollerRef.current = setInterval(async () => {
+        try {
+          const data = await api.get<{ codes: string[]; active: boolean }>(`/pos/scan-relay/${sessionId}`);
+          if (!data.active) { stopRemoteScanner(); return; }
+          for (const code of (data.codes || [])) {
+            await handleScan(code);
+          }
+        } catch {}
+      }, 600);
+    } catch {
+      showToast?.('Erro ao criar sessão de scan remoto', 'error');
+    }
+  };
+
+  const stopRemoteScanner = () => {
+    if (remotePollerRef.current) { clearInterval(remotePollerRef.current); remotePollerRef.current = null; }
+    setRemoteSession(null);
+    setShowRemoteModal(false);
+  };
+
+  // Parar poller ao desmontar
+  useEffect(() => () => { if (remotePollerRef.current) clearInterval(remotePollerRef.current); }, []);
 
   const loadSessions = async () => {
     if (loadingSessions) return;
@@ -639,10 +677,15 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar produto..."
                 className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none" />
             </div>
-            <button onClick={() => setShowScanner(true)} title="Escanear código de barras"
+            <button onClick={() => setShowScanner(true)} title="Escanear com câmera deste dispositivo"
               className="px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors shrink-0 flex items-center gap-1.5">
               <ScanLine className="w-4 h-4" />
-              <span className="text-xs font-medium hidden sm:inline">Scan</span>
+              <span className="text-xs font-medium hidden sm:inline">Câmera</span>
+            </button>
+            <button onClick={() => remoteSession ? setShowRemoteModal(true) : startRemoteScanner()}
+              title="Escanear com telemóvel"
+              className={`px-3 py-2 rounded-lg transition-colors shrink-0 flex items-center gap-1.5 text-xs font-medium ${remoteSession ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'}`}>
+              📱 <span className="hidden sm:inline">{remoteSession ? 'Activo' : 'Telemóvel'}</span>
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -746,6 +789,44 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
           onScan={handleScan}
           onClose={() => setShowScanner(false)}
         />
+      )}
+
+      {/* Modal Scanner Remoto */}
+      {showRemoteModal && remoteSession && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowRemoteModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-green-600 px-5 py-4 text-white text-center">
+              <div className="text-3xl mb-1">📱</div>
+              <h2 className="text-lg font-bold">Scanner Remoto Activo</h2>
+              <p className="text-green-100 text-xs mt-0.5">Abre este link no teu telemóvel</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium">URL do scanner:</p>
+                <p className="text-xs font-mono text-brand-600 dark:text-brand-400 break-all leading-relaxed">
+                  {remoteSession.url}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { navigator.clipboard.writeText(remoteSession.url); showToast?.('Link copiado!', 'success'); }}
+                  className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl transition-colors">
+                  Copiar Link
+                </button>
+                <button onClick={stopRemoteScanner}
+                  className="flex-1 py-2.5 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  Parar
+                </button>
+              </div>
+              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shrink-0" />
+                <p className="text-xs text-green-700 dark:text-green-400">A aguardar scans do telemóvel...</p>
+              </div>
+              <p className="text-xs text-gray-400 text-center">
+                Partilha o link via WhatsApp, email ou escaneia com o telemóvel
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal variantes */}

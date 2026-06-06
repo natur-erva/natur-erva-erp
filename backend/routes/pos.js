@@ -143,4 +143,43 @@ router.post('/session/close', authMiddleware, async (req, res) => {
   }
 });
 
+// ── SCAN RELAY (telemóvel → computador) ──────────────────────────────────────
+// Store em memória: sessionId → { codes: string[], expiresAt: number }
+const scanRelay = new Map();
+
+// Limpar sessões expiradas a cada 5 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, s] of scanRelay.entries()) {
+    if (now > s.expiresAt) scanRelay.delete(id);
+  }
+}, 300_000);
+
+// POST /api/pos/scan-relay — criar sessão (autenticado, computador)
+router.post('/scan-relay', authMiddleware, (req, res) => {
+  const sessionId = Math.random().toString(36).slice(2, 10).toUpperCase();
+  scanRelay.set(sessionId, { codes: [], expiresAt: Date.now() + 3_600_000 });
+  res.json({ sessionId, expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
+});
+
+// POST /api/pos/scan-relay/:sessionId — telemóvel envia código (sem auth)
+router.post('/scan-relay/:sessionId', (req, res) => {
+  const session = scanRelay.get(req.params.sessionId);
+  if (!session || Date.now() > session.expiresAt) {
+    return res.status(404).json({ error: 'Sessão expirada ou inválida' });
+  }
+  const code = (req.body.code || '').trim();
+  if (code) session.codes.push(code);
+  res.json({ success: true });
+});
+
+// GET /api/pos/scan-relay/:sessionId — computador lê e limpa fila (autenticado)
+router.get('/scan-relay/:sessionId', authMiddleware, (req, res) => {
+  const session = scanRelay.get(req.params.sessionId);
+  if (!session) return res.json({ codes: [], active: false });
+  const codes = [...session.codes];
+  session.codes = [];
+  res.json({ codes, active: true, expiresAt: new Date(session.expiresAt).toISOString() });
+});
+
 export default router;
