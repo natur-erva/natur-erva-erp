@@ -13,6 +13,40 @@ declare class BarcodeDetector {
 
 const FORMATS = ['ean_13', 'ean_8', 'qr_code', 'code_128', 'code_39', 'upc_a', 'upc_e'];
 
+// Fallback progressivo de constraints — iOS rejeita constraints muito específicas
+async function openCamera(): Promise<MediaStream> {
+  const tries: MediaStreamConstraints[] = [
+    { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } } },
+    { video: { facingMode: 'environment' } },
+    { video: { facingMode: 'user' } },
+    { video: true },
+  ];
+  for (const c of tries) {
+    try { return await navigator.mediaDevices.getUserMedia(c); }
+    catch (e: any) {
+      if (e?.name === 'NotAllowedError' || e?.name === 'NotFoundError') throw e;
+      // OverconstrainedError, AbortError, etc → tentar próxima constraint
+    }
+  }
+  throw new Error('Nenhuma câmera acessível');
+}
+
+// Aguarda frames reais com timeout de 8 s
+function waitForVideoReady(v: HTMLVideoElement): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Camera timeout')), 8000);
+    const done = () => { clearTimeout(timeout); resolve(); };
+    if (v.readyState >= 2 && v.videoWidth > 0) { done(); return; }
+    const check = () => {
+      if (v.readyState >= 2 && v.videoWidth > 0) { done(); return; }
+      requestAnimationFrame(check);
+    };
+    v.onloadeddata = check;
+    v.oncanplay = check;
+    requestAnimationFrame(check);
+  });
+}
+
 function playScanBeep() {
   try {
     const Ctx = window.AudioContext || (window as any).webkitAudioContext;
@@ -93,18 +127,11 @@ export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
     cancelAnimationFrame(rafRef.current);
 
     try {
-      // Pedir câmera traseira com resolução ideal
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        }
-      });
+      // Fechar stream anterior se existir
+      streamRef.current?.getTracks().forEach(t => t.stop());
 
-      if (!activeRef.current && streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
+      // openCamera() tenta várias constraints até conseguir acesso
+      const stream = await openCamera();
       streamRef.current = stream;
 
       const video = videoRef.current!;
@@ -113,8 +140,9 @@ export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
       video.setAttribute('webkit-playsinline', 'true');
       video.muted = true;
 
-      await video.play().catch(() => {}); // iOS pode precisar de interação
-      await waitForVideoReady(video);     // esperar frames reais
+      // play() pode falhar silenciosamente em iOS — ignorar e aguardar frames
+      await video.play().catch(() => {});
+      await waitForVideoReady(video);
 
       setStatus('scanning');
       activeRef.current = true;
@@ -190,11 +218,14 @@ export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
 
     } catch (e: any) {
       activeRef.current = false;
-      const msg = e?.name === 'NotAllowedError'
-        ? 'Permissão de câmera negada. Vai às definições do browser e permite o acesso.'
-        : e?.name === 'NotFoundError'
+      const name = e?.name || '';
+      const msg = name === 'NotAllowedError'
+        ? 'Permissão negada. Vai a Definições → Safari/Chrome → Câmera e permite o acesso.'
+        : name === 'NotFoundError'
         ? 'Nenhuma câmera encontrada neste dispositivo.'
-        : 'Erro ao iniciar câmera. Verifica as permissões.';
+        : name === 'NotReadableError'
+        ? 'Câmera em uso por outra app. Fecha outras apps e tenta novamente.'
+        : 'Não foi possível iniciar câmera. Tenta novamente ou usa o campo de texto.';
       setErrorMsg(msg);
       setStatus('error');
     }

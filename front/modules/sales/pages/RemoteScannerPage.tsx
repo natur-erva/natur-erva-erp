@@ -68,14 +68,35 @@ function loadJsQR() {
 
 const BARCODE_FORMATS = ['ean_13', 'ean_8', 'qr_code', 'code_128', 'code_39', 'upc_a', 'upc_e', 'data_matrix', 'pdf417'];
 
+// Fallback progressivo de constraints — iOS rejeita constraints muito específicas
+async function openCamera(): Promise<MediaStream> {
+  const tries: MediaStreamConstraints[] = [
+    { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } } },
+    { video: { facingMode: 'environment' } },
+    { video: { facingMode: 'user' } },
+    { video: true },
+  ];
+  for (const c of tries) {
+    try { return await navigator.mediaDevices.getUserMedia(c); }
+    catch (e: any) {
+      if (e?.name === 'NotAllowedError' || e?.name === 'NotFoundError') throw e;
+    }
+  }
+  throw new Error('Câmera não acessível');
+}
+
+// Aguarda frames reais com timeout de 8 s
 function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
-  return new Promise(resolve => {
-    if (video.readyState >= 2 && video.videoWidth > 0) { resolve(); return; }
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('Camera timeout')), 8000);
+    const done = () => { clearTimeout(t); resolve(); };
+    if (video.readyState >= 2 && video.videoWidth > 0) { done(); return; }
     const check = () => {
-      if (video.readyState >= 2 && video.videoWidth > 0) { resolve(); return; }
+      if (video.readyState >= 2 && video.videoWidth > 0) { done(); return; }
       requestAnimationFrame(check);
     };
-    video.onloadeddata = () => check();
+    video.onloadeddata = check;
+    video.oncanplay = check;
     requestAnimationFrame(check);
   });
 }
@@ -145,9 +166,8 @@ export const RemoteScannerPage: React.FC = () => {
     setStatus('starting');
     loopActiveRef.current = false;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      const stream = await openCamera(); // fallback progressivo de constraints
       streamRef.current = stream;
       const video = videoRef.current!;
       video.srcObject = stream;
@@ -155,7 +175,7 @@ export const RemoteScannerPage: React.FC = () => {
       video.setAttribute('webkit-playsinline', 'true');
       video.muted = true;
       await video.play().catch(() => {});
-      await waitForVideoReady(video); // esperar frames reais antes de detectar
+      await waitForVideoReady(video);
 
       const hasNative = 'BarcodeDetector' in window;
       setStatus('scanning');
@@ -217,9 +237,14 @@ export const RemoteScannerPage: React.FC = () => {
       rafRef.current = requestAnimationFrame(scan);
     } catch (e: any) {
       loopActiveRef.current = false;
-      const msg = e?.name === 'NotAllowedError'
-        ? 'Permissão de câmera negada. Vai às definições do browser e permite o acesso à câmera.'
-        : 'Não foi possível aceder à câmera.';
+      const name = e?.name || '';
+      const msg = name === 'NotAllowedError'
+        ? 'Permissão negada. Vai a Definições → Safari/Chrome → Câmera e permite o acesso.'
+        : name === 'NotFoundError'
+        ? 'Nenhuma câmera encontrada.'
+        : name === 'NotReadableError'
+        ? 'Câmera em uso por outra app. Fecha outras apps e tenta novamente.'
+        : 'Câmera indisponível. Verifica as permissões e tenta novamente.';
       setErrorMsg(msg);
       setStatus('error');
     }
