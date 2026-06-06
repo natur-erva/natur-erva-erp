@@ -15,6 +15,7 @@ type CartItem = {
   productId: string; productName: string;
   variantId?: string; variantName?: string;
   price: number; quantity: number; unit: string; maxStock: number;
+  image?: string;
 };
 type PayMethod = 'cash' | 'mpesa' | 'transfer';
 type SaleReceipt = {
@@ -374,13 +375,12 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
   };
 
   // ── Cart handlers ─────────────────────────────────────────────────────────────
-  const addItem = (productId: string, productName: string, price: number, unit: string, maxStock: number, variantId?: string, variantName?: string) => {
+  const addItem = (productId: string, productName: string, price: number, unit: string, maxStock: number, variantId?: string, variantName?: string, image?: string) => {
     const key = variantId ?? productId;
     setCart(prev => {
       const idx = prev.findIndex(c => (c.variantId ?? c.productId) === key);
-      // maxStock=0 significa stock não rastreado no POS — não limitar quantidade
       if (idx >= 0) return prev.map((c, i) => i === idx ? { ...c, quantity: c.maxStock > 0 ? Math.min(c.quantity + 1, c.maxStock) : c.quantity + 1 } : c);
-      return [...prev, { productId, productName, variantId, variantName, price, quantity: 1, unit, maxStock }];
+      return [...prev, { productId, productName, variantId, variantName, price, quantity: 1, unit, maxStock, image }];
     });
     setVariantPicker(null);
   };
@@ -449,7 +449,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
         setVariantPicker(product);
       } else {
         playScanBeep('ok');
-        addItem(product.id, product.name, product.price, product.unit, product.stock);
+        addItem(product.id, product.name, product.price, product.unit, product.stock, undefined, undefined, product.image);
         showToast?.(`${product.name} adicionado`, 'success');
       }
     } catch {
@@ -711,7 +711,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {filtered.map(p => (
                 <button key={p.id}
-                  onClick={() => p.hasVariants && p.variants?.length ? setVariantPicker(p) : addItem(p.id, p.name, p.price, p.unit, p.stock)}
+                  onClick={() => p.hasVariants && p.variants?.length ? setVariantPicker(p) : addItem(p.id, p.name, p.price, p.unit, p.stock, undefined, undefined, p.image)}
                   className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 text-left hover:border-brand-500 hover:shadow-md transition-all">
                   {p.image
                     ? <img src={p.image} alt={p.name} className="w-full aspect-square object-cover rounded-lg mb-2" />
@@ -738,6 +738,10 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
               ? <p className="text-center text-gray-400 text-sm py-8">Carrinho vazio</p>
               : cart.map((c, idx) => (
                 <div key={idx} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 rounded-lg px-2 py-1.5">
+                  {/* Imagem do produto */}
+                  {c.image
+                    ? <img src={c.image} alt={c.productName} className="w-9 h-9 object-cover rounded-lg shrink-0" />
+                    : <div className="w-9 h-9 bg-gray-200 dark:bg-gray-600 rounded-lg shrink-0 flex items-center justify-center text-sm">🌿</div>}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{c.productName}{c.variantName ? ` · ${c.variantName}` : ''}</p>
                     <p className="text-xs text-gray-500">{fmt(c.price)} × {c.quantity} = {fmt(c.price * c.quantity)}</p>
@@ -746,6 +750,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
                     <button onClick={() => setQty(idx, c.quantity - 1)} className="w-6 h-6 flex items-center justify-center rounded bg-gray-200 dark:bg-gray-600 hover:bg-red-100 dark:hover:bg-red-900/40"><Minus className="w-3 h-3" /></button>
                     <span className="w-5 text-center text-xs font-medium">{c.quantity}</span>
                     <button onClick={() => setQty(idx, c.quantity + 1)} disabled={c.maxStock > 0 && c.quantity >= c.maxStock} className="w-6 h-6 flex items-center justify-center rounded bg-gray-200 dark:bg-gray-600 hover:bg-green-100 disabled:opacity-40"><Plus className="w-3 h-3" /></button>
+                    <button onClick={() => setCart(prev => prev.filter((_, i) => i !== idx))} className="w-6 h-6 flex items-center justify-center rounded bg-red-100 dark:bg-red-900/30 hover:bg-red-200 text-red-500 ml-0.5"><X className="w-3 h-3" /></button>
                   </div>
                 </div>
               ))}
@@ -821,7 +826,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
               <div className="grid grid-cols-2 gap-2.5">
                 {filtered.map(p => (
                   <button key={p.id}
-                    onClick={() => p.hasVariants && p.variants?.length ? setVariantPicker(p) : addItem(p.id, p.name, p.price, p.unit, p.stock)}
+                    onClick={() => p.hasVariants && p.variants?.length ? setVariantPicker(p) : addItem(p.id, p.name, p.price, p.unit, p.stock, undefined, undefined, p.image)}
                     className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-2.5 text-left active:scale-95 transition-transform">
                     {p.image
                       ? <img src={p.image} alt={p.name} className="w-full aspect-square object-cover rounded-lg mb-2" />
@@ -873,6 +878,10 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
                   ? <p className="text-center text-gray-400 text-sm py-8">Carrinho vazio</p>
                   : cart.map((c, idx) => (
                     <div key={idx} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
+                      {/* Imagem do produto */}
+                      {c.image
+                        ? <img src={c.image} alt={c.productName} className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                        : <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded-lg shrink-0 flex items-center justify-center text-base">🌿</div>}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{c.productName}{c.variantName ? ` · ${c.variantName}` : ''}</p>
                         <p className="text-xs text-gray-500">{fmt(c.price)} × {c.quantity} = <span className="font-semibold text-gray-700 dark:text-gray-300">{fmt(c.price * c.quantity)}</span></p>
@@ -990,7 +999,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
             <div className="space-y-2">
               {variantPicker.variants?.map(v => (
                 <button key={v.id}
-                  onClick={() => addItem(variantPicker.id, variantPicker.name, v.price, v.unit, v.stock, v.id, v.name)}
+                  onClick={() => addItem(variantPicker.id, variantPicker.name, v.price, v.unit, v.stock, v.id, v.name, variantPicker.image)}
                   className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors text-sm">
                   <span className="font-medium text-gray-900 dark:text-white">{v.name}</span>
                   <div className="text-right">
