@@ -68,6 +68,18 @@ function loadJsQR() {
 
 const BARCODE_FORMATS = ['ean_13', 'ean_8', 'qr_code', 'code_128', 'code_39', 'upc_a', 'upc_e', 'data_matrix', 'pdf417'];
 
+function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
+  return new Promise(resolve => {
+    if (video.readyState >= 2 && video.videoWidth > 0) { resolve(); return; }
+    const check = () => {
+      if (video.readyState >= 2 && video.videoWidth > 0) { resolve(); return; }
+      requestAnimationFrame(check);
+    };
+    video.onloadeddata = () => check();
+    requestAnimationFrame(check);
+  });
+}
+
 // ── Componente ────────────────────────────────────────────────────────────────
 export const RemoteScannerPage: React.FC = () => {
   const sessionId = new URLSearchParams(window.location.search).get('session') || '';
@@ -134,17 +146,56 @@ export const RemoteScannerPage: React.FC = () => {
     loopActiveRef.current = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      const video = videoRef.current!;
+      video.srcObject = stream;
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('webkit-playsinline', 'true');
+      video.muted = true;
+      await video.play().catch(() => {});
+      await waitForVideoReady(video); // esperar frames reais antes de detectar
+
+      const hasNative = 'BarcodeDetector' in window;
+      setStatus('scanning');
+      loopActiveRef.current = true;
+
+      if (!hasNative) {
+        // Fallback canvas + jsQR para iOS sem BarcodeDetector nativo
+        const jsQR = await loadJsQR().catch(() => null);
+        if (jsQR) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+          const scan = () => {
+            if (!loopActiveRef.current || !video) return;
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+              const w = video.videoWidth; const h = video.videoHeight;
+              if (canvas.width !== w) canvas.width = w;
+              if (canvas.height !== h) canvas.height = h;
+              ctx.drawImage(video, 0, 0, w, h);
+              try {
+                const imgData = ctx.getImageData(0, 0, w, h);
+                const result = jsQR(imgData.data, w, h);
+                if (result?.data) {
+                  const code = result.data.trim();
+                  const now = Date.now();
+                  if (code && (code !== lastCodeRef.current || now - lastTimeRef.current > 2000)) {
+                    lastCodeRef.current = code;
+                    lastTimeRef.current = now;
+                    sendCode(code);
+                  }
+                }
+              } catch {}
+            }
+            rafRef.current = requestAnimationFrame(scan);
+          };
+          rafRef.current = requestAnimationFrame(scan);
+          return; // não continua para o BarcodeDetector abaixo
+        }
       }
 
       const detector = new BarcodeDetector({ formats: BARCODE_FORMATS });
-      setStatus('scanning');
-      loopActiveRef.current = true;
 
       // Loop único e contínuo — sem `return` após scan, apenas debounce via ref
       const scan = async () => {
@@ -242,13 +293,8 @@ export const RemoteScannerPage: React.FC = () => {
   useEffect(() => {
     if (!sessionId) { setStatus('expired'); return; }
 
-    if ('BarcodeDetector' in window) {
-      startVideoScanner();
-    } else {
-      // iOS antigo, Firefox, Desktop sem suporte nativo
-      setScanMode('photo');
-      setStatus('idle');
-    }
+    // startVideoScanner trata ambos os casos: BarcodeDetector nativo E fallback jsQR
+    startVideoScanner();
     return () => stopVideo();
   }, []);
 
