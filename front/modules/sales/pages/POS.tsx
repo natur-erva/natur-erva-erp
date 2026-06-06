@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Minus, ShoppingCart, CheckCircle, X, Printer, Store, LogOut, Clock } from 'lucide-react';
+import { Search, Plus, Minus, ShoppingCart, CheckCircle, X, Printer, Store, LogOut, Clock, ScanLine } from 'lucide-react';
 import api from '../../core/services/apiClient';
 import { orderService } from '../services/orderService';
 import { Product, OrderItem, OrderStatus } from '../../core/types/types';
 import type { Toast } from '../../core/components/ui/Toast';
+import { BarcodeScanner } from '../components/BarcodeScanner';
 
 interface POSProps {
   showToast?: (msg: string, type: Toast['type']) => void;
@@ -20,7 +21,12 @@ type SaleReceipt = {
   orderNumber: string; items: CartItem[];
   subtotal: number; discount: number; total: number;
   paid: number; change: number; payMethod: PayMethod;
-  customerName: string; date: string;
+  customerName: string; customerPhone?: string; date: string;
+};
+type TaxConfig = {
+  companyName: string; companyNuit: string; companyAddress: string;
+  companyPhone: string; companyEmail: string;
+  vatRate: number; invoicePrefix: string;
 };
 type PosSession = {
   id: string; cashier_name: string; cashier_id: string;
@@ -31,41 +37,174 @@ type CloseReport = {
   session: PosSession;
   summary: { totalSales: number; totalOrders: number; byMethod: ByMethod[]; expectedCash: number };
 };
+type SessionHistoryItem = {
+  id: string; cashierName: string; openedAt: string; closedAt?: string;
+  initialAmount: number; isOpen: boolean;
+  summary: CloseReport['summary'] | null;
+  totalSales: number; totalOrders: number;
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+const TZ = 'Africa/Maputo';
 const PAY_LABELS: Record<string, string> = { cash: 'Dinheiro', mpesa: 'M-Pesa', transfer: 'Transferência' };
 const fmt = (n: number | string | undefined | null) => `MT ${Number(n ?? 0).toFixed(2)}`;
-const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
+const nowMaputo = () => new Date().toLocaleString('pt-PT', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const fmtDuration = (from: string) => {
   const mins = Math.floor((Date.now() - new Date(from).getTime()) / 60000);
   return mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
 };
 
-function printReceipt(r: SaleReceipt) {
+function printReceipt(r: SaleReceipt, vatRate = 16) {
+  const vatMult = 1 + vatRate / 100;
+  const baseIva = r.total / vatMult;
+  const ivaAmt  = r.total - baseIva;
+
   const rows = r.items.map(c =>
     `<tr><td style="padding:3px 0">${c.productName}${c.variantName ? ' · ' + c.variantName : ''}</td>
      <td style="padding:3px 4px;white-space:nowrap">${c.quantity} ${c.unit}</td>
      <td style="padding:3px 0;text-align:right;white-space:nowrap">MT ${(c.price * c.quantity).toFixed(2)}</td></tr>`
   ).join('');
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Recibo #${r.orderNumber}</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;width:80mm;margin:0 auto;padding:12px}.c{text-align:center}.b{font-weight:bold}.lg{font-size:15px}hr{border:none;border-top:1px dashed #000;margin:7px 0}table{width:100%;border-collapse:collapse}.totrow{font-weight:bold;font-size:13px}</style>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;width:80mm;margin:0 auto;padding:12px}.c{text-align:center}.b{font-weight:bold}.lg{font-size:15px}hr{border:none;border-top:1px dashed #000;margin:7px 0}table{width:100%;border-collapse:collapse}.totrow{font-weight:bold;font-size:13px}.iva{font-size:10px;color:#666}</style>
 </head><body>
-<div class="c"><p class="b lg">NATUR ERVA</p><p>natural é saudável</p><p>${r.date}</p><p>Pedido #${r.orderNumber}</p>
+<div class="c"><p class="b lg">NATUR ERVA</p><p>natural é saudável</p><p>${r.date}</p><p>Recibo #${r.orderNumber}</p>
 ${r.customerName !== 'Cliente POS' ? `<p>Cliente: ${r.customerName}</p>` : ''}</div>
 <hr><table>${rows}</table><hr>
 <table>
-  <tr><td>Subtotal:</td><td style="text-align:right">MT ${r.subtotal.toFixed(2)}</td></tr>
-  ${r.discount > 0 ? `<tr><td>Desconto:</td><td style="text-align:right">- MT ${r.discount.toFixed(2)}</td></tr>` : ''}
-  <tr class="totrow"><td>TOTAL:</td><td style="text-align:right">MT ${r.total.toFixed(2)}</td></tr>
+  ${r.discount > 0 ? `<tr><td>Subtotal:</td><td style="text-align:right">MT ${r.subtotal.toFixed(2)}</td></tr><tr><td>Desconto:</td><td style="text-align:right">- MT ${r.discount.toFixed(2)}</td></tr>` : ''}
+  <tr class="totrow"><td>TOTAL c/IVA:</td><td style="text-align:right">MT ${r.total.toFixed(2)}</td></tr>
+  <tr class="iva"><td>  Base s/IVA (${vatRate}%):</td><td style="text-align:right">MT ${baseIva.toFixed(2)}</td></tr>
+  <tr class="iva"><td>  IVA ${vatRate}%:</td><td style="text-align:right">MT ${ivaAmt.toFixed(2)}</td></tr>
 </table><hr>
 <table>
   <tr><td>${PAY_LABELS[r.payMethod] || r.payMethod}:</td><td style="text-align:right">MT ${r.paid.toFixed(2)}</td></tr>
   ${r.change > 0 ? `<tr><td>Troco:</td><td style="text-align:right">MT ${r.change.toFixed(2)}</td></tr>` : ''}
 </table><hr>
-<div class="c"><p>Obrigado pela sua compra!</p><p>www.natur-erva.co.mz</p></div>
+<div class="c"><p>Obrigado pela sua compra!</p><p>IVA incluído à taxa de ${vatRate}%</p></div>
 <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}</script>
 </body></html>`;
-  const win = window.open('', '_blank', 'width=360,height=620');
+  const win = window.open('', '_blank', 'width=360,height=680');
+  if (win) { win.document.write(html); win.document.close(); }
+}
+
+function printInvoice(r: SaleReceipt, tax: TaxConfig, invoiceNumber: string) {
+  const vatMult  = 1 + tax.vatRate / 100;
+  const baseIva  = r.total / vatMult;
+  const ivaAmt   = r.total - baseIva;
+
+  const rows = r.items.map(c => {
+    const lineTotal   = c.price * c.quantity;
+    const lineBase    = lineTotal / vatMult;
+    const lineIva     = lineTotal - lineBase;
+    return `<tr>
+      <td>${c.productName}${c.variantName ? ` (${c.variantName})` : ''}</td>
+      <td class="r">${c.quantity} ${c.unit}</td>
+      <td class="r">MT ${(c.price / vatMult).toFixed(2)}</td>
+      <td class="r">${tax.vatRate}%</td>
+      <td class="r">MT ${lineIva.toFixed(2)}</td>
+      <td class="r">MT ${lineTotal.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Factura ${invoiceNumber}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,sans-serif;font-size:12px;padding:32px;color:#111}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px}
+  .company{font-size:20px;font-weight:700;color:#16a34a}
+  .invoice-num{font-size:14px;font-weight:600;color:#555}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+  .info-box{background:#f9f9f9;border:1px solid #e5e7eb;border-radius:8px;padding:12px}
+  .info-box h4{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:6px;letter-spacing:.5px}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px}
+  th{background:#16a34a;color:#fff;padding:8px;font-size:11px;text-align:left}
+  td{padding:7px 8px;font-size:11px;border-bottom:1px solid #e5e7eb}
+  .r{text-align:right}
+  .totals{margin-left:auto;width:280px}
+  .totals td{padding:5px 8px;font-size:12px}
+  .totals .bold{font-weight:700;font-size:14px}
+  .totals .green{color:#16a34a}
+  .footer{margin-top:32px;font-size:10px;color:#999;text-align:center;border-top:1px solid #e5e7eb;padding-top:12px}
+</style></head><body>
+<div class="header">
+  <div>
+    <div class="company">${tax.companyName}</div>
+    <div style="font-size:11px;color:#666;margin-top:4px">NUIT: ${tax.companyNuit || '—'}</div>
+    <div style="font-size:11px;color:#666">${tax.companyAddress || ''}</div>
+    <div style="font-size:11px;color:#666">${tax.companyPhone || ''} | ${tax.companyEmail || ''}</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:18px;font-weight:700;color:#111">FACTURA</div>
+    <div class="invoice-num">${invoiceNumber}</div>
+    <div style="font-size:11px;color:#666;margin-top:4px">Data: ${r.date}</div>
+  </div>
+</div>
+
+<div class="info-grid">
+  <div class="info-box">
+    <h4>Emitida por</h4>
+    <p><strong>${tax.companyName}</strong></p>
+    <p>NUIT: ${tax.companyNuit || '—'}</p>
+    <p>${tax.companyAddress || ''}</p>
+  </div>
+  <div class="info-box">
+    <h4>Cliente</h4>
+    <p><strong>${r.customerName}</strong></p>
+    ${r.customerPhone ? `<p>Tel: ${r.customerPhone}</p>` : ''}
+    <p>NUIT: —</p>
+  </div>
+</div>
+
+<table>
+  <thead><tr>
+    <th>Descrição</th><th class="r">Qty</th><th class="r">Preço s/IVA</th>
+    <th class="r">IVA</th><th class="r">Valor IVA</th><th class="r">Total c/IVA</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+
+<table class="totals">
+  ${r.discount > 0 ? `<tr><td>Subtotal:</td><td class="r">MT ${r.subtotal.toFixed(2)}</td></tr><tr><td>Desconto:</td><td class="r">- MT ${r.discount.toFixed(2)}</td></tr>` : ''}
+  <tr><td>Base tributável s/IVA:</td><td class="r">MT ${baseIva.toFixed(2)}</td></tr>
+  <tr><td>IVA ${tax.vatRate}%:</td><td class="r">MT ${ivaAmt.toFixed(2)}</td></tr>
+  <tr class="bold"><td>TOTAL c/IVA:</td><td class="r green">MT ${r.total.toFixed(2)}</td></tr>
+  <tr><td style="color:#666">${PAY_LABELS[r.payMethod] || r.payMethod} recebido:</td><td class="r" style="color:#666">MT ${r.paid.toFixed(2)}</td></tr>
+  ${r.change > 0 ? `<tr><td style="color:#666">Troco:</td><td class="r" style="color:#666">MT ${r.change.toFixed(2)}</td></tr>` : ''}
+</table>
+
+<div class="footer">
+  Documento emitido por ${tax.companyName} | NUIT ${tax.companyNuit || '—'} | IVA incluído à taxa de ${tax.vatRate}%<br>
+  ${invoiceNumber} | ${r.date}
+</div>
+<script>window.onload=()=>{window.print();}</script>
+</body></html>`;
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (win) { win.document.write(html); win.document.close(); }
+}
+
+function printCloseReport(s: PosSession, summary: CloseReport['summary'], companyName = 'NaturErva') {
+  const fmt2 = (n: number) => `MT ${Number(n).toFixed(2)}`;
+  const rows = summary.byMethod.map(m =>
+    `<tr><td>${PAY_LABELS[m.method] || m.method}</td><td style="text-align:center">${m.count}</td><td style="text-align:right">${fmt2(m.total)}</td></tr>`
+  ).join('') || '<tr><td colspan="3" style="text-align:center">Sem vendas</td></tr>';
+  const openDt = new Date(s.opened_at).toLocaleString('pt-PT', { timeZone: TZ });
+  const closeDt = s.closed_at ? new Date(s.closed_at).toLocaleString('pt-PT', { timeZone: TZ }) : '—';
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fecho de Caixa</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;width:80mm;margin:0 auto;padding:12px}.c{text-align:center}.b{font-weight:bold}.lg{font-size:15px}hr{border:none;border-top:1px dashed #000;margin:7px 0}table{width:100%;border-collapse:collapse}td{padding:2px 0}</style>
+</head><body>
+<div class="c"><p class="b lg">${companyName}</p><p>FECHO DE CAIXA</p></div><hr>
+<p>Caixa: ${s.cashier_name}</p><p>Abertura: ${openDt}</p><p>Fecho: ${closeDt}</p><p>Fundo inicial: ${fmt2(Number(s.initial_amount))}</p><hr>
+<table><tr><td class="b">Método</td><td class="b" style="text-align:center">Qtd</td><td class="b" style="text-align:right">Total</td></tr>${rows}</table><hr>
+<table>
+<tr><td class="b">Total Vendas:</td><td class="b" style="text-align:right">${fmt2(summary.totalSales)}</td></tr>
+<tr><td>Transações:</td><td style="text-align:right">${summary.totalOrders}</td></tr>
+<tr><td>Fundo esperado:</td><td style="text-align:right">${fmt2(summary.expectedCash)}</td></tr>
+</table><hr>
+<div class="c"><p>Relatório de Fecho de Caixa</p></div>
+<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}</script>
+</body></html>`;
+  const win = window.open('', '_blank', 'width=360,height=680');
   if (win) { win.document.write(html); win.document.close(); }
 }
 
@@ -90,11 +229,27 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
   const [discount, setDiscount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<SaleReceipt | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [taxConfig, setTaxConfig] = useState<TaxConfig>({ companyName: 'NaturErva', companyNuit: '', companyAddress: '', companyPhone: '', companyEmail: '', vatRate: 16, invoicePrefix: 'FACT' });
+  const [sessions, setSessions] = useState<SessionHistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+
+  const loadSessions = async () => {
+    if (loadingSessions) return;
+    setLoadingSessions(true);
+    try {
+      const s = await api.get<SessionHistoryItem[]>('/pos/sessions');
+      setSessions(s || []);
+    } catch { }
+    finally { setLoadingSessions(false); }
+  };
 
   useEffect(() => {
     Promise.all([
       api.get<Product[]>('/products').then(d => setProducts(d || [])),
       api.get<PosSession | null>('/pos/session/current').then(s => setSession(s)),
+      api.get<TaxConfig>('/tax/config').then(c => { if (c?.vatRate) setTaxConfig(c); }).catch(() => {}),
     ]).catch(() => {
       setSession(null);
       showToast?.('Erro ao carregar dados', 'error');
@@ -181,8 +336,10 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
           orderNumber: result.order.orderNumber || result.order.id.substring(0, 8),
           items: [...cart], subtotal, discount: discountAmt, total,
           paid: Math.max(paid, total), change: Math.max(0, change),
-          payMethod, customerName: customerName.trim() || 'Cliente POS',
-          date: new Date().toLocaleString('pt-PT'),
+          payMethod,
+          customerName: customerName.trim() || 'Cliente POS',
+          customerPhone: customerPhone.trim() || undefined,
+          date: nowMaputo(),
         });
         setCart([]);
         setCustomerName(''); setCustomerPhone('');
@@ -193,6 +350,22 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
     } catch (e: any) {
       showToast?.(e.message || 'Erro ao processar venda', 'error');
     } finally { setSubmitting(false); }
+  };
+
+  // ── Barcode scan ──────────────────────────────────────────────────────────────
+  const handleScan = async (code: string) => {
+    setShowScanner(false);
+    try {
+      const product = await api.get<Product>(`/products/barcode/${encodeURIComponent(code)}`);
+      if (product.hasVariants && product.variants?.length) {
+        setVariantPicker(product);
+      } else {
+        addItem(product.id, product.name, product.price, product.unit, product.stock);
+        showToast?.(`${product.name} adicionado`, 'success');
+      }
+    } catch {
+      showToast?.(`Código "${code}" não encontrado`, 'error');
+    }
   };
 
   // ── Loading ───────────────────────────────────────────────────────────────────
@@ -210,7 +383,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
   // ── Abrir Caixa ───────────────────────────────────────────────────────────────
   if (!session && !closeReport) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-950 p-4">
+      <><div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-950 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 w-full max-w-sm text-center">
           <div className="w-16 h-16 bg-brand-50 dark:bg-brand-900/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
             <Store className="w-8 h-8 text-brand-600" />
@@ -233,9 +406,53 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
             className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50">
             {openingSession ? 'A abrir...' : 'Abrir Caixa'}
           </button>
+          <button onClick={() => { setShowHistory(true); loadSessions(); }}
+            className="w-full mt-3 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2">
+            <Clock className="w-4 h-4" />
+            Ver Histórico de Sessões
+          </button>
         </div>
       </div>
-    );
+      {showHistory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowHistory(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="font-bold text-gray-900 dark:text-white">Histórico de Caixa</h2>
+              <button onClick={() => setShowHistory(false)}><X className="w-5 h-5 text-gray-400" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {loadingSessions ? <p className="text-center py-8 text-gray-400 text-sm">A carregar...</p>
+                : sessions.length === 0 ? <p className="text-center py-8 text-gray-400 text-sm">Nenhuma sessão encontrada</p>
+                : sessions.map(sh => (
+                <div key={sh.id} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">{sh.cashierName}</p>
+                      <p className="text-xs text-gray-500">{new Date(sh.openedAt).toLocaleDateString('pt-PT')} · {fmtTime(sh.openedAt)} → {sh.closedAt ? fmtTime(sh.closedAt) : 'Aberta'}</p>
+                    </div>
+                    {sh.isOpen ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Aberta</span>
+                      : <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-full">Fechada</span>}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-brand-600">{fmt(sh.totalSales)}</p>
+                      <p className="text-xs text-gray-400">{sh.totalOrders} venda{sh.totalOrders !== 1 ? 's' : ''}</p>
+                    </div>
+                    {!sh.isOpen && sh.summary && (
+                      <button onClick={() => { const ps: PosSession = { id: sh.id, cashier_name: sh.cashierName, cashier_id: '', opened_at: sh.openedAt, closed_at: sh.closedAt, initial_amount: sh.initialAmount, is_open: false }; printCloseReport(ps, sh.summary!, taxConfig.companyName); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-xs font-medium">
+                        <Printer className="w-3.5 h-3.5" />Imprimir
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      </>
+  );
   }
 
   // ── Relatório de Fecho ────────────────────────────────────────────────────────
@@ -243,7 +460,7 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
     const { summary, session: s } = closeReport;
     const duration = fmtDuration(s.opened_at);
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-950 p-4">
+      <><div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-950 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 w-full max-w-md overflow-hidden">
           {/* Header */}
           <div className="bg-brand-600 px-6 py-5 text-white text-center">
@@ -296,7 +513,17 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
             </div>
           </div>
 
-          <div className="px-6 pb-6">
+          <div className="px-6 pb-6 space-y-2">
+            <div className="flex gap-2">
+              <button onClick={() => printCloseReport(s, summary, taxConfig.companyName)}
+                className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm flex items-center justify-center gap-1.5">
+                <Printer className="w-4 h-4" />Imprimir Fecho
+              </button>
+              <button onClick={() => { setShowHistory(true); loadSessions(); }}
+                className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm flex items-center justify-center gap-1.5">
+                <Clock className="w-4 h-4" />Histórico
+              </button>
+            </div>
             <button onClick={() => setCloseReport(null)}
               className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors">
               Abrir Nova Caixa
@@ -304,6 +531,45 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
           </div>
         </div>
       </div>
+      {showHistory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowHistory(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="font-bold text-gray-900 dark:text-white">Histórico de Caixa</h2>
+              <button onClick={() => setShowHistory(false)}><X className="w-5 h-5 text-gray-400" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {loadingSessions ? <p className="text-center py-8 text-gray-400 text-sm">A carregar...</p>
+                : sessions.length === 0 ? <p className="text-center py-8 text-gray-400 text-sm">Nenhuma sessão encontrada</p>
+                : sessions.map(sh => (
+                <div key={sh.id} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">{sh.cashierName}</p>
+                      <p className="text-xs text-gray-500">{new Date(sh.openedAt).toLocaleDateString('pt-PT')} · {fmtTime(sh.openedAt)} → {sh.closedAt ? fmtTime(sh.closedAt) : 'Aberta'}</p>
+                    </div>
+                    {sh.isOpen ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Aberta</span>
+                      : <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-full">Fechada</span>}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-brand-600">{fmt(sh.totalSales)}</p>
+                      <p className="text-xs text-gray-400">{sh.totalOrders} venda{sh.totalOrders !== 1 ? 's' : ''}</p>
+                    </div>
+                    {!sh.isOpen && sh.summary && (
+                      <button onClick={() => { const ps: PosSession = { id: sh.id, cashier_name: sh.cashierName, cashier_id: '', opened_at: sh.openedAt, closed_at: sh.closedAt, initial_amount: sh.initialAmount, is_open: false }; printCloseReport(ps, sh.summary!, taxConfig.companyName); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-xs font-medium">
+                        <Printer className="w-3.5 h-3.5" />Imprimir
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
@@ -332,10 +598,17 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
 
         {/* Produtos */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar produto..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none" />
+          <div className="flex gap-2 mb-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar produto..."
+                className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none" />
+            </div>
+            <button onClick={() => setShowScanner(true)} title="Escanear código de barras"
+              className="px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors shrink-0 flex items-center gap-1.5">
+              <ScanLine className="w-4 h-4" />
+              <span className="text-xs font-medium hidden sm:inline">Scan</span>
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -432,6 +705,14 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
         </div>
       </div>
 
+      {/* Scanner de código de barras */}
+      {showScanner && (
+        <BarcodeScanner
+          onScan={handleScan}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
       {/* Modal variantes */}
       {variantPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setVariantPicker(null)}>
@@ -485,13 +766,24 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
               <div className="flex justify-between text-sm text-gray-500"><span>{PAY_LABELS[done.payMethod]}</span><span>{fmt(done.paid)}</span></div>
               {done.change > 0 && <div className="flex justify-between text-sm font-semibold text-green-600"><span>Troco</span><span>{fmt(done.change)}</span></div>}
             </div>
-            <div className="px-5 pb-5 flex gap-3">
-              <button onClick={() => printReceipt(done)}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium">
-                <Printer className="w-4 h-4" />Imprimir
-              </button>
+            <div className="px-5 pb-5 space-y-2">
+              <div className="flex gap-2">
+                <button onClick={() => printReceipt(done, taxConfig.vatRate)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-xs font-medium">
+                  <Printer className="w-3.5 h-3.5" />Recibo
+                </button>
+                <button onClick={async () => {
+                  try {
+                    const { number } = await api.post<{ number: string }>('/tax/invoice/number', {});
+                    printInvoice(done, taxConfig, number);
+                  } catch { printInvoice(done, taxConfig, `FACT/${new Date().getFullYear()}/----`); }
+                }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-brand-400 text-brand-600 dark:text-brand-400 rounded-xl hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors text-xs font-medium">
+                  <Printer className="w-3.5 h-3.5" />Factura A4
+                </button>
+              </div>
               <button onClick={() => setDone(null)}
-                className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors text-sm">
+                className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors text-sm">
                 Nova Venda
               </button>
             </div>

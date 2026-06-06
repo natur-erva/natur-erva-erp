@@ -893,7 +893,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
   const kpiCardsInOrder = useMemo(() => visibleCards.filter(c => KPI_CARD_IDS.has(c.id)), [visibleCards]);
   const widgetCardsInOrder = useMemo(() => visibleCards.filter(c => WIDGET_CARD_IDS.has(c.id)), [visibleCards]);
 
-  const cardBaseClass = 'bg-surface-raised p-4 sm:p-5 lg:p-6 rounded-xl shadow-sm border border-border-default flex items-start justify-between transition-all min-h-[120px] sm:min-h-[140px]';
+  const cardBaseClass = 'bg-surface-raised p-3 sm:p-5 lg:p-6 rounded-xl shadow-sm border border-border-default flex items-start justify-between transition-all min-h-[90px] sm:min-h-[120px]';
   const cardClickClass = onNavigate ? 'cursor-pointer active:scale-[0.98] hover:shadow-md hover:border-brand-300 dark:hover:border-brand-600' : '';
 
   return (
@@ -936,7 +936,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
 
       {/* Grelha única de KPI cards — preenche o espaço pela ordem das preferências */}
       {kpiCardsInOrder.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
           {kpiCardsInOrder.map((card) => {
             const id = card.id;
             if (id === 'total-purchases') {
@@ -947,13 +947,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                       <p className="text-xs sm:text-sm font-medium text-content-muted truncate">{t.dashboard.totalPurchases}</p>
                       {onNavigate && <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 text-content-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1" />}
                     </div>
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-content-primary mt-1 sm:mt-2 break-words">{formatMoney(currentPeriodPurchasesTotal)}</h3>
+                    <h3 className="text-sm sm:text-xl lg:text-2xl font-bold text-content-primary mt-1 sm:mt-2 break-all">{formatMoney(currentPeriodPurchasesTotal)}</h3>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                       {purchasesGrowth >= 0 ? <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-500 rotate-180 flex-shrink-0" /> : <TrendingDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-500 rotate-180 flex-shrink-0" />}
                       <span className={`text-xs font-medium ${purchasesGrowth >= 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>{formatPercent(purchasesGrowth)}</span>
                     </div>
                   </div>
-                  <div className="p-2 sm:p-2.5 lg:p-3 bg-red-50 dark:bg-red-900/20 rounded-lg flex-shrink-0 ml-2 sm:ml-3">
+                  <div className="p-1.5 sm:p-2.5 lg:p-3 bg-red-50 dark:bg-red-900/20 rounded-lg flex-shrink-0 ml-1.5 sm:ml-3">
                     <ShoppingBag className="w-5 h-5 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-red-600 dark:text-red-400" />
                   </div>
                 </div>
@@ -965,10 +965,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                   <div className="flex items-center justify-between h-full min-w-0 flex-1">
                     <div>
                       <p className="text-xs sm:text-sm font-medium text-content-muted">{t.dashboard.activeOrders}</p>
-                      <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-content-primary mt-2">{activeOrders}</h3>
+                      <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-content-primary mt-1 sm:mt-2">{activeOrders}</h3>
                     </div>
-                    <div className="p-2.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                      <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                    <div className="p-1.5 sm:p-2.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg shrink-0">
+                      <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 dark:text-orange-400" />
                     </div>
                   </div>
                 </div>
@@ -980,11 +980,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                   <div className="flex items-center justify-between h-full min-w-0 flex-1">
                     <div>
                       <p className="text-xs sm:text-sm font-medium text-content-muted">Clientes no Período</p>
-                      <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-content-primary mt-2">{customersInPeriod}</h3>
+                      <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-content-primary mt-1 sm:mt-2">{customersInPeriod}</h3>
                       <p className="text-xs text-content-muted mt-2">clientes únicos que compraram</p>
                     </div>
-                    <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <div className="p-1.5 sm:p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg shrink-0">
+                      <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                   </div>
                 </div>
@@ -995,13 +995,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                 <div key={id} onClick={() => handleCardClick('sales')} className={`${cardBaseClass} ${cardClickClass}`}>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-content-muted truncate">Vendas do Período</p>
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-content-primary mt-2 break-words">{formatMoney(currentPeriodSales)}</h3>
+                    <h3 className="text-sm sm:text-xl lg:text-2xl font-bold text-content-primary mt-1 sm:mt-2 break-all">{formatMoney(currentPeriodSales)}</h3>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-2">
                       {salesGrowth >= 0 ? <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-500" /> : <TrendingDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-500" />}
                       <span className={`text-xs font-medium ${salesGrowth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPercent(salesGrowth)}</span>
                     </div>
                   </div>
-                  <div className="p-2 sm:p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg ml-2">
+                  <div className="p-1.5 sm:p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg ml-1.5 sm:ml-2">
                     <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
                   </div>
                 </div>
@@ -1012,13 +1012,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                 <div key={id} onClick={() => handleCardClick('orders')} className={`${cardBaseClass} ${cardClickClass}`}>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-content-muted truncate">Pedidos do Período</p>
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-content-primary mt-2">{currentPeriodOrders}</h3>
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-content-primary mt-1 sm:mt-2">{currentPeriodOrders}</h3>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-2">
                       {ordersGrowth >= 0 ? <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-500" /> : <TrendingDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-500" />}
                       <span className={`text-xs font-medium ${ordersGrowth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPercent(ordersGrowth)}</span>
                     </div>
                   </div>
-                  <div className="p-2 sm:p-2.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg ml-2">
+                  <div className="p-1.5 sm:p-2.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg ml-1.5 sm:ml-2">
                     <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
                   </div>
                 </div>
@@ -1029,9 +1029,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                 <div key={id} className={cardBaseClass}>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-content-muted">Ticket Médio do Período</p>
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-content-primary mt-2 break-words">{formatMoney(currentPeriodAvgTicket)}</h3>
+                    <h3 className="text-sm sm:text-xl lg:text-2xl font-bold text-content-primary mt-1 sm:mt-2 break-all">{formatMoney(currentPeriodAvgTicket)}</h3>
                   </div>
-                  <div className="p-2 sm:p-2.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg ml-2">
+                  <div className="p-1.5 sm:p-2.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg ml-1.5 sm:ml-2">
                     <Award className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
                   </div>
                 </div>
@@ -1042,9 +1042,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                 <div key={id} className={cardBaseClass}>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-content-muted">Taxa de Conclusão do Período</p>
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-content-primary mt-2">{completionRate.toFixed(1)}%</h3>
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-content-primary mt-1 sm:mt-2">{completionRate.toFixed(1)}%</h3>
                   </div>
-                  <div className="p-2 sm:p-2.5 bg-green-50 dark:bg-green-900/20 rounded-lg ml-2">
+                  <div className="p-1.5 sm:p-2.5 bg-green-50 dark:bg-green-900/20 rounded-lg ml-1.5 sm:ml-2">
                     <Percent className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
                   </div>
                 </div>
@@ -1055,10 +1055,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                 <div key={id} onClick={() => handleCardClick('customers')} className={`${cardBaseClass} ${cardClickClass}`}>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-content-muted">Novos Clientes no Período</p>
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-content-primary mt-2">{newCustomersInPeriod}</h3>
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-content-primary mt-1 sm:mt-2">{newCustomersInPeriod}</h3>
                     <p className="text-xs text-content-muted mt-1">primeira compra no período</p>
                   </div>
-                  <div className="p-2 sm:p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg ml-2">
+                  <div className="p-1.5 sm:p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg ml-1.5 sm:ml-2">
                     <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
                   </div>
                 </div>
@@ -1075,7 +1075,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
 
       {/* Grelha única de widgets (gráficos, listas, entregas/pagamentos) — preenche o espaço pela ordem das preferências */}
       {widgetCardsInOrder.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
           {widgetCardsInOrder.map((card) => {
             const id = card.id;
             if (id === 'orders-chart') {
@@ -1084,7 +1084,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                   <div className="flex items-center justify-between min-h-[2.25rem] sm:min-h-[2.5rem] mb-3 sm:mb-4">
                     <h3 className="text-base sm:text-lg font-bold text-content-primary">Pedidos por Período</h3>
                   </div>
-                  <div className="h-48 sm:h-56 lg:h-64 flex-1 min-h-0">
+                  <div className="h-36 sm:h-48 lg:h-64 flex-1 min-h-0">
                     {ordersChartData.every(d => d.orders === 0) ? (
                       <div className="h-full flex flex-col items-center justify-center text-content-muted">
                         <ShoppingBag className="w-8 h-8 mb-2 opacity-50" />
@@ -1111,7 +1111,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                   <div className="flex items-center justify-between min-h-[2.25rem] sm:min-h-[2.5rem] mb-3 sm:mb-4">
                     <h3 className="text-base sm:text-lg font-bold text-content-primary">Vendas por Período</h3>
                   </div>
-                  <div className="h-48 sm:h-56 lg:h-64 flex-1 min-h-0">
+                  <div className="h-36 sm:h-48 lg:h-64 flex-1 min-h-0">
                     {salesChartData.every(d => d.sales === 0) ? (
                       <div className="h-full flex flex-col items-center justify-center text-content-muted">
                         <DollarSign className="w-8 h-8 mb-2 opacity-50" />

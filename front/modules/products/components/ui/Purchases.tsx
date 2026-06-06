@@ -103,6 +103,7 @@ export const Purchases: React.FC<PurchasesProps> = ({
   }, []);
 
   const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
+  useEffect(() => { setActiveTab(defaultTab); }, [defaultTab]);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);

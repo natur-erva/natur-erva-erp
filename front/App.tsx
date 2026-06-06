@@ -40,6 +40,7 @@ const StockAlerts = lazy(() => import('./modules/products/pages/StockAlerts').th
 const AuditReportPage = lazy(() => import('./modules/products/pages/AuditReportPage').then(m => ({ default: m.AuditReportPage })));
 const ShopReceipts = lazy(() => import('./modules/sales/pages/ShopReceipts').then(m => ({ default: m.ShopReceipts })));
 const POS = lazy(() => import('./modules/sales/pages/POS').then(m => ({ default: m.POS })));
+const Financas = lazy(() => import('./modules/admin/pages/Financas').then(m => ({ default: m.Financas })));
 const Shop = lazy(() => import('./modules/shop/pages/Shop').then(m => ({ default: m.Shop })));
 const ProductLandingPage = lazy(() => import('./modules/shop/pages/ProductLandingPage').then(m => ({ default: m.ProductLandingPage })));
 const UserManagement = lazy(() => import('./modules/admin/pages/UserManagement').then(m => ({ default: m.UserManagement })));
@@ -511,6 +512,13 @@ const App = () => {
                 <ProtectedRoute user={currentUser} permission="sales.view">
                   <TrackedPage pagePath="/admin/caixa" pageTitle="Caixa (POS)">
                     <POS showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="financas" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/financas" pageTitle="Finanças / IVA">
+                    <Financas showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />

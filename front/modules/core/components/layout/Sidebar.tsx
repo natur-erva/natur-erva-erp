@@ -266,6 +266,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'users-roles', label: 'Gerir Roles', icon: Shield, path: '/admin/usuarios/roles' },
       ]
     },
+    { id: 'financas', label: 'Finanças / IVA', icon: Wallet, permission: 'users.view' },
     { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'users.view' },
     { id: 'logistics', label: 'Logística', icon: Truck, permission: 'logistics.manage' },
     { id: 'coupons', label: 'Cupões', icon: Tag, permission: 'sales.discount' },

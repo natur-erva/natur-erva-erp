@@ -21,6 +21,7 @@ const mapOrder = (row) => ({
   deliveryLocation: row.delivery_location,
   deliveryFee: Number(row.delivery_fee) || 0,
   paymentStatus: row.payment_status || 'unpaid',
+  paymentMethod: row.payment_method || null,
   amountPaid: Number(row.amount_paid) || 0,
   paymentProof: row.payment_proof,
   paymentProofText: row.payment_proof_text,
@@ -35,7 +36,10 @@ const mapOrder = (row) => ({
   deliveryLongitude: row.delivery_longitude,
   deliveryAddressFormatted: row.delivery_address_formatted,
   couponCode: row.coupon_code,
-  discountAmount: Number(row.discount_amount) || 0
+  discountAmount: Number(row.discount_amount) || 0,
+  estimatedDeliveryDate: row.estimated_delivery_date || null,
+  disputeDeadline: row.dispute_deadline || null,
+  deliveredAt: row.delivered_at || null,
 });
 
 const generateTrackingCode = () => {
@@ -169,22 +173,26 @@ router.put('/my-orders/:id/confirm', authMiddleware, async (req, res) => {
 router.get('/tracking/:code', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT order_number, tracking_code, status, created_at, updated_at,
-              delivery_zone_name, is_delivery, customer_name
+      `SELECT order_number, tracking_code, status, created_at, updated_at, delivered_at,
+              delivery_zone_name, is_delivery, customer_name,
+              estimated_delivery_date, dispute_deadline
        FROM orders WHERE UPPER(tracking_code) = UPPER($1)`,
       [req.params.code]
     );
     if (!rows.length) return res.status(404).json({ error: 'Código de rastreio não encontrado' });
     const o = rows[0];
     res.json({
-      trackingCode: o.tracking_code,
-      orderNumber: o.order_number,
-      status: o.status,
-      customerName: o.customer_name,
-      createdAt: o.created_at,
-      updatedAt: o.updated_at,
-      deliveryZoneName: o.delivery_zone_name,
-      isDelivery: o.is_delivery,
+      trackingCode:          o.tracking_code,
+      orderNumber:           o.order_number,
+      status:                o.status,
+      customerName:          o.customer_name,
+      createdAt:             o.created_at,
+      updatedAt:             o.updated_at,
+      deliveredAt:           o.delivered_at || null,
+      deliveryZoneName:      o.delivery_zone_name,
+      isDelivery:            o.is_delivery,
+      estimatedDeliveryDate: o.estimated_delivery_date || null,
+      disputeDeadline:       o.dispute_deadline || null,
     });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao rastrear pedido' });
@@ -303,22 +311,26 @@ router.post('/', optionalAuth, async (req, res) => {
 
     const trackingCode = generateTrackingCode();
 
+    // Pedidos do POS são sempre pagos imediatamente
+    const resolvedPaymentStatus = order.source === 'pos' ? 'paid' : (order.paymentStatus || 'unpaid');
+
     const { rows: orderRows } = await client.query(
       `INSERT INTO orders (
         external_id, order_number, tracking_code, customer_id, customer_name, customer_phone,
         items, total_amount, status, source, is_delivery, delivery_location,
-        delivery_fee, payment_status, amount_paid, payment_proof, payment_proof_text,
+        delivery_fee, payment_status, payment_method, amount_paid, payment_proof, payment_proof_text,
         notes, created_at, created_by, delivery_zone_id, delivery_zone_name,
         delivery_latitude, delivery_longitude, delivery_address_formatted,
         coupon_code, discount_amount
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
       RETURNING *`,
       [
         order.externalId || null, orderNumber, trackingCode, customerId, order.customerName,
         hasPhone ? cleanPhone : '', JSON.stringify(order.items || []),
         order.totalAmount, order.status, order.source || null,
         order.isDelivery || false, order.deliveryLocation || null,
-        order.deliveryFee || 0, order.paymentStatus || 'unpaid',
+        order.deliveryFee || 0, resolvedPaymentStatus,
+        order.paymentMethod || null,
         order.amountPaid || 0, order.paymentProof || null,
         order.paymentProofText || null, order.notes || null,
         order.createdAt || new Date().toISOString(),
@@ -329,6 +341,15 @@ router.post('/', optionalAuth, async (req, res) => {
         couponCode, discountAmount
       ]
     );
+
+    // Auto-definir data estimada de entrega se não fornecida
+    if (!order.estimatedDeliveryDate) {
+      const deliveryDays = order.isDelivery ? 3 : 1; // 3 dias para entrega, 1 dia para levantamento
+      await pool.query(
+        `UPDATE orders SET estimated_delivery_date = CURRENT_DATE + INTERVAL '${deliveryDays} days' WHERE id = $1`,
+        [orderRows[0].id]
+      ).catch(() => {});
+    }
 
     await client.query('COMMIT');
 
@@ -416,7 +437,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
       notes: 'notes', deliveryZoneId: 'delivery_zone_id',
       deliveryZoneName: 'delivery_zone_name', deliveryLatitude: 'delivery_latitude',
       deliveryLongitude: 'delivery_longitude', deliveryAddressFormatted: 'delivery_address_formatted',
-      createdBy: 'created_by'
+      createdBy: 'created_by',
+      estimatedDeliveryDate: 'estimated_delivery_date',
+      paymentMethod: 'payment_method',
+      paymentStatus: 'payment_status',
     };
 
     for (const [jsKey, dbKey] of Object.entries(fieldMap)) {
@@ -427,6 +451,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     if (fields.length === 0) return res.json({ success: true });
+
+    // Ao marcar como entregue: registar delivered_at e calcular dispute_deadline (15 dias)
+    if (updates.status === 'delivered') {
+      fields.push(`delivered_at = NOW()`);
+      fields.push(`dispute_deadline = (CURRENT_DATE + INTERVAL '15 days')`);
+    }
+
     fields.push(`updated_at = NOW()`);
     values.push(req.params.id);
 

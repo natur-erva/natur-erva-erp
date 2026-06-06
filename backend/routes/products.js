@@ -31,7 +31,9 @@ const mapProduct = (p) => ({
   howToUse: p.how_to_use,
   ingredients: p.ingredients,
   landingPageEnabled: p.landing_page_enabled,
-  landingPageData: p.landing_page_data
+  landingPageData: p.landing_page_data,
+  barcode: p.barcode || null,
+  vatRegime: p.vat_regime || 'standard',
 });
 
 const mapVariant = (v) => ({
@@ -92,6 +94,27 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/products/barcode/:code — deve ficar antes de /:id
+router.get('/barcode/:code', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM products WHERE barcode = $1 LIMIT 1',
+      [req.params.code.trim()]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Produto não encontrado' });
+    const product = mapProduct(rows[0]);
+    const { rows: variants } = await pool.query(
+      'SELECT * FROM product_variants WHERE product_id = $1 ORDER BY display_order ASC NULLS LAST, is_default DESC',
+      [rows[0].id]
+    );
+    product.variants = variants.map(mapVariant);
+    product.hasVariants = product.variants.length > 0;
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/products/count
 router.get('/count', async (req, res) => {
   try {
@@ -145,15 +168,15 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO products (name, slug, price, cost_price, type, category, stock, min_stock, unit, image, image_url2, image_url3, image_url4, show_in_shop, description, description_long, benefits, how_to_use, ingredients, promotional_price)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      `INSERT INTO products (name, slug, price, cost_price, type, category, stock, min_stock, unit, image, image_url2, image_url3, image_url4, show_in_shop, description, description_long, benefits, how_to_use, ingredients, promotional_price, barcode, vat_regime)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
        RETURNING *`,
       [p.name, slug, p.price, p.costPrice || 0,
        p.type, p.category, p.stock || 0, p.minStock || 0, p.unit,
        p.image || null, p.image2 || null, p.image3 || null, p.image4 || null,
        p.showInShop !== false, p.description || null, p.descriptionLong || null,
        p.benefits || null, p.howToUse || null, p.ingredients || null,
-       p.promotionalPrice || null]
+       p.promotionalPrice || null, p.barcode || null, p.vatRegime || 'standard']
     );
     res.status(201).json(mapProduct(rows[0]));
   } catch (err) {
@@ -170,6 +193,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const values = [];
     let i = 1;
 
+    if (p.barcode !== undefined)    { fields.push(`barcode = $${i++}`);     values.push(p.barcode || null); }
+    if (p.vatRegime !== undefined)  { fields.push(`vat_regime = $${i++}`); values.push(p.vatRegime || 'standard'); }
     if (p.name !== undefined) { fields.push(`name = $${i++}`); values.push(p.name); }
     if (p.slug !== undefined) { fields.push(`slug = $${i++}`); values.push(p.slug); }
     if (p.price !== undefined) { fields.push(`price = $${i++}`); values.push(p.price); }

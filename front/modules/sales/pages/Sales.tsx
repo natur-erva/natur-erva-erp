@@ -137,7 +137,7 @@ export const Sales: React.FC<SalesProps> = ({
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterPeriod, setFilterPeriod] = useState<PeriodOption>('thisMonth');
+  const [filterPeriod, setFilterPeriod] = useState<PeriodOption>('all');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterSaleType, setFilterSaleType] = useState<SaleType | 'ALL'>('ALL');
@@ -165,8 +165,12 @@ export const Sales: React.FC<SalesProps> = ({
     variant: 'warning'
   });
 
-  // Tab: Resumos | Por Produto - controlado via rota/defaultTab
+  // Sync state
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Tab: Resumos | Por Produto - sincronizado com a rota (defaultTab muda sem remontar)
   const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
+  useEffect(() => { setActiveTab(defaultTab); }, [defaultTab]);
   // By-product tab state
   const [byProductSearchQuery, setByProductSearchQuery] = useState('');
   const [productGroupMode, setProductGroupMode] = useState<ProductGroupMode>('with-variants');
@@ -198,6 +202,12 @@ export const Sales: React.FC<SalesProps> = ({
     let end = new Date();
 
     switch (period) {
+      case 'all':
+        start = new Date(2000, 0, 1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(2099, 11, 31);
+        end.setHours(23, 59, 59, 999);
+        break;
       case 'today':
         start.setHours(0, 0, 0, 0);
         end.setHours(23, 59, 59, 999);
@@ -1095,6 +1105,97 @@ export const Sales: React.FC<SalesProps> = ({
     setCreateMode('fromOrders');
   };
 
+  // Sincronizar TODOS os pedidos existentes como resumos
+  const handleSyncAllFromOrders = async () => {
+    const validOrders = orders.filter(o => {
+      const s = o.status?.toString() || '';
+      return s !== OrderStatus.CANCELLED && s !== 'Cancelado';
+    });
+    if (validOrders.length === 0) {
+      showToast('Nenhum pedido válido para sincronizar', 'warning');
+      return;
+    }
+
+    // Agrupar pedidos por data
+    const ordersByDate = new Map<string, typeof orders>();
+    for (const order of validOrders) {
+      const raw = order.createdAt || '';
+      const dateStr = raw ? toDateStringInTimezone(new Date(raw)) : null;
+      if (!dateStr) continue;
+      if (!ordersByDate.has(dateStr)) ordersByDate.set(dateStr, []);
+      ordersByDate.get(dateStr)!.push(order);
+    }
+    if (ordersByDate.size === 0) { showToast('Não foram encontradas datas com pedidos', 'warning'); return; }
+
+    setIsSyncing(true);
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const [date, dayOrders] of Array.from(ordersByDate.entries()).sort()) {
+      const itemsMap = new Map<string, SaleItem>();
+      let totalDeliveries = 0;
+      let totalPaymentsReceived = 0;
+
+      for (const order of dayOrders) {
+        const fee = Number((order as any).deliveryFee ?? 0) || 0;
+        if (order.isDelivery && fee) totalDeliveries += fee;
+        totalPaymentsReceived += getPaidAmount(order);
+        for (const it of order.items || []) {
+          const key = `${it.productId ?? ''}-${(it as any).variantId ?? ''}`;
+          const p = Number((it as any).priceAtTime ?? it.price) || 0;
+          const q = Number(it.quantity) || 0;
+          const total = q * p;
+          const ex = itemsMap.get(key);
+          if (ex) {
+            ex.quantity += q;
+            ex.total = (ex.total ?? 0) + total;
+            ex.price = (ex.total ?? 0) / ex.quantity;
+          } else {
+            const variantName = (it as any).variantName ?? parseProductName(it.productName || '').variant ?? undefined;
+            itemsMap.set(key, { id: it.id || `i-${Math.random().toString(36).slice(2,9)}`, productId: it.productId, productName: it.productName, variantId: (it as any).variantId, variantName, quantity: q, price: p, unit: it.unit || 'un', total });
+          }
+        }
+      }
+
+      const saleItems = Array.from(itemsMap.values());
+      if (saleItems.length === 0) { skipped++; continue; }
+
+      const totalSalesAmt = saleItems.reduce((s, i) => s + (i.total ?? i.quantity * i.price), 0);
+      const valueReceived = totalPaymentsReceived > 0 ? totalPaymentsReceived : undefined;
+      const difference = valueReceived != null ? valueReceived - (totalSalesAmt + totalDeliveries) : undefined;
+
+      const existingSale = sales.find(s => (s.date || '').split('T')[0] === date);
+      const payload: Sale = {
+        id: existingSale?.id ?? '',
+        date,
+        items: saleItems,
+        totalSales: totalSalesAmt,
+        totalDeliveries,
+        valueReceived,
+        difference,
+        createdAt: existingSale?.createdAt ?? new Date().toISOString(),
+        notes: existingSale?.notes ?? `Gerado de ${dayOrders.length} pedido(s) de ${formatDateOnly(date)}`
+      };
+
+      // dataService.createSale verifica internamente se já existe e atualiza
+      const result = await dataService.createSale(payload);
+      if (result.sale) {
+        if (existingSale?.id && onUpdateSale) { onUpdateSale(result.sale); updated++; }
+        else { onAddSale(result.sale); created++; }
+      }
+    }
+
+    setIsSyncing(false);
+    const total = created + updated;
+    if (total > 0) {
+      showToast(`✅ ${total} resumo(s) sincronizado(s) — ${created} novo(s), ${updated} atualizado(s)`, 'success');
+      if (onImportComplete) setTimeout(() => onImportComplete(), 500);
+    } else {
+      showToast('Nenhum resumo foi criado (pedidos sem itens?)', 'warning');
+    }
+  };
+
   // Filtered and sorted sales
   const filteredAndSortedSales = useMemo(() => {
     let filtered = [...sales];
@@ -1867,6 +1968,15 @@ export const Sales: React.FC<SalesProps> = ({
                 </button>
               )}
               <button
+                onClick={handleSyncAllFromOrders}
+                disabled={isSyncing || orders.length === 0}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                title="Gerar resumos automaticamente a partir de todos os pedidos"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{isSyncing ? 'A sincronizar...' : 'Sincronizar'}</span>
+              </button>
+              <button
                 onClick={() => setIsModalOpen(true)}
                 className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg flex items-center gap-2 transition-colors"
               >
@@ -1893,16 +2003,16 @@ export const Sales: React.FC<SalesProps> = ({
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                    showFilters || searchQuery || filterPeriod !== 'thisMonth' || filterDateFrom || filterDateTo
+                    showFilters || searchQuery || filterPeriod !== 'all' || filterDateFrom || filterDateTo
                       ? 'bg-brand-600 text-white hover:bg-brand-700'
                       : 'bg-gray-600 hover:bg-gray-700 text-white'
                   }`}
                   title="Filtros"
                 >
                   <Filter className="w-5 h-5" />
-                  {(searchQuery || filterPeriod !== 'thisMonth' || filterDateFrom || filterDateTo || filterSaleType !== 'ALL') && (
+                  {(searchQuery || filterPeriod !== 'all' || filterDateFrom || filterDateTo || filterSaleType !== 'ALL') && (
                     <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-xs">
-                      {[searchQuery, filterPeriod !== 'thisMonth' ? 1 : 0, filterDateFrom ? 1 : 0, filterSaleType !== 'ALL' ? 1 : 0].filter(Boolean).length}
+                      {[searchQuery, filterPeriod !== 'all' ? 1 : 0, filterDateFrom ? 1 : 0, filterSaleType !== 'ALL' ? 1 : 0].filter(Boolean).length}
                     </span>
                   )}
                 </button>
@@ -1972,11 +2082,11 @@ export const Sales: React.FC<SalesProps> = ({
         </div>
 
         {/* Botéo Limpar Filtros - Oculto no Mobile */}
-        {(searchQuery || filterPeriod !== 'thisMonth' || filterDateFrom || filterDateTo || filterSaleType !== 'ALL') && (
+        {(searchQuery || filterPeriod !== 'all' || filterDateFrom || filterDateTo || filterSaleType !== 'ALL') && (
           <button
             onClick={() => {
               setSearchQuery('');
-              setFilterPeriod('thisMonth');
+              setFilterPeriod('all');
               setFilterDateFrom('');
               setFilterDateTo('');
               setFilterSaleType('ALL');
@@ -2098,11 +2208,11 @@ export const Sales: React.FC<SalesProps> = ({
             </div>
 
             {/* Botéo Limpar Filtros */}
-            {(searchQuery || filterPeriod !== 'thisMonth' || filterDateFrom || filterDateTo || filterSaleType !== 'ALL') && (
+            {(searchQuery || filterPeriod !== 'all' || filterDateFrom || filterDateTo || filterSaleType !== 'ALL') && (
               <button
                 onClick={() => {
                   setSearchQuery('');
-                  setFilterPeriod('thisMonth');
+                  setFilterPeriod('all');
                   setFilterDateFrom('');
                   setFilterDateTo('');
                   setFilterSaleType('ALL');
@@ -2591,15 +2701,27 @@ export const Sales: React.FC<SalesProps> = ({
           <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400">
             {sales.length === 0
-              ? 'Nenhum resumo de venda encontrado. Comece adicionando um novo resumo.'
-              : filteredAndSortedSales.length === 0 
+              ? orders.length > 0
+                ? 'Nenhum resumo criado ainda. Clique em "Sincronizar" para gerar resumos a partir dos seus pedidos.'
+                : 'Nenhum resumo de venda encontrado. Comece adicionando um novo resumo.'
+              : filteredAndSortedSales.length === 0
               ? 'Nenhum resumo encontrado com os filtros aplicados.'
-              : 'Nenhum resumo nesta pé¡gina.'}
+              : 'Nenhum resumo nesta página.'}
           </p>
+          {sales.length === 0 && orders.length > 0 && (
+            <button
+              onClick={handleSyncAllFromOrders}
+              disabled={isSyncing}
+              className="mt-4 px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2 mx-auto disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'A sincronizar...' : `Sincronizar ${orders.length} pedido(s) como resumos`}
+            </button>
+          )}
           {sales.length > 0 && filteredAndSortedSales.length === 0 && (
             <button
               onClick={() => {
-                setFilterPeriod('today');
+                setFilterPeriod('all');
                 setFilterDateFrom('');
                 setFilterDateTo('');
                 setSearchQuery('');

@@ -189,6 +189,7 @@ function createDateInTimezone(year: number, month: number, day: number, endOfDay
 
 /** Período para filtros (alinhado com PeriodFilter). */
 export type PeriodOption =
+  | 'all'
   | 'today'
   | 'yesterday'
   | 'thisWeek'
@@ -215,6 +216,10 @@ export function getDateRangeFromPeriod(
   let end: Date;
 
   switch (period) {
+    case 'all':
+      start = createDateInTimezone(2000, 0, 1);
+      end = createDateInTimezone(2099, 11, 31, true);
+      break;
     case 'today':
       start = createDateInTimezone(year, month, day);
       end = createDateInTimezone(year, month, day, true);

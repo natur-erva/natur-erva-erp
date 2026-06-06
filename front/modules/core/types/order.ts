@@ -62,4 +62,6 @@ export interface Order {
   source?: string;
   couponCode?: string;
   discountAmount?: number;
+  estimatedDeliveryDate?: string | null;
+  disputeDeadline?: string | null;
 }

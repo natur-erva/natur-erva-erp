@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, Loader2, Package, Truck, CheckCircle, Clock, XCircle, MapPin, Tag, Copy, Check, Scan, CreditCard, ThumbsUp } from 'lucide-react';
+import { ChevronLeft, Loader2, Package, Truck, CheckCircle, Clock, XCircle, MapPin, Tag, Copy, Check, Scan, CreditCard, ThumbsUp, CalendarClock, ShieldCheck, ShieldOff, AlertTriangle } from 'lucide-react';
 import api from '../../core/services/apiClient';
 import { Order, OrderStatus } from '../../core/types/order';
 
@@ -12,8 +12,22 @@ interface TimelineStep {
   isCancelled?: boolean;
 }
 
+const TZ = 'Africa/Maputo';
 const fmtDate = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
+  d ? new Date(d).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: TZ }) : null;
+
+const fmtShortDate = (d?: string | null) =>
+  d ? new Date(d).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'short', timeZone: TZ }) : null;
+
+const daysRemaining = (deadline?: string | null): number => {
+  if (!deadline) return -1;
+  const diff = new Date(deadline).getTime() - Date.now();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+const isDelivered = (status: string) =>
+  status === OrderStatus.DELIVERED || status === 'delivered' ||
+  status === OrderStatus.COMPLETED || status === 'completed';
 
 const buildTimeline = (order: Order): TimelineStep[] => {
   const cancelled = order.status === OrderStatus.CANCELLED || order.status === 'cancelled';
@@ -56,7 +70,7 @@ export const CustomerOrderDetail: React.FC = () => {
     if (!order) return;
     setConfirming(true);
     try {
-      await api.put(`/orders/my-orders/${order.id}/confirm`);
+      await api.put(`/orders/my-orders/${order.id}/confirm`, {});
       setOrder(o => o ? { ...o, status: OrderStatus.COMPLETED } : o);
       setConfirmed(true);
     } catch {
@@ -137,6 +151,81 @@ export const CustomerOrderDetail: React.FC = () => {
             </p>
           </div>
         )}
+
+        {/* ── Entrega estimada (antes de chegar) ── */}
+        {!isDelivered(order.status) && order.estimatedDeliveryDate && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-800/50 rounded-xl flex items-center justify-center shrink-0">
+                <CalendarClock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium uppercase tracking-wide">Chegada Estimada</p>
+                <p className="text-base font-bold text-blue-900 dark:text-blue-100 mt-0.5">
+                  {fmtShortDate(order.estimatedDeliveryDate)}
+                  {' – '}
+                  {fmtShortDate(
+                    new Date(new Date(order.estimatedDeliveryDate).getTime() + 2 * 86400000).toISOString()
+                  )}
+                </p>
+                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-0.5">
+                  {(() => {
+                    const d = daysRemaining(order.estimatedDeliveryDate);
+                    if (d <= 0) return 'Prevista para hoje ou amanhã';
+                    return `Em ${d} dia${d !== 1 ? 's' : ''}`;
+                  })()}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Protecção do comprador (após entrega) ── */}
+        {isDelivered(order.status) && order.disputeDeadline && (() => {
+          const days = daysRemaining(order.disputeDeadline);
+          const expired = days < 0;
+          return (
+            <div className={`rounded-2xl p-5 border ${
+              expired
+                ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
+                : days <= 3
+                  ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                  : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  expired ? 'bg-gray-200 dark:bg-gray-700' : days <= 3 ? 'bg-amber-100 dark:bg-amber-800/50' : 'bg-emerald-100 dark:bg-emerald-800/50'
+                }`}>
+                  {expired
+                    ? <ShieldOff className="w-5 h-5 text-gray-500" />
+                    : days <= 3
+                      ? <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                      : <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  }
+                </div>
+                <div className="flex-1">
+                  {expired ? (
+                    <>
+                      <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Período de Disputa Encerrado</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">O prazo para abrir uma disputa expirou em {fmtShortDate(order.disputeDeadline)}.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className={`text-sm font-semibold ${days <= 3 ? 'text-amber-800 dark:text-amber-300' : 'text-emerald-800 dark:text-emerald-300'}`}>
+                        Protecção do Comprador Activa
+                      </p>
+                      <p className={`text-xs mt-0.5 ${days <= 3 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                        Podes abrir uma disputa até <strong>{fmtShortDate(order.disputeDeadline)}</strong>
+                        {' · '}
+                        <strong>{days} dia{days !== 1 ? 's' : ''} restante{days !== 1 ? 's' : ''}</strong>
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Timeline */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
@@ -250,14 +339,21 @@ export const CustomerOrderDetail: React.FC = () => {
         )}
 
         {/* Ação: Solicitar Reembolso */}
-        {(order.status === OrderStatus.DELIVERED || order.status === 'delivered' || order.status === OrderStatus.COMPLETED || order.status === 'completed') && (
-          <button
-            onClick={() => navigate('/minha-conta/reembolsos', { state: { orderId: order.id, orderNumber: order.orderNumber } })}
-            className="w-full py-3 rounded-xl border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 dark:hover:text-red-400 transition-colors font-medium text-sm"
-          >
-            Solicitar Reembolso
-          </button>
-        )}
+        {isDelivered(order.status) && (() => {
+          const deadlineExpired = order.disputeDeadline ? daysRemaining(order.disputeDeadline) < 0 : false;
+          return deadlineExpired ? (
+            <div className="w-full py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-center text-sm text-gray-400 dark:text-gray-600 cursor-not-allowed">
+              Prazo de disputa encerrado — reembolso não disponível
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate('/minha-conta/reembolsos', { state: { orderId: order.id, orderNumber: order.orderNumber } })}
+              className="w-full py-3 rounded-xl border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 dark:hover:text-red-400 transition-colors font-medium text-sm"
+            >
+              Solicitar Reembolso / Disputa
+            </button>
+          );
+        })()}
       </div>
     </div>
   );

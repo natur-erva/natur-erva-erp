@@ -1601,7 +1601,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
     ));
   };
 
-  const calculateManualTotal = () => selectedItems.reduce((acc, item) => acc + (item.priceAtTime * item.quantity), 0);
+  const calculateManualTotal = () => selectedItems.reduce((acc, item) => acc + ((item.priceAtTime ?? item.price ?? 0) * item.quantity), 0);
 
   // Validação do Step 1 (Cliente): nome preenchido
   useEffect(() => {
@@ -1863,7 +1863,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
   const saveEdit = () => {
     if (editOrderData && onEditOrder) {
       // Recalcular total incluindo taxa de entrega antes de salvar
-      const itemsTotal = editOrderData.items.reduce((acc, item) => acc + (item.priceAtTime * item.quantity), 0);
+      const itemsTotal = editOrderData.items.reduce((acc, item) => acc + ((item.priceAtTime ?? item.price ?? 0) * item.quantity), 0);
       const deliveryFee = editOrderData.isDelivery ? (editOrderData.deliveryFee || 0) : 0;
       const finalTotal = itemsTotal + deliveryFee;
 
@@ -1882,7 +1882,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
   // Atualizar total quando taxa de entrega ou itens mudarem
   useEffect(() => {
     if (editOrderData) {
-      const itemsTotal = editOrderData.items.reduce((acc, item) => acc + (item.priceAtTime * item.quantity), 0);
+      const itemsTotal = editOrderData.items.reduce((acc, item) => acc + ((item.priceAtTime ?? item.price ?? 0) * item.quantity), 0);
       const deliveryFee = editOrderData.isDelivery ? (editOrderData.deliveryFee || 0) : 0;
       const newTotal = itemsTotal + deliveryFee;
 
@@ -1900,7 +1900,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
     const newItems = [...editOrderData.items];
     newItems[index] = { ...newItems[index], [field]: value };
 
-    const itemsTotal = newItems.reduce((acc, item) => acc + (item.priceAtTime * item.quantity), 0);
+    const itemsTotal = newItems.reduce((acc, item) => acc + ((item.priceAtTime ?? item.price ?? 0) * item.quantity), 0);
     const deliveryFee = editOrderData.isDelivery ? (editOrderData.deliveryFee || 0) : 0;
     const newTotal = itemsTotal + deliveryFee;
 
@@ -1919,7 +1919,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
   const handleRemoveEditItem = (index: number) => {
     if (!editOrderData) return;
     const newItems = editOrderData.items.filter((_, i) => i !== index);
-    const itemsTotal = newItems.reduce((acc, item) => acc + (item.priceAtTime * item.quantity), 0);
+    const itemsTotal = newItems.reduce((acc, item) => acc + ((item.priceAtTime ?? item.price ?? 0) * item.quantity), 0);
     const deliveryFee = editOrderData.isDelivery ? (editOrderData.deliveryFee || 0) : 0;
     const newTotal = itemsTotal + deliveryFee;
     setEditOrderData({ ...editOrderData, items: newItems, totalAmount: newTotal });
@@ -1969,7 +1969,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
         unit: product.unit
       }];
     }
-    const itemsTotal = newItems.reduce((acc, item) => acc + (item.priceAtTime * item.quantity), 0);
+    const itemsTotal = newItems.reduce((acc, item) => acc + ((item.priceAtTime ?? item.price ?? 0) * item.quantity), 0);
     const deliveryFee = editOrderData.isDelivery ? (editOrderData.deliveryFee || 0) : 0;
     const newTotal = itemsTotal + deliveryFee;
     setEditOrderData({ ...editOrderData, items: newItems, totalAmount: newTotal });
@@ -2019,7 +2019,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
       }];
     }
 
-    const itemsTotal = newItems.reduce((acc, item) => acc + (item.priceAtTime * item.quantity), 0);
+    const itemsTotal = newItems.reduce((acc, item) => acc + ((item.priceAtTime ?? item.price ?? 0) * item.quantity), 0);
     const deliveryFee = editOrderData.isDelivery ? (editOrderData.deliveryFee || 0) : 0;
     const newTotal = itemsTotal + deliveryFee;
     setEditOrderData({ ...editOrderData, items: newItems, totalAmount: newTotal });
@@ -2128,53 +2128,121 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
   // ------------------------------------------------------------------
   // PRINT LOGIC
   // ------------------------------------------------------------------
-  const handlePrint = (order: Order) => {
-    const printWindow = window.open('', '', 'width=600,height=800');
+  const handlePrint = async (order: Order) => {
+    // Carregar config fiscal (best-effort)
+    let tax = { companyName: 'NaturErva', companyNuit: '', companyAddress: '', vatRate: 16 };
+    try {
+      const apiMod = await import('../../core/services/apiClient');
+      const cfg = await apiMod.default.get<typeof tax>('/tax/config');
+      if (cfg?.companyName) tax = cfg as typeof tax;
+    } catch {}
+
+    const vatMult = 1 + tax.vatRate / 100;
+    const itemsSubtotal = order.items.reduce((s, it) => s + (it.priceAtTime ?? it.price ?? 0) * it.quantity, 0);
+    const baseIva = itemsSubtotal / vatMult;
+    const ivaAmt  = itemsSubtotal - baseIva;
+
+    const itemsHtml = order.items.map(item => {
+      const unitPrice = (item.priceAtTime ?? item.price ?? 0);
+      const lineTotal = unitPrice * item.quantity;
+      return `<tr>
+        <td style="padding:6px 4px;border-bottom:1px solid #f0f0f0">${item.quantity} ${item.unit || 'un'}</td>
+        <td style="padding:6px 4px;border-bottom:1px solid #f0f0f0">${item.productName}${item.variantName ? ` · ${item.variantName}` : ''}</td>
+        <td style="padding:6px 4px;border-bottom:1px solid #f0f0f0;text-align:right">${unitPrice.toFixed(2)} MT</td>
+        <td style="padding:6px 4px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">${lineTotal.toFixed(2)} MT</td>
+      </tr>`;
+    }).join('');
+
+    const printWindow = window.open('', '', 'width=750,height=950');
     if (!printWindow) return;
-    const itemsHtml = order.items.map(item => `
-       <tr style="border-bottom: 1px solid #eee;">
-         <td style="padding: 8px 0;">${item.quantity}${item.unit}</td>
-         <td style="padding: 8px 0;">${item.productName}</td>
-         <td style="padding: 8px 0; text-align: right;">${formatMoney(item.priceAtTime * item.quantity)}</td>
-       </tr>
-     `).join('');
-    const html = `
-       <html>
-         <head>
-           <title>Recibo</title>
-           <style>
-             body { font-family: 'Courier New', monospace; padding: 20px; color: #333; }
-             .header { text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #333; padding-bottom: 10px; }
-             .logo { font-size: 24px; font-weight: bold; }
-             .info { font-size: 12px; margin-bottom: 20px; }
-             table { width: 100%; border-collapse: collapse; font-size: 14px; }
-             .totals { margin-top: 20px; border-top: 2px dashed #333; pt: 10px; }
-             .total-row { display: flex; justify-content: space-between; font-weight: bold; margin-top: 5px; }
-             .footer { margin-top: 40px; text-align: center; font-size: 10px; }
-           </style>
-         </head>
-         <body>
-           <div class="header">
-             <div class="logo"><img src="${appSystemConfig.logo_light}" style="max-height: 40px; display: block; margin: 0 auto 10px;" /></div>
-             <div>Produtos Frescos</div>
-           </div>
-           <div class="info">
-             <strong>Cliente:</strong> ${order.customerName}<br/>
-             <strong>Data:</strong> ${formatDateOnly(order.createdAt)}<br/>
-           </div>
-           <table>
-             <tbody>${itemsHtml}</tbody>
-           </table>
-           <div class="totals">
-             <div class="total-row"><span>TOTAL:</span><span>${formatMoney(order.totalAmount)}</span></div>
-           </div>
-           <div class="footer">Obrigado!</div>
-         </body>
-       </html>
-     `;
-    printWindow.document.write(html);
+
+    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Recibo #${order.orderNumber || order.id.slice(0,8)}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;font-size:12px;color:#111;padding:28px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:2px solid #16a34a;margin-bottom:16px}
+.brand{font-size:20px;font-weight:800;color:#16a34a}
+.brand-sub{font-size:10px;color:#555;margin-top:2px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.box{background:#f8fdf8;border:1px solid #d1fae5;border-radius:6px;padding:10px}
+.box-label{font-size:9px;text-transform:uppercase;color:#16a34a;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
+.box-val{font-size:12px;color:#111;line-height:1.6}
+table{width:100%;border-collapse:collapse;margin-bottom:12px}
+thead th{background:#16a34a;color:#fff;padding:7px 4px;font-size:11px;text-align:left}
+thead th:last-child,thead th:nth-child(3){text-align:right}
+.totals{margin-left:auto;width:270px;font-size:12px;border-collapse:collapse}
+.totals td{padding:4px 6px}
+.totals .sep td{border-top:1px solid #e5e7eb;padding-top:8px}
+.totals .bold td{font-weight:700;font-size:14px;color:#16a34a}
+.iva-note{font-size:10px;color:#888;text-align:right;margin-top:4px}
+.track-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px 12px;margin-top:12px;display:flex;align-items:center;gap:10px}
+.track-code{font-family:monospace;font-size:15px;font-weight:700;letter-spacing:2px;color:#1d4ed8}
+.footer{margin-top:20px;border-top:1px solid #e5e7eb;padding-top:10px;text-align:center;font-size:10px;color:#888}
+</style></head><body>
+
+<div class="header">
+  <div>
+    <div class="brand">${tax.companyName}</div>
+    <div class="brand-sub">natural é saudável · NUIT: ${tax.companyNuit || '—'}</div>
+    ${tax.companyAddress ? `<div style="font-size:10px;color:#666;margin-top:2px">${tax.companyAddress}</div>` : ''}
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:16px;font-weight:700">RECIBO</div>
+    <div style="font-size:12px;color:#555">#${order.orderNumber || order.id.slice(0,8)}</div>
+    <div style="font-size:11px;color:#777">${formatDateOnly(order.createdAt)}</div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="box">
+    <div class="box-label">Cliente</div>
+    <div class="box-val">
+      <strong>${order.customerName}</strong><br>
+      ${order.customerPhone ? `Tel: ${order.customerPhone}<br>` : ''}
+      ${order.isDelivery && order.deliveryLocation ? `📍 ${order.deliveryLocation}` : '🏪 Levantamento em loja'}
+      ${order.deliveryZoneName ? `<br><span style="font-size:10px;color:#555">${order.deliveryZoneName}</span>` : ''}
+    </div>
+  </div>
+  <div class="box">
+    <div class="box-label">Pagamento</div>
+    <div class="box-val">
+      Estado: <strong style="color:${order.paymentStatus === 'paid' ? '#16a34a' : '#dc2626'}">${order.paymentStatus === 'paid' ? '✓ Pago' : order.paymentStatus === 'partial' ? 'Parcial' : '✗ Não Pago'}</strong><br>
+      ${order.paymentMethod ? `Método: ${order.paymentMethod}<br>` : ''}
+      ${(order.amountPaid ?? 0) > 0 ? `Recebido: <strong>${(order.amountPaid ?? 0).toFixed(2)} MT</strong>` : ''}
+    </div>
+  </div>
+</div>
+
+<table>
+  <thead><tr>
+    <th>Qtd</th><th>Descrição</th>
+    <th style="text-align:right">P.Unit.</th>
+    <th style="text-align:right">Total</th>
+  </tr></thead>
+  <tbody>${itemsHtml}</tbody>
+</table>
+
+<table class="totals">
+  <tbody>
+    ${order.isDelivery && (order.deliveryFee ?? 0) > 0 ?
+      `<tr><td>Subtotal artigos:</td><td style="text-align:right">${itemsSubtotal.toFixed(2)} MT</td></tr>
+       <tr><td>Entrega${order.deliveryZoneName ? ` (${order.deliveryZoneName})` : ''}:</td><td style="text-align:right">${(order.deliveryFee ?? 0).toFixed(2)} MT</td></tr>` : ''}
+    ${(order.discountAmount ?? 0) > 0 ?
+      `<tr><td style="color:#16a34a">Desconto${order.couponCode ? ` (${order.couponCode})` : ''}:</td><td style="text-align:right;color:#16a34a">- ${(order.discountAmount ?? 0).toFixed(2)} MT</td></tr>` : ''}
+    <tr class="sep bold"><td>TOTAL c/IVA:</td><td style="text-align:right">${(order.totalAmount ?? 0).toFixed(2)} MT</td></tr>
+  </tbody>
+</table>
+<p class="iva-note">Base s/IVA: ${baseIva.toFixed(2)} MT &nbsp;|&nbsp; IVA ${tax.vatRate}%: ${ivaAmt.toFixed(2)} MT &nbsp;|&nbsp; NUIT emitente: ${tax.companyNuit || '—'}</p>
+
+${order.trackingCode ? `<div class="track-box"><span style="font-size:10px;color:#1d4ed8;font-weight:700">RASTREIO</span><span class="track-code">${order.trackingCode}</span><span style="font-size:10px;color:#555">natur-erva.co.mz/minha-conta/encomendas</span></div>` : ''}
+
+<div class="footer">
+  ${tax.companyName} · NUIT ${tax.companyNuit || '—'} · IVA incluído à taxa de ${tax.vatRate}%<br>
+  Obrigado pela sua preferência! 🌿
+</div>
+<script>window.onload=()=>{window.print();}</script>
+</body></html>`);
     printWindow.document.close();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
   };
 
   const getStatusIcon = (status: OrderStatus) => {
@@ -3039,7 +3107,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
                         {order.items.map((item, idx) => (
                           <div key={idx} className="flex justify-between text-sm text-gray-700 dark:text-content-secondary">
                             <span>{item.quantity}{item.unit} {item.productName}{item.variantName ? ` ${item.variantName}` : ''}</span>
-                            <span className="text-gray-400 dark:text-gray-500">{formatMoney(item.priceAtTime * item.quantity)}</span>
+                            <span className="text-gray-400 dark:text-gray-500">{formatMoney((item.priceAtTime ?? item.price ?? 0) * item.quantity)}</span>
                           </div>
                         ))}
                       </div>
@@ -3455,7 +3523,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
                               {order.items.map((item, idx) => (
                                 <div key={idx} className="flex justify-between text-xs text-gray-700 dark:text-content-secondary py-0.5 pl-4">
                                   <span>{item.quantity}{item.unit} {item.productName}{item.variantName ? ` ${item.variantName}` : ''}</span>
-                                  <span className="text-gray-600 dark:text-gray-400 font-medium">{formatMoney(item.priceAtTime * item.quantity)}</span>
+                                  <span className="text-gray-600 dark:text-gray-400 font-medium">{formatMoney((item.priceAtTime ?? item.price ?? 0) * item.quantity)}</span>
                                 </div>
                               ))}
                             </div>
@@ -3856,7 +3924,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
                         {selectedOrder.items.map((item, i) => (
                           <div key={i} className="flex justify-between text-sm">
                             <span className="text-gray-600 dark:text-gray-400"><span className="font-bold text-gray-900 dark:text-gray-200">{item.quantity}{item.unit}</span> {item.productName}{item.variantName ? ` ${item.variantName}` : ''}</span>
-                            <span className="font-medium">{formatMoney(item.priceAtTime * item.quantity)}</span>
+                            <span className="font-medium">{formatMoney((item.priceAtTime ?? item.price ?? 0) * item.quantity)}</span>
                           </div>
                         ))}
                       </div>
@@ -3867,7 +3935,7 @@ export const Orders: React.FC<OrdersProps> = ({ orders, products, customers, tot
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-gray-600 dark:text-gray-400">Total dos Itens:</span>
                           <span className="font-semibold text-content-primary">
-                            {formatMoney(selectedOrder.items.reduce((sum, item) => sum + (item.priceAtTime * item.quantity), 0))}
+                            {formatMoney(selectedOrder.items.reduce((sum, item) => sum + ((item.priceAtTime ?? item.price ?? 0) * item.quantity), 0))}
                           </span>
                         </div>
 

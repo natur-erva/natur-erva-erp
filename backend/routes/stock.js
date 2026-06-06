@@ -4,6 +4,529 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// ── Auto-create tables ─────────────────────────────────────────────────────────
+pool.query(`
+  CREATE TABLE IF NOT EXISTS stock_adjustments (
+    id           UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id   UUID          NOT NULL,
+    product_name TEXT          NOT NULL,
+    variant_id   UUID,
+    variant_name TEXT,
+    quantity     NUMERIC(10,3) NOT NULL,
+    reason       TEXT          NOT NULL,
+    notes        TEXT,
+    date         DATE          NOT NULL DEFAULT CURRENT_DATE,
+    created_by   UUID,
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+  )
+`).catch(e => console.error('[stock] stock_adjustments:', e.message));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS stock_audits (
+    id           UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    audit_date   DATE          NOT NULL,
+    description  TEXT,
+    status       TEXT          NOT NULL DEFAULT 'draft',
+    scope        TEXT          NOT NULL DEFAULT 'all',
+    scope_filter JSONB,
+    created_by   UUID,
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+    applied_at   TIMESTAMPTZ
+  )
+`).catch(e => console.error('[stock] stock_audits:', e.message));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS stock_audit_items (
+    id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    audit_id          UUID          NOT NULL,
+    product_id        UUID          NOT NULL,
+    product_name      TEXT          NOT NULL,
+    variant_id        UUID,
+    variant_name      TEXT,
+    system_quantity   NUMERIC(10,3) NOT NULL DEFAULT 0,
+    counted_quantity  NUMERIC(10,3),
+    discrepancy       NUMERIC(10,3),
+    unit              TEXT          DEFAULT 'un',
+    cost_price        NUMERIC(12,4),
+    notes             TEXT,
+    adjustment_reason TEXT,
+    adjustment_notes  TEXT,
+    approved          BOOLEAN       DEFAULT false,
+    adjustment_id     UUID,
+    created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+  )
+`).catch(e => console.error('[stock] stock_audit_items:', e.message));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS stock_lots (
+    id           UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id   UUID          NOT NULL,
+    product_name TEXT          NOT NULL,
+    variant_id   UUID,
+    variant_name TEXT,
+    unit         TEXT          DEFAULT 'un',
+    quantity     NUMERIC(10,3) NOT NULL DEFAULT 0,
+    unit_cost    NUMERIC(12,4) DEFAULT 0,
+    source_type  TEXT          NOT NULL DEFAULT 'purchase',
+    source_id    UUID,
+    received_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    notes        TEXT,
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+  )
+`).catch(e => console.error('[stock] stock_lots:', e.message));
+
+// ── Mappers ────────────────────────────────────────────────────────────────────
+const mapAdj = (r) => ({
+  id: r.id,
+  productId: r.product_id,
+  productName: r.product_name,
+  variantId: r.variant_id ?? undefined,
+  variantName: r.variant_name ?? undefined,
+  quantity: Number(r.quantity) || 0,
+  reason: r.reason,
+  notes: r.notes ?? undefined,
+  date: r.date ? (typeof r.date === 'string' ? r.date.split('T')[0] : r.date.toISOString().slice(0, 10)) : undefined,
+  createdBy: r.created_by ?? undefined,
+  createdAt: r.created_at
+});
+
+const mapAudit = (r) => ({
+  id: r.id,
+  auditDate: r.audit_date ? (typeof r.audit_date === 'string' ? r.audit_date.split('T')[0] : r.audit_date.toISOString().slice(0, 10)) : undefined,
+  description: r.description ?? undefined,
+  status: r.status,
+  scope: r.scope,
+  scopeFilter: r.scope_filter ?? undefined,
+  createdBy: r.created_by ?? undefined,
+  createdAt: r.created_at,
+  completedAt: r.completed_at ?? undefined,
+  appliedAt: r.applied_at ?? undefined
+});
+
+const mapAuditItem = (r) => ({
+  id: r.id,
+  auditId: r.audit_id,
+  productId: r.product_id,
+  productName: r.product_name,
+  variantId: r.variant_id ?? undefined,
+  variantName: r.variant_name ?? undefined,
+  systemQuantity: Number(r.system_quantity) || 0,
+  countedQuantity: r.counted_quantity != null ? Number(r.counted_quantity) : undefined,
+  discrepancy: r.discrepancy != null ? Number(r.discrepancy) : undefined,
+  unit: r.unit ?? 'un',
+  costPrice: r.cost_price != null ? Number(r.cost_price) : undefined,
+  notes: r.notes ?? undefined,
+  adjustmentReason: r.adjustment_reason ?? undefined,
+  adjustmentNotes: r.adjustment_notes ?? undefined,
+  approved: r.approved || false,
+  adjustmentId: r.adjustment_id ?? undefined,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at
+});
+
+const mapLot = (r) => ({
+  id: r.id,
+  productId: r.product_id,
+  productName: r.product_name,
+  variantId: r.variant_id ?? null,
+  variantName: r.variant_name ?? '',
+  unit: r.unit ?? 'un',
+  quantity: Number(r.quantity) || 0,
+  unitCost: Number(r.unit_cost) || 0,
+  totalValue: (Number(r.quantity) || 0) * (Number(r.unit_cost) || 0),
+  sourceType: r.source_type ?? 'manual',
+  sourceId: r.source_id ?? null,
+  receivedAt: r.received_at ?? ''
+});
+
+// ── Helper: apply stock adjustment ────────────────────────────────────────────
+async function applyStockDelta(variantId, productId, delta) {
+  if (!delta || delta === 0) return;
+  if (variantId) {
+    await pool.query(
+      'UPDATE product_variants SET stock = GREATEST(0, stock + $1), updated_at = NOW() WHERE id = $2',
+      [delta, variantId]
+    ).catch(() => {});
+  } else {
+    const { rows } = await pool.query(
+      'SELECT id FROM product_variants WHERE product_id = $1 AND is_default = true LIMIT 1',
+      [productId]
+    ).catch(() => ({ rows: [] }));
+    if (rows.length) {
+      await pool.query(
+        'UPDATE product_variants SET stock = GREATEST(0, stock + $1), updated_at = NOW() WHERE id = $2',
+        [delta, rows[0].id]
+      ).catch(() => {});
+    }
+  }
+}
+
+// === STOCK ADJUSTMENTS ===
+
+// GET /api/stock/adjustments
+router.get('/adjustments', authMiddleware, async (req, res) => {
+  try {
+    const { productId } = req.query;
+    let q = 'SELECT * FROM stock_adjustments';
+    const params = [];
+    if (productId) { q += ' WHERE product_id = $1'; params.push(productId); }
+    q += ' ORDER BY date DESC, created_at DESC';
+    const { rows } = await pool.query(q, params);
+    res.json(rows.map(mapAdj));
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar ajustes' });
+  }
+});
+
+// POST /api/stock/adjustments
+router.post('/adjustments', authMiddleware, async (req, res) => {
+  try {
+    const a = req.body;
+    const qty = Number(a.quantity) || 0;
+    if (qty === 0) return res.status(400).json({ error: 'Quantidade não pode ser zero' });
+    const { rows } = await pool.query(
+      `INSERT INTO stock_adjustments (product_id, product_name, variant_id, variant_name, quantity, reason, notes, date, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [a.productId, a.productName, a.variantId || null, a.variantName || null,
+       qty, a.reason, a.notes || null, a.date, a.createdBy || null]
+    );
+    // Create stock movement
+    await pool.query(
+      `INSERT INTO stock_movements (date, items, notes, source_reference, created_at)
+       VALUES ($1,$2,$3,$4,NOW())`,
+      [a.date, JSON.stringify([{ productId: a.productId, productName: a.productName, variantId: a.variantId, quantity: qty }]),
+       `Ajuste: ${a.reason}${a.notes ? ' - ' + a.notes : ''}`,
+       JSON.stringify({ type: 'adjustment', id: rows[0].id })]
+    ).catch(() => {});
+    // Update stock
+    await applyStockDelta(a.variantId || null, a.productId, qty);
+    res.status(201).json(mapAdj(rows[0]));
+  } catch (err) {
+    console.error('[POST /stock/adjustments]', err);
+    res.status(500).json({ error: 'Erro ao criar ajuste' });
+  }
+});
+
+// PUT /api/stock/adjustments/:id
+router.put('/adjustments/:id', authMiddleware, async (req, res) => {
+  try {
+    const a = req.body;
+    const { rows: old } = await pool.query('SELECT * FROM stock_adjustments WHERE id = $1', [req.params.id]);
+    if (!old.length) return res.status(404).json({ error: 'Ajuste não encontrado' });
+    // Revert old stock delta
+    await applyStockDelta(old[0].variant_id, old[0].product_id, -Number(old[0].quantity));
+    const newQty = Number(a.quantity) || 0;
+    await pool.query(
+      `UPDATE stock_adjustments SET quantity=$1, reason=$2, notes=$3, date=$4 WHERE id=$5`,
+      [newQty, a.reason, a.notes || null, a.date, req.params.id]
+    );
+    // Apply new delta
+    await applyStockDelta(old[0].variant_id, old[0].product_id, newQty);
+    // Update movement
+    await pool.query(
+      `UPDATE stock_movements SET date=$1, notes=$2, updated_at=NOW()
+       WHERE source_reference->>'type'='adjustment' AND source_reference->>'id'=$3`,
+      [a.date, `Ajuste: ${a.reason}${a.notes ? ' - ' + a.notes : ''}`, req.params.id]
+    ).catch(() => {});
+    const { rows } = await pool.query('SELECT * FROM stock_adjustments WHERE id = $1', [req.params.id]);
+    res.json(mapAdj(rows[0]));
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao actualizar ajuste' });
+  }
+});
+
+// DELETE /api/stock/adjustments (bulk) — must be before /:id
+router.delete('/adjustments', authMiddleware, async (req, res) => {
+  const ids = req.body?.ids || [];
+  let deleted = 0;
+  const errors = [];
+  for (const id of ids) {
+    try {
+      const { rows } = await pool.query('SELECT * FROM stock_adjustments WHERE id = $1', [id]);
+      if (rows.length) {
+        await applyStockDelta(rows[0].variant_id, rows[0].product_id, -Number(rows[0].quantity));
+        await pool.query(`DELETE FROM stock_movements WHERE source_reference->>'type'='adjustment' AND source_reference->>'id'=$1`, [id]).catch(() => {});
+        await pool.query('DELETE FROM stock_adjustments WHERE id = $1', [id]);
+      }
+      deleted++;
+    } catch (e) { errors.push(`${id}: ${e.message}`); }
+  }
+  res.json({ success: !errors.length, deleted, errors });
+});
+
+// DELETE /api/stock/adjustments/:id
+router.delete('/adjustments/:id', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM stock_adjustments WHERE id = $1', [req.params.id]);
+    if (rows.length) {
+      await applyStockDelta(rows[0].variant_id, rows[0].product_id, -Number(rows[0].quantity));
+      await pool.query(`DELETE FROM stock_movements WHERE source_reference->>'type'='adjustment' AND source_reference->>'id'=$1`, [req.params.id]).catch(() => {});
+      await pool.query('DELETE FROM stock_adjustments WHERE id = $1', [req.params.id]);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao apagar ajuste' });
+  }
+});
+
+// === STOCK AUDITS ===
+
+// GET /api/stock/audits
+router.get('/audits', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM stock_audits ORDER BY audit_date DESC, created_at DESC');
+    res.json(rows.map(mapAudit));
+  } catch (err) { res.status(500).json({ error: 'Erro ao buscar auditorias' }); }
+});
+
+// GET /api/stock/audits/:id — with items
+router.get('/audits/:id', authMiddleware, async (req, res) => {
+  try {
+    const { rows: [audit] } = await pool.query('SELECT * FROM stock_audits WHERE id = $1', [req.params.id]);
+    if (!audit) return res.status(404).json({ error: 'Auditoria não encontrada' });
+    const { rows: items } = await pool.query('SELECT * FROM stock_audit_items WHERE audit_id = $1 ORDER BY product_name, variant_name', [req.params.id]);
+    res.json({ ...mapAudit(audit), items: items.map(mapAuditItem) });
+  } catch (err) { res.status(500).json({ error: 'Erro ao buscar auditoria' }); }
+});
+
+// POST /api/stock/audits
+router.post('/audits', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { auditDate, description, scope, scopeFilter, items: auditItems } = req.body;
+    await client.query('BEGIN');
+    const { rows: [audit] } = await client.query(
+      `INSERT INTO stock_audits (audit_date, description, scope, scope_filter, created_by)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [auditDate, description || null, scope || 'all', scopeFilter ? JSON.stringify(scopeFilter) : null, req.user?.id || null]
+    );
+    // Insert items
+    if (Array.isArray(auditItems) && auditItems.length > 0) {
+      for (const it of auditItems) {
+        await client.query(
+          `INSERT INTO stock_audit_items (audit_id, product_id, product_name, variant_id, variant_name, system_quantity, unit, cost_price)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [audit.id, it.productId, it.productName, it.variantId || null, it.variantName || null,
+           it.systemQuantity || 0, it.unit || 'un', it.costPrice || null]
+        );
+      }
+    }
+    await client.query('COMMIT');
+    const { rows: items } = await pool.query('SELECT * FROM stock_audit_items WHERE audit_id = $1', [audit.id]);
+    res.status(201).json({ ...mapAudit(audit), items: items.map(mapAuditItem) });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[POST /stock/audits]', err);
+    res.status(500).json({ error: 'Erro ao criar auditoria' });
+  } finally { client.release(); }
+});
+
+// PUT /api/stock/audits/:id/complete
+router.put('/audits/:id/complete', authMiddleware, async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE stock_audits SET status='completed', completed_at=NOW() WHERE id=$1`,
+      [req.params.id]
+    );
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao completar auditoria' }); }
+});
+
+// PUT /api/stock/audits/:id/apply — apply discrepancies as adjustments
+router.put('/audits/:id/apply', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { rows: [audit] } = await pool.query('SELECT * FROM stock_audits WHERE id = $1', [req.params.id]);
+    if (!audit) return res.status(404).json({ error: 'Auditoria não encontrada' });
+    const { rows: items } = await pool.query(
+      `SELECT * FROM stock_audit_items WHERE audit_id=$1 AND approved=true AND discrepancy IS NOT NULL AND discrepancy <> 0 AND adjustment_id IS NULL`,
+      [req.params.id]
+    );
+    await client.query('BEGIN');
+    let applied = 0;
+    for (const item of items) {
+      const disc = Number(item.discrepancy);
+      if (disc === 0) continue;
+      const { rows: [adj] } = await client.query(
+        `INSERT INTO stock_adjustments (product_id, product_name, variant_id, variant_name, quantity, reason, notes, date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [item.product_id, item.product_name, item.variant_id, item.variant_name,
+         disc, item.adjustment_reason || 'correction',
+         item.adjustment_notes || `Ajuste de auditoria ${audit.audit_date}`,
+         audit.audit_date]
+      );
+      await client.query(
+        `UPDATE stock_audit_items SET adjustment_id=$1, updated_at=NOW() WHERE id=$2`,
+        [adj.id, item.id]
+      );
+      await applyStockDelta(item.variant_id, item.product_id, disc);
+      applied++;
+    }
+    await client.query(
+      `UPDATE stock_audits SET status='applied', applied_at=NOW() WHERE id=$1`,
+      [req.params.id]
+    );
+    await client.query('COMMIT');
+    res.json({ success: true, applied });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Erro ao aplicar auditoria' });
+  } finally { client.release(); }
+});
+
+// PUT /api/stock/audits/:id/revert — revert 'applied' → 'completed'
+router.put('/audits/:id/revert', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    // Find all adjustment_ids linked to this audit
+    const { rows: linkedItems } = await pool.query(
+      'SELECT adjustment_id FROM stock_audit_items WHERE audit_id=$1 AND adjustment_id IS NOT NULL',
+      [req.params.id]
+    );
+    await client.query('BEGIN');
+    for (const { adjustment_id } of linkedItems) {
+      // Revert stock
+      const { rows: [adj] } = await pool.query('SELECT * FROM stock_adjustments WHERE id=$1', [adjustment_id]);
+      if (adj) {
+        await applyStockDelta(adj.variant_id, adj.product_id, -Number(adj.quantity));
+        await pool.query(`DELETE FROM stock_movements WHERE source_reference->>'type'='adjustment' AND source_reference->>'id'=$1`, [adjustment_id]).catch(() => {});
+        await pool.query('DELETE FROM stock_adjustments WHERE id=$1', [adjustment_id]);
+      }
+    }
+    // Clear adjustment_ids from items
+    await client.query(
+      `UPDATE stock_audit_items SET adjustment_id=NULL, approved=false, updated_at=NOW() WHERE audit_id=$1`,
+      [req.params.id]
+    );
+    // Revert status
+    await client.query(
+      `UPDATE stock_audits SET status='completed', applied_at=NULL WHERE id=$1`,
+      [req.params.id]
+    );
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Erro ao reverter auditoria' });
+  } finally { client.release(); }
+});
+
+// DELETE /api/stock/audits/:id
+router.delete('/audits/:id', authMiddleware, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM stock_audits WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao apagar auditoria' }); }
+});
+
+// PUT /api/stock/audits/:id/items/batch
+router.put('/audits/:id/items/batch', authMiddleware, async (req, res) => {
+  const { updates } = req.body; // Array<{ itemId, countedQuantity, notes? }>
+  if (!Array.isArray(updates) || !updates.length) return res.json({ success: true });
+  try {
+    for (const u of updates) {
+      if (!u.itemId) continue;
+      // Get system_quantity to calculate discrepancy
+      const { rows: [item] } = await pool.query('SELECT system_quantity FROM stock_audit_items WHERE id = $1', [u.itemId]);
+      const disc = item ? (Number(u.countedQuantity) - Number(item.system_quantity)) : null;
+      await pool.query(
+        `UPDATE stock_audit_items SET counted_quantity=$1, discrepancy=$2, notes=$3, updated_at=NOW() WHERE id=$4`,
+        [u.countedQuantity ?? null, disc, u.notes || null, u.itemId]
+      );
+    }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao guardar contagens', success: false }); }
+});
+
+// PUT /api/stock/audit-items/:id
+router.put('/audit-items/:id', authMiddleware, async (req, res) => {
+  try {
+    const f = req.body;
+    const disc = f.countedQuantity != null && f.systemQuantity != null
+      ? Number(f.countedQuantity) - Number(f.systemQuantity)
+      : null;
+    await pool.query(
+      `UPDATE stock_audit_items SET
+         counted_quantity=$1, discrepancy=$2, notes=$3,
+         adjustment_reason=$4, adjustment_notes=$5, approved=$6, updated_at=NOW()
+       WHERE id=$7`,
+      [f.countedQuantity ?? null, disc, f.notes || null,
+       f.adjustmentReason || null, f.adjustmentNotes || null,
+       f.approved || false, req.params.id]
+    );
+    const { rows } = await pool.query('SELECT * FROM stock_audit_items WHERE id = $1', [req.params.id]);
+    res.json(mapAuditItem(rows[0]));
+  } catch (err) { res.status(500).json({ error: 'Erro ao actualizar item de auditoria' }); }
+});
+
+// === STOCK LOTS ===
+
+// GET /api/stock/lots
+router.get('/lots', authMiddleware, async (req, res) => {
+  try {
+    const { productId, variantId, sourceType, includeConsumed } = req.query;
+    let q = 'SELECT l.*, p.name as p_name, p.unit as p_unit, pv.name as v_name, pv.unit as v_unit FROM stock_lots l LEFT JOIN products p ON p.id = l.product_id LEFT JOIN product_variants pv ON pv.id = l.variant_id WHERE 1=1';
+    const params = [];
+    let idx = 1;
+    if (includeConsumed !== 'true') { q += ` AND l.quantity > 0`; }
+    if (productId) { q += ` AND l.product_id = $${idx++}`; params.push(productId); }
+    if (variantId) { q += ` AND l.variant_id = $${idx++}`; params.push(variantId); }
+    if (sourceType) { q += ` AND l.source_type = $${idx++}`; params.push(sourceType); }
+    q += ' ORDER BY l.received_at ASC';
+    const { rows } = await pool.query(q, params);
+    res.json(rows.map(r => ({
+      id: r.id,
+      productId: r.product_id,
+      productName: r.p_name ?? r.product_name,
+      variantId: r.variant_id ?? null,
+      variantName: r.v_name ?? r.variant_name ?? '',
+      unit: r.v_unit ?? r.p_unit ?? r.unit ?? 'un',
+      quantity: Number(r.quantity) || 0,
+      unitCost: Number(r.unit_cost) || 0,
+      totalValue: (Number(r.quantity) || 0) * (Number(r.unit_cost) || 0),
+      sourceType: r.source_type ?? 'manual',
+      sourceId: r.source_id ?? null,
+      receivedAt: r.received_at ?? ''
+    })));
+  } catch (err) { res.status(500).json({ error: 'Erro ao buscar lotes' }); }
+});
+
+// PUT /api/stock/lots/:id
+router.put('/lots/:id', authMiddleware, async (req, res) => {
+  try {
+    const { quantity, unitCost } = req.body;
+    const updates = [];
+    const params = [];
+    if (quantity !== undefined) { updates.push(`quantity=$${params.length + 1}`); params.push(quantity); }
+    if (unitCost !== undefined) { updates.push(`unit_cost=$${params.length + 1}`); params.push(unitCost); }
+    if (!updates.length) return res.json({ success: true });
+    updates.push('updated_at=NOW()');
+    params.push(req.params.id);
+    await pool.query(`UPDATE stock_lots SET ${updates.join(',')} WHERE id=$${params.length}`, params);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao actualizar lote' }); }
+});
+
+// DELETE /api/stock/lots/:id
+router.delete('/lots/:id', authMiddleware, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM stock_lots WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao apagar lote' }); }
+});
+
+// DELETE /api/stock/lots (bulk)
+router.delete('/lots', authMiddleware, async (req, res) => {
+  const ids = req.body?.ids || [];
+  try {
+    if (ids.length) await pool.query(`DELETE FROM stock_lots WHERE id = ANY($1::uuid[])`, [ids]);
+    res.json({ success: true, deleted: ids.length });
+  } catch (err) { res.status(500).json({ error: 'Erro ao apagar lotes' }); }
+});
+
 // === STOCK MOVEMENTS ===
 
 const mapMovement = (m) => ({

@@ -67,6 +67,8 @@ export interface Product {
   ingredients?: string;
   promotionalPrice?: number | null;
   createdAt?: string;
+  barcode?: string | null;
+  vatRegime?: 'standard' | 'exempt';
   landingPageEnabled?: boolean;
   landingPageData?: {
     heroTitle?: string;

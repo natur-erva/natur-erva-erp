@@ -35,6 +35,7 @@ import affiliateRoutes from './routes/affiliates.js';
 import marketingRoutes from './routes/marketing.js';
 import blogRoutes from './routes/blog.js';
 import posRoutes from './routes/pos.js';
+import taxRoutes from './routes/tax.js';
 
 const app = express();
 const PORT = process.env.PORT || 3060;
@@ -132,6 +133,7 @@ app.use('/api/affiliates', affiliateRoutes);
 app.use('/api/marketing', marketingRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/pos',  posRoutes);
+app.use('/api/tax',  taxRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

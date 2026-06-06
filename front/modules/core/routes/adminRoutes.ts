@@ -36,6 +36,7 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'stock-alerts': '/admin/stock/alertas',
   'stock-adjustments': '/admin/stock/ajustes',
   'stock-lots': '/admin/stock/lotes',
+  'stock-audit': '/admin/stock/auditoria',
   // Media
   'media': '/admin/galeria',
   'tracking': '/admin/estatisticas',
@@ -59,6 +60,8 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'blog': '/admin/blog',
   // POS
   'pos': '/admin/caixa',
+  // Finanças / IVA
+  'financas': '/admin/financas',
   // Perfil
   'profile': '/admin/perfis'
 };
@@ -101,6 +104,7 @@ export const getActivePageFromPath = (pathname: string): string => {
     '/admin/stock/alertas': 'stock-management',
     '/admin/stock/ajustes': 'stock-management',
     '/admin/stock/lotes': 'stock-management',
+    '/admin/stock/auditoria': 'stock-management',
     '/admin/usuarios/roles': 'users',
   };
 
@@ -141,6 +145,7 @@ export const getActivePageFromPath = (pathname: string): string => {
           'stock-alerts': 'stock-management',
           'stock-adjustments': 'stock-management',
           'stock-lots': 'stock-management',
+          'stock-audit': 'stock-management',
           'users-list': 'users',
           'users-roles': 'users',
         };

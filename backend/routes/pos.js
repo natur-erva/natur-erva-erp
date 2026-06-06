@@ -18,6 +18,44 @@ pool.query(`
   )
 `).catch(err => console.error('[POS] Erro ao criar tabela pos_sessions:', err.message));
 
+// GET /api/pos/sessions — listar todas as sessões (para o admin)
+router.get('/sessions', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT s.*,
+         COALESCE(
+           (SELECT SUM(o.total_amount) FROM orders o
+            WHERE o.source = 'pos' AND o.created_at >= s.opened_at
+              AND (s.closed_at IS NULL OR o.created_at <= s.closed_at)
+              AND o.status NOT IN ('cancelled')),
+           0
+         ) AS total_sales,
+         COALESCE(
+           (SELECT COUNT(*) FROM orders o
+            WHERE o.source = 'pos' AND o.created_at >= s.opened_at
+              AND (s.closed_at IS NULL OR o.created_at <= s.closed_at)
+              AND o.status NOT IN ('cancelled')),
+           0
+         ) AS total_orders
+       FROM pos_sessions s
+       ORDER BY s.opened_at DESC
+       LIMIT 100`
+    );
+    res.json(rows.map(r => ({
+      id:            r.id,
+      cashierName:   r.cashier_name,
+      cashierId:     r.cashier_id,
+      openedAt:      r.opened_at,
+      closedAt:      r.closed_at,
+      initialAmount: Number(r.initial_amount),
+      isOpen:        r.is_open,
+      summary:       r.summary,
+      totalSales:    Math.round(Number(r.total_sales) * 100) / 100,
+      totalOrders:   Number(r.total_orders),
+    })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // GET /api/pos/session/current
 router.get('/session/current', authMiddleware, async (req, res) => {
   try {

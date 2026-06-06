@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { Calendar, ChevronDown } from 'lucide-react';
 import { getTodayDateString } from '../../utils/dateUtils';
 
-export type PeriodOption = 
+export type PeriodOption =
+  | 'all'
   | 'today'
   | 'yesterday'
   | 'thisWeek'
@@ -33,6 +34,7 @@ export const PeriodFilter: React.FC<PeriodFilterProps> = ({
   const [showCustomPicker, setShowCustomPicker] = React.useState(false);
 
   const periodLabels: Record<PeriodOption, string> = {
+    all: 'Todos os registos',
     today: 'Hoje',
     yesterday: 'Ontem',
     thisWeek: 'Esta semana',
@@ -44,8 +46,7 @@ export const PeriodFilter: React.FC<PeriodFilterProps> = ({
     custom: 'Período personalizado'
   };
 
-  // Ordem: Hoje, Ontem, Esta semana, Semana passada, Este mês, Mês passado, Este ano, Ano passado, Personalizado
-  const basicPeriods: PeriodOption[] = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'thisYear', 'lastYear', 'custom'];
+  const basicPeriods: PeriodOption[] = ['all', 'today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'thisYear', 'lastYear', 'custom'];
 
   const handlePeriodSelect = (period: PeriodOption) => {
     onPeriodChange(period);
@@ -76,6 +77,11 @@ export const PeriodFilter: React.FC<PeriodFilterProps> = ({
     let end = new Date();
 
     switch (selectedPeriod) {
+      case 'all':
+        start = new Date(2000, 0, 1);
+        end = new Date(2099, 11, 31);
+        end.setHours(23, 59, 59, 999);
+        break;
       case 'today':
         start.setHours(0, 0, 0, 0);
         end.setHours(23, 59, 59, 999);
@@ -380,7 +386,7 @@ export const PeriodFilter: React.FC<PeriodFilterProps> = ({
         document.body
       ) : null}
 
-      {selectedPeriod !== 'custom' && (
+      {selectedPeriod !== 'custom' && selectedPeriod !== 'all' && (
         <span className="ml-3 text-xs text-content-muted">
           {formatDate(start)} - {formatDate(end)}
         </span>

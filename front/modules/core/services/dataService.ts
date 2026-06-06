@@ -135,7 +135,10 @@ export const dataService = {
     orderService.updateOrder(orderId, { status }),
   getSales: (): Promise<Sale[]> => salesService.getSales(),
   getPurchases: (): Promise<Purchase[]> => purchaseService.getPurchases(),
-  getPurchaseRequests: async (): Promise<PurchaseRequest[]> => [],
+  getPurchaseRequests: async (): Promise<PurchaseRequest[]> => {
+    try { return await (await import('../../products/services/purchaseRequestService')).purchaseRequestService.getRequests(); }
+    catch { return []; }
+  },
   getSuppliers: (): Promise<Supplier[]> => supplierService.getSuppliers(),
 
   getCustomersCount: (): Promise<number> => customerService.getCustomersCount(),

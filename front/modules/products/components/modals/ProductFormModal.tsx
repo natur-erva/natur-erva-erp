@@ -34,6 +34,8 @@ export interface ProductFormData {
   howToUse: string;
   ingredients: string;
   promotionalPrice: number | null;
+  barcode: string;
+  vatRegime: 'standard' | 'exempt';
 }
 
 interface ProductFormModalProps {
@@ -68,6 +70,8 @@ const defaultFormData: ProductFormData = {
   howToUse: '',
   ingredients: '',
   promotionalPrice: null,
+  barcode: '',
+  vatRegime: 'standard',
 };
 
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
@@ -117,6 +121,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         howToUse: (product as any).howToUse || '',
         ingredients: (product as any).ingredients || '',
         promotionalPrice: (product as any).promotionalPrice ?? null,
+        barcode: (product as any).barcode || '',
+        vatRegime: (product as any).vatRegime || 'standard',
       });
     } else {
       const defaultCategory = categories.length > 0 ? categories[0].name : '';
@@ -327,6 +333,34 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
                 placeholder="Ex: Amendoim Pilado"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Código de Barras
+                </label>
+                <input
+                  type="text"
+                  value={formData.barcode}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, barcode: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 font-mono"
+                  placeholder="EAN-13 / QR"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Regime IVA
+                </label>
+                <select
+                  value={formData.vatRegime}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, vatRegime: e.target.value as 'standard' | 'exempt' }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="standard">IVA 16% (incluído)</option>
+                  <option value="exempt">Isento de IVA</option>
+                </select>
+              </div>
             </div>
 
             <div>
