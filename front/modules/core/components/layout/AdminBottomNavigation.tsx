@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutDashboard, ShoppingCart, TrendingUp, Truck, Menu, Tv, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, TrendingUp, Menu, BarChart3, Store } from 'lucide-react';
 import { usePermissions } from '../../../core/hooks/usePermissions';
 import { User } from '../../../core/types/types';
 
@@ -66,12 +66,12 @@ export const AdminBottomNavigation: React.FC<AdminBottomNavigationProps> = ({
     skipModuleCheck?: boolean;
   }
 
-  // Itens priorité¡rios para o bottom navigation
+  // Itens prioritários para o bottom navigation (máx 4 + Menu)
   const priorityItems: PriorityItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
-    { id: 'orders', label: 'Pedidos', icon: ShoppingCart, permission: 'orders.view' },
-    { id: 'sales', label: 'Vendas', icon: TrendingUp, permission: 'sales.view' },
-    { id: 'stock-management', label: 'Stock', icon: BarChart3, permission: 'products.view' },
+    { id: 'dashboard',       label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.view', skipModuleCheck: true },
+    { id: 'pos',             label: 'Caixa',     icon: Store,           permission: 'sales.view',     skipModuleCheck: true },
+    { id: 'orders',          label: 'Pedidos',   icon: ShoppingCart,    permission: 'orders.view',    skipModuleCheck: true },
+    { id: 'sales',           label: 'Vendas',    icon: TrendingUp,      permission: 'sales.view',     skipModuleCheck: true },
   ];
 
   // Filtrar navItems baseado em enabledModules e permisséµes

@@ -167,22 +167,46 @@ export const RemoteScannerPage: React.FC = () => {
     loopActiveRef.current = false;
     try {
       streamRef.current?.getTracks().forEach(t => t.stop());
-      const stream = await openCamera(); // fallback progressivo de constraints
+      const stream = await openCamera();
       streamRef.current = stream;
       const video = videoRef.current!;
       video.srcObject = stream;
       video.setAttribute('playsinline', 'true');
       video.setAttribute('webkit-playsinline', 'true');
       video.muted = true;
-      await video.play().catch(() => {});
-      await waitForVideoReady(video);
 
-      const hasNative = 'BarcodeDetector' in window;
+      // iOS pode não iniciar o vídeo fora de gesto do utilizador — não bloquear aqui
+      video.play().catch(() => {});
+
       setStatus('scanning');
       loopActiveRef.current = true;
 
-      if (!hasNative) {
-        // Fallback canvas + jsQR para iOS sem BarcodeDetector nativo
+      const hasNative = 'BarcodeDetector' in window;
+
+      if (hasNative) {
+        // ── Modo A: BarcodeDetector nativo (Chrome Android, Safari 17+ iOS) ──
+        const detector = new BarcodeDetector({ formats: BARCODE_FORMATS });
+        const scan = async () => {
+          if (!loopActiveRef.current || !video) return;
+          try {
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+              const barcodes = await detector.detect(video);
+              if (barcodes.length > 0) {
+                const code = barcodes[0].rawValue.trim();
+                const now = Date.now();
+                if (code && (code !== lastCodeRef.current || now - lastTimeRef.current > 2000)) {
+                  lastCodeRef.current = code;
+                  lastTimeRef.current = now;
+                  sendCode(code);
+                }
+              }
+            }
+          } catch {}
+          rafRef.current = requestAnimationFrame(scan);
+        };
+        rafRef.current = requestAnimationFrame(scan);
+      } else {
+        // ── Modo B: Canvas + jsQR real-time (iOS < 17, Firefox, Desktop Chrome)
         const jsQR = await loadJsQR().catch(() => null);
         if (jsQR) {
           const canvas = document.createElement('canvas');
@@ -211,30 +235,12 @@ export const RemoteScannerPage: React.FC = () => {
             rafRef.current = requestAnimationFrame(scan);
           };
           rafRef.current = requestAnimationFrame(scan);
-          return; // não continua para o BarcodeDetector abaixo
+        } else {
+          // jsQR CDN falhou — mostrar modo foto como último recurso
+          setStatus('idle');
+          setScanMode('photo');
         }
       }
-
-      const detector = new BarcodeDetector({ formats: BARCODE_FORMATS });
-
-      // Loop único e contínuo — sem `return` após scan, apenas debounce via ref
-      const scan = async () => {
-        if (!loopActiveRef.current || !videoRef.current || !streamRef.current) return;
-        try {
-          const barcodes = await detector.detect(videoRef.current);
-          if (barcodes.length > 0) {
-            const code = barcodes[0].rawValue.trim();
-            const now = Date.now();
-            if (code && (code !== lastCodeRef.current || now - lastTimeRef.current > 2000)) {
-              lastCodeRef.current = code;
-              lastTimeRef.current = now;
-              sendCode(code); // não awaitar — loop continua sem parar
-            }
-          }
-        } catch {}
-        rafRef.current = requestAnimationFrame(scan);
-      };
-      rafRef.current = requestAnimationFrame(scan);
     } catch (e: any) {
       loopActiveRef.current = false;
       const name = e?.name || '';
@@ -328,11 +334,7 @@ export const RemoteScannerPage: React.FC = () => {
     stopVideo();
     setErrorMsg('');
     setPhotoPreview(null);
-    if ('BarcodeDetector' in window) {
-      startVideoScanner();
-    } else {
-      setStatus('idle');
-    }
+    startVideoScanner(); // handles BarcodeDetector, jsQR fallback, and photo mode fallback
   };
 
   // ── Ecrãs especiais ────────────────────────────────────────────────────────

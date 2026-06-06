@@ -127,9 +127,8 @@ export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
       video.setAttribute('webkit-playsinline', 'true');
       video.muted = true;
 
-      // play() pode falhar silenciosamente em iOS — ignorar e aguardar frames
-      await video.play().catch(() => {});
-      await waitForVideoReady(video);
+      // iOS bloqueia autoplay fora de gesto — não bloquear a thread aqui
+      video.play().catch(() => {});
 
       setStatus('scanning');
       activeRef.current = true;
