@@ -79,19 +79,6 @@ async function getJsQR() {
   return _jsQR!;
 }
 
-// Aguarda o vídeo ter frames reais antes de processar
-function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
-  return new Promise(resolve => {
-    if (video.readyState >= 3 && video.videoWidth > 0) { resolve(); return; }
-    const check = () => {
-      if (video.readyState >= 2 && video.videoWidth > 0) { resolve(); return; }
-      requestAnimationFrame(check);
-    };
-    video.onloadeddata = () => check();
-    requestAnimationFrame(check);
-  });
-}
-
 export const BarcodeScanner: React.FC<Props> = ({ onScan, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
