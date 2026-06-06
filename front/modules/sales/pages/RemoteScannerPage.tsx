@@ -480,8 +480,26 @@ export const RemoteScannerPage: React.FC = () => {
 
       {/* Camera / Error */}
       <div className="flex-1 relative overflow-hidden bg-black">
-        {(status === 'error' || errorMsg) ? (
-          <div className="flex flex-col items-center justify-center h-full gap-5 px-6 text-center">
+        {/* Vídeo sempre montado no DOM — videoRef nunca fica null durante startVideoScanner */}
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-cover"
+          playsInline
+          muted
+          autoPlay
+        />
+
+        {/* Overlay: a iniciar câmera */}
+        {status === 'starting' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white bg-black">
+            <Loader2 className="w-10 h-10 text-brand-400 animate-spin" />
+            <p className="text-sm text-gray-300">A iniciar câmera...</p>
+          </div>
+        )}
+
+        {/* Overlay: erro de câmera */}
+        {(status === 'error' || !!errorMsg) && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 px-6 text-center bg-black">
             <AlertTriangle className="w-14 h-14 text-red-400" />
             <p className="text-white/80 text-sm leading-relaxed">{errorMsg || 'Erro ao aceder à câmera.'}</p>
             <button
@@ -491,7 +509,6 @@ export const RemoteScannerPage: React.FC = () => {
               <RefreshCw className="w-4 h-4" />
               Tentar novamente
             </button>
-            {/* Fallback para modo foto */}
             <button
               onClick={() => { stopVideo(); setScanMode('photo'); setStatus('idle'); setErrorMsg(''); }}
               className="flex items-center gap-2 px-6 py-2.5 border border-gray-600 text-gray-300 rounded-xl text-sm transition-colors"
@@ -500,20 +517,11 @@ export const RemoteScannerPage: React.FC = () => {
               Usar captura de foto
             </button>
           </div>
-        ) : status === 'starting' ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-white">
-            <Loader2 className="w-10 h-10 text-brand-400 animate-spin" />
-            <p className="text-sm text-gray-300">A iniciar câmera...</p>
-          </div>
-        ) : (
+        )}
+
+        {/* Mira + status overlays (apenas quando câmera ativa) */}
+        {status !== 'starting' && status !== 'error' && !errorMsg && (
           <>
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover"
-              playsInline
-              muted
-              autoPlay
-            />
 
             {/* Mira de scan */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
