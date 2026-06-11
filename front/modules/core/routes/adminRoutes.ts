@@ -60,6 +60,8 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'blog': '/admin/blog',
   // POS
   'pos': '/admin/caixa',
+  // Cotações
+  'cotacoes': '/admin/cotacoes',
   // Finanças / IVA
   'financas': '/admin/financas',
   // Perfil

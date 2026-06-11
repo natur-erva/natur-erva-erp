@@ -59,6 +59,8 @@ export interface ProductFormData {
   howToUse: string;
   ingredients: string;
   promotionalPrice: number | null;
+  promotionalPriceStart: string | null;
+  promotionalPriceEnd: string | null;
   barcode: string;
   vatRegime: 'standard' | 'exempt';
 }
@@ -95,6 +97,8 @@ const defaultFormData: ProductFormData = {
   howToUse: '',
   ingredients: '',
   promotionalPrice: null,
+  promotionalPriceStart: null,
+  promotionalPriceEnd: null,
   barcode: '',
   vatRegime: 'standard',
 };
@@ -146,6 +150,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         howToUse: (product as any).howToUse || '',
         ingredients: (product as any).ingredients || '',
         promotionalPrice: (product as any).promotionalPrice ?? null,
+        promotionalPriceStart: (product as any).promotionalPriceStart ?? null,
+        promotionalPriceEnd: (product as any).promotionalPriceEnd ?? null,
         barcode: (product as any).barcode || '',
         vatRegime: (product as any).vatRegime || 'standard',
       });
@@ -487,6 +493,37 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </p>
               )}
             </div>
+
+            {/* Validade da promoção — só aparece quando há preço promocional */}
+            {formData.promotionalPrice && formData.promotionalPrice > 0 && (
+              <div className="flex gap-3 p-3 bg-orange-50 dark:bg-orange-900/10 rounded-lg border border-orange-200 dark:border-orange-600/30">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-orange-700 dark:text-orange-400 mb-1">
+                    Início da promoção
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.promotionalPriceStart ?? ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, promotionalPriceStart: e.target.value || null }))}
+                    className="w-full px-3 py-2 text-sm border border-orange-300 dark:border-orange-600/50 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-400"
+                  />
+                  <p className="text-[10px] text-orange-500 mt-0.5">Vazio = começa já</p>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-orange-700 dark:text-orange-400 mb-1">
+                    Fim da promoção
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.promotionalPriceEnd ?? ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, promotionalPriceEnd: e.target.value || null }))}
+                    min={formData.promotionalPriceStart ?? undefined}
+                    className="w-full px-3 py-2 text-sm border border-orange-300 dark:border-orange-600/50 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-400"
+                  />
+                  <p className="text-[10px] text-orange-500 mt-0.5">Vazio = sem expiração</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <input

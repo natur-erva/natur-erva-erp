@@ -213,6 +213,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       permission: 'sales.view',
       children: [
         { id: 'pos', label: 'Caixa (POS)', icon: Store, path: '/admin/caixa' },
+        { id: 'cotacoes', label: 'Cotações', icon: FileText, path: '/admin/cotacoes' },
         { id: 'sales-orders', label: t.nav.orders, icon: ShoppingCart, path: '/admin/vendas/pedidos' },
         { id: 'sales-customers', label: t.nav.customers, icon: Users, path: '/admin/vendas/clientes' },
         { id: 'sales-summaries', label: 'Resumos', icon: List, path: '/admin/vendas' },

@@ -16,10 +16,20 @@ pool.query(`
     vat_rate        DECIMAL(5,2) NOT NULL DEFAULT 16.00,
     invoice_prefix  VARCHAR(20)  NOT NULL DEFAULT 'FACT',
     invoice_counter INTEGER      NOT NULL DEFAULT 0,
+    vd_prefix       VARCHAR(20)  NOT NULL DEFAULT 'VD',
+    vd_counter      INTEGER      NOT NULL DEFAULT 0,
+    quote_prefix    VARCHAR(20)  NOT NULL DEFAULT 'COT',
+    quote_counter   INTEGER      NOT NULL DEFAULT 0,
     updated_at      TIMESTAMPTZ  DEFAULT NOW()
   );
   INSERT INTO tax_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 `).catch(e => console.error('[TAX] init:', e.message));
+
+// Adicionar colunas a instâncias existentes
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS vd_prefix VARCHAR(20) NOT NULL DEFAULT 'VD'`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS vd_counter INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS quote_prefix VARCHAR(20) NOT NULL DEFAULT 'COT'`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS quote_counter INTEGER NOT NULL DEFAULT 0`).catch(() => {});
 
 const mapConfig = (r) => ({
   companyName:    r.company_name,
@@ -30,6 +40,10 @@ const mapConfig = (r) => ({
   vatRate:        Number(r.vat_rate),
   invoicePrefix:  r.invoice_prefix,
   invoiceCounter: Number(r.invoice_counter),
+  vdPrefix:       r.vd_prefix || 'VD',
+  vdCounter:      Number(r.vd_counter || 0),
+  quotePrefix:    r.quote_prefix || 'COT',
+  quoteCounter:   Number(r.quote_counter || 0),
 });
 
 // GET /api/tax/config
@@ -75,6 +89,34 @@ router.post('/invoice/number', authMiddleware, async (req, res) => {
     const { invoice_prefix, invoice_counter, yr } = rows[0];
     const number = `${invoice_prefix}/${yr}/${String(invoice_counter).padStart(4, '0')}`;
     res.json({ number });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/tax/vd/number — próximo número VD sequencial
+router.post('/vd/number', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE tax_config
+         SET vd_counter = vd_counter + 1, updated_at = NOW()
+       WHERE id = 1
+       RETURNING vd_prefix, vd_counter, EXTRACT(YEAR FROM NOW())::int AS yr`
+    );
+    const { vd_prefix, vd_counter, yr } = rows[0];
+    res.json({ number: `${vd_prefix}/${yr}/${String(vd_counter).padStart(4, '0')}` });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/tax/quote/number — próximo número de Cotação sequencial
+router.post('/quote/number', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE tax_config
+         SET quote_counter = quote_counter + 1, updated_at = NOW()
+       WHERE id = 1
+       RETURNING quote_prefix, quote_counter, EXTRACT(YEAR FROM NOW())::int AS yr`
+    );
+    const { quote_prefix, quote_counter, yr } = rows[0];
+    res.json({ number: `${quote_prefix}/${yr}/${String(quote_counter).padStart(4, '0')}` });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -40,6 +40,7 @@ const StockAlerts = lazy(() => import('./modules/products/pages/StockAlerts').th
 const AuditReportPage = lazy(() => import('./modules/products/pages/AuditReportPage').then(m => ({ default: m.AuditReportPage })));
 const ShopReceipts = lazy(() => import('./modules/sales/pages/ShopReceipts').then(m => ({ default: m.ShopReceipts })));
 const POS = lazy(() => import('./modules/sales/pages/POS').then(m => ({ default: m.POS })));
+const QuotesPage = lazy(() => import('./modules/sales/pages/QuotesPage').then(m => ({ default: m.QuotesPage })));
 const RemoteScannerPage = lazy(() => import('./modules/sales/pages/RemoteScannerPage').then(m => ({ default: m.RemoteScannerPage })));
 const Financas = lazy(() => import('./modules/admin/pages/Financas').then(m => ({ default: m.Financas })));
 const Shop = lazy(() => import('./modules/shop/pages/Shop').then(m => ({ default: m.Shop })));
@@ -515,6 +516,13 @@ const App = () => {
                 <ProtectedRoute user={currentUser} permission="sales.view">
                   <TrackedPage pagePath="/admin/caixa" pageTitle="Caixa (POS)">
                     <POS showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="cotacoes" element={
+                <ProtectedRoute user={currentUser} permission="sales.view">
+                  <TrackedPage pagePath="/admin/cotacoes" pageTitle="Cotações">
+                    <Suspense fallback={<PageLoadingFallback />}><QuotesPage /></Suspense>
                   </TrackedPage>
                 </ProtectedRoute>
               } />

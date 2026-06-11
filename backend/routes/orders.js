@@ -5,6 +5,9 @@ import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendWhatsAppMessage }
 
 const router = express.Router();
 
+// Garantir que phone tem espaço suficiente para placeholder e números internacionais
+pool.query(`ALTER TABLE customers ALTER COLUMN phone TYPE VARCHAR(50)`).catch(() => {});
+
 const mapOrder = (row) => ({
   id: row.id,
   externalId: row.external_id,
@@ -223,7 +226,7 @@ router.post('/', optionalAuth, async (req, res) => {
     const rawPhone = order.customerPhone || '';
     const cleanPhone = rawPhone.replace(/\D/g, '');
     const hasPhone = cleanPhone.length > 5;
-    const phoneToSave = hasPhone ? cleanPhone : `no_phone_${Date.now()}`;
+    const phoneToSave = hasPhone ? cleanPhone : `np_${Date.now().toString(36)}`; // max ~14 chars, dentro do varchar(20)
 
     // Encontrar ou criar cliente
     let customerId = order.customerId;

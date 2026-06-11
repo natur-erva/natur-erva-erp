@@ -9,6 +9,8 @@ pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode VARCHAR(100)`)
 pool.query(`CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode) WHERE barcode IS NOT NULL`).catch(() => {});
 pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS vat_regime VARCHAR(20) NOT NULL DEFAULT 'standard'`).catch(() => {});
 pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS promotional_price DECIMAL(12,2)`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS promotional_price_start DATE`).catch(() => {});
+pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS promotional_price_end DATE`).catch(() => {});
 pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS description_long TEXT`).catch(() => {});
 pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS benefits TEXT`).catch(() => {});
 pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS how_to_use TEXT`).catch(() => {});
@@ -41,6 +43,8 @@ const mapProduct = (p) => ({
   createdAt: p.created_at,
   totalSold: Number(p.total_sold || 0),
   promotionalPrice: p.promotional_price != null ? Number(p.promotional_price) : null,
+  promotionalPriceStart: p.promotional_price_start ? p.promotional_price_start.toISOString().slice(0, 10) : null,
+  promotionalPriceEnd: p.promotional_price_end ? p.promotional_price_end.toISOString().slice(0, 10) : null,
   showInShop: p.show_in_shop !== undefined ? p.show_in_shop : true,
   description: p.description,
   descriptionLong: p.description_long,
@@ -185,15 +189,16 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO products (name, slug, price, cost_price, type, category, stock, min_stock, unit, image, image_url2, image_url3, image_url4, show_in_shop, description, description_long, benefits, how_to_use, ingredients, promotional_price, barcode, vat_regime)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+      `INSERT INTO products (name, slug, price, cost_price, type, category, stock, min_stock, unit, image, image_url2, image_url3, image_url4, show_in_shop, description, description_long, benefits, how_to_use, ingredients, promotional_price, promotional_price_start, promotional_price_end, barcode, vat_regime)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
        RETURNING *`,
       [p.name, slug, p.price, p.costPrice || 0,
        p.type, p.category, p.stock || 0, p.minStock || 0, p.unit,
        p.image || null, p.image2 || null, p.image3 || null, p.image4 || null,
        p.showInShop !== false, p.description || null, p.descriptionLong || null,
        p.benefits || null, p.howToUse || null, p.ingredients || null,
-       p.promotionalPrice || null, p.barcode || null, p.vatRegime || 'standard']
+       p.promotionalPrice || null, p.promotionalPriceStart || null, p.promotionalPriceEnd || null,
+       p.barcode || null, p.vatRegime || 'standard']
     );
     res.status(201).json(mapProduct(rows[0]));
   } catch (err) {
@@ -232,6 +237,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (p.howToUse !== undefined) { fields.push(`how_to_use = $${i++}`); values.push(p.howToUse); }
     if (p.ingredients !== undefined) { fields.push(`ingredients = $${i++}`); values.push(p.ingredients); }
     if (p.promotionalPrice !== undefined) { fields.push(`promotional_price = $${i++}`); values.push(p.promotionalPrice || null); }
+    if (p.promotionalPriceStart !== undefined) { fields.push(`promotional_price_start = $${i++}`); values.push(p.promotionalPriceStart || null); }
+    if (p.promotionalPriceEnd !== undefined) { fields.push(`promotional_price_end = $${i++}`); values.push(p.promotionalPriceEnd || null); }
 
     if (fields.length === 0) return res.json({ success: true });
 

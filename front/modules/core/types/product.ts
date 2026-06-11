@@ -66,6 +66,8 @@ export interface Product {
   howToUse?: string;
   ingredients?: string;
   promotionalPrice?: number | null;
+  promotionalPriceStart?: string | null;
+  promotionalPriceEnd?: string | null;
   createdAt?: string;
   barcode?: string | null;
   vatRegime?: 'standard' | 'exempt';

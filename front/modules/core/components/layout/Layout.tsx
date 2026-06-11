@@ -61,7 +61,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
   // Estrutura simplificada para verificação de rotas (definida antes do useEffect)
   const menuItemsWithChildren = [
-    { id: 'sales', children: [{ path: '/admin/caixa' }, { path: '/admin/vendas' }, { path: '/admin/vendas/por-produto' }, { path: '/admin/vendas/pedidos' }, { path: '/admin/vendas/clientes' }] },
+    { id: 'sales', children: [{ path: '/admin/caixa' }, { path: '/admin/cotacoes' }, { path: '/admin/vendas' }, { path: '/admin/vendas/por-produto' }, { path: '/admin/vendas/pedidos' }, { path: '/admin/vendas/clientes' }] },
     { id: 'purchases', children: [{ path: '/admin/compras' }, { path: '/admin/compras/por-produto' }, { path: '/admin/compras/fornecedores' }] },
     { id: 'products', children: [{ path: '/admin/produtos' }, { path: '/admin/produtos/categorias' }, { path: '/admin/produtos/unidades' }] },
     { id: 'stock-management', children: [{ path: '/admin/stock' }, { path: '/admin/stock/alertas' }, { path: '/admin/stock/movimentos' }, { path: '/admin/stock/lotes' }, { path: '/admin/stock/auditoria' }, { path: '/admin/stock/ajustes' }] },
@@ -147,6 +147,7 @@ export const Layout: React.FC<LayoutProps> = ({
       permission: 'sales.view',
       children: [
         { id: 'pos', label: 'Caixa (POS)', icon: Store, path: '/admin/caixa' },
+        { id: 'cotacoes', label: 'Cotações', icon: FileText, path: '/admin/cotacoes' },
         { id: 'sales-orders', label: t.nav.orders, icon: ShoppingCart, path: '/admin/vendas/pedidos' },
         { id: 'sales-customers', label: t.nav.customers, icon: Users, path: '/admin/vendas/clientes' },
         { id: 'sales-summaries', label: 'Resumos', icon: List, path: '/admin/vendas' },
