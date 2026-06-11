@@ -15,6 +15,11 @@ export interface ImportRow {
   preco_custo?: string;
   stock?: string;
   stock_minimo?: string;
+  barcode?: string;
+  image?: string;
+  image2?: string;
+  image3?: string;
+  image4?: string;
   mostrar_na_loja?: string;
   descricao?: string;
   descricao_longa?: string;
@@ -51,6 +56,11 @@ const COLUMNS = [
   { key: 'preco_custo',          header: 'preco_custo',          width: 16 },
   { key: 'stock',                header: 'stock',                width: 12 },
   { key: 'stock_minimo',         header: 'stock_minimo',         width: 14 },
+  { key: 'barcode',              header: 'barcode',              width: 20, note: 'Código de barras (EAN-13 recomendado)' },
+  { key: 'image',                header: 'image',                width: 50, note: 'URL da imagem principal' },
+  { key: 'image2',               header: 'image2',               width: 50 },
+  { key: 'image3',               header: 'image3',               width: 50 },
+  { key: 'image4',               header: 'image4',               width: 50 },
   { key: 'mostrar_na_loja',      header: 'mostrar_na_loja',      width: 16, note: 'Sim ou Nao' },
   { key: 'descricao',            header: 'descricao',            width: 40 },
   { key: 'descricao_longa',      header: 'descricao_longa',      width: 40 },
@@ -73,6 +83,7 @@ const EXAMPLE_ROWS: ImportRow[] = [
     preco_custo: '680',
     stock: '50',
     stock_minimo: '5',
+    barcode: '2001234567890',
     mostrar_na_loja: 'Sim',
     descricao: 'Gel puro de Aloe Vera',
     beneficios: 'Hidratante e regenerador',
@@ -83,11 +94,8 @@ const EXAMPLE_ROWS: ImportRow[] = [
     nome: 'Collagène',
     categoria: 'Suplementos Naturais',
     unidade: 'un',
-    preco_venda: '4850',
-    preco_custo: '2400',
-    stock: '100',
-    stock_minimo: '10',
     mostrar_na_loja: 'Sim',
+    barcode: '2009876543210',
     descricao: 'Colágeno hidrolisado',
     variante_nome: '60 Cápsulas',
     variante_preco_venda: '4850',
@@ -97,9 +105,6 @@ const EXAMPLE_ROWS: ImportRow[] = [
   },
   {
     nome: 'Collagène',
-    categoria: 'Suplementos Naturais',
-    unidade: 'un',
-    mostrar_na_loja: 'Sim',
     variante_nome: '120 Cápsulas',
     variante_preco_venda: '8500',
     variante_preco_custo: '4200',
@@ -159,7 +164,7 @@ async function downloadTemplate() {
     ['GUIA DE PREENCHIMENTO DA PLANILHA DE PRODUTOS', true],
     [''],
     ['CAMPOS OBRIGATÓRIOS', true],
-    ['  • nome — Nome do produto (obrigatório)', false],
+    ['  • nome — Nome do produto (obrigatório em todas as linhas)'],
     [''],
     ['PRODUTO FIXO (sem variações)', true],
     ['  Preencha: nome, categoria, unidade, preco_venda, preco_custo, stock, stock_minimo, mostrar_na_loja'],
@@ -169,6 +174,17 @@ async function downloadTemplate() {
     ['  • Use uma linha por variação, repetindo o nome do produto em cada linha.'],
     ['  • Preencha variante_nome, variante_preco_venda, variante_preco_custo, variante_stock.'],
     ['  • Marque variante_padrao = "Sim" em apenas UMA variação por produto.'],
+    ['  • Campos como barcode, image, categoria só precisam ser preenchidos na 1ª linha do produto.'],
+    [''],
+    ['CÓDIGO DE BARRAS (barcode)', true],
+    ['  • Formato recomendado: EAN-13 (13 dígitos). Ex: 2001234567890'],
+    ['  • Se deixar em branco, pode gerar automaticamente na página de Etiquetas.'],
+    ['  • O código é atribuído ao produto e permite leitura por scanner.'],
+    [''],
+    ['IMAGENS (image, image2, image3, image4)', true],
+    ['  • Preencha com a URL completa da imagem. Ex: https://cdn.exemplo.com/imagem.jpg'],
+    ['  • Aceita URLs do MinIO ou qualquer URL pública acessível.'],
+    ['  • image = imagem principal; image2/3/4 = imagens adicionais.'],
     [''],
     ['VALORES BOOLEANOS', true],
     ['  • Sim / Nao  (ou Yes/No, 1/0, True/False)'],
@@ -177,9 +193,9 @@ async function downloadTemplate() {
     ['  • Use ponto (.) ou vírgula (,) como separador decimal. Ex: 1360.50 ou 1360,50'],
     [''],
     ['DICAS', true],
-    ['  • Produtos com o mesmo nome já existente serão ignorados.'],
+    ['  • Produtos com o mesmo nome já existente serão ignorados (não duplicados).'],
     ['  • É possível importar centenas de produtos de uma só vez.'],
-    ['  • Imagens devem ser adicionadas manualmente após a importação.'],
+    ['  • Use "Exportar" para baixar todos os produtos actuais e ver o formato correcto.'],
   ];
 
   lines.forEach(([text, bold]) => {
@@ -251,7 +267,7 @@ async function parseExcelFile(file: File): Promise<ImportRow[]> {
       if (text.trim()) hasData = true;
     });
 
-    if (hasData && obj['nome']) rows.push(obj as ImportRow);
+    if (hasData && obj['nome']) rows.push(obj as unknown as ImportRow);
   });
 
   return rows;
@@ -455,7 +471,7 @@ export const ProductImportModal: React.FC<Props> = ({ open, onClose, onSuccess, 
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800">
-                      {['Nome', 'Categoria', 'Unidade', 'Preço Venda', 'Preço Custo', 'Stock', 'Variante', 'V. Preço', 'V. Padrão'].map(h => (
+                      {['Nome', 'Categoria', 'Unidade', 'Preço Venda', 'Preço Custo', 'Stock', 'Barcode', 'Imagem', 'Variante', 'V. Preço', 'V. Padrão'].map(h => (
                         <th key={h} className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -469,6 +485,8 @@ export const ProductImportModal: React.FC<Props> = ({ open, onClose, onSuccess, 
                         <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400">{row.preco_venda || '—'}</td>
                         <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400">{row.preco_custo || '—'}</td>
                         <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400">{row.stock || '—'}</td>
+                        <td className="px-3 py-1.5 font-mono text-xs text-gray-600 dark:text-gray-400">{row.barcode || '—'}</td>
+                        <td className="px-3 py-1.5 text-gray-500 dark:text-gray-500 max-w-[120px] truncate text-xs" title={row.image}>{row.image ? '✓ URL' : '—'}</td>
                         <td className="px-3 py-1.5 text-blue-700 dark:text-blue-400">{row.variante_nome || '—'}</td>
                         <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400">{row.variante_preco_venda || '—'}</td>
                         <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400">{row.variante_padrao || '—'}</td>

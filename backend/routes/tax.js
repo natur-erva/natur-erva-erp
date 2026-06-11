@@ -30,20 +30,36 @@ pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS vd_prefix VARCHAR(20
 pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS vd_counter INTEGER NOT NULL DEFAULT 0`).catch(() => {});
 pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS quote_prefix VARCHAR(20) NOT NULL DEFAULT 'COT'`).catch(() => {});
 pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS quote_counter INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_name VARCHAR(200) NOT NULL DEFAULT ''`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_account VARCHAR(100) NOT NULL DEFAULT ''`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_iban VARCHAR(100) NOT NULL DEFAULT ''`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_account_holder VARCHAR(200) NOT NULL DEFAULT ''`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_swift VARCHAR(50) NOT NULL DEFAULT ''`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500) NOT NULL DEFAULT ''`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS logo_icon_url VARCHAR(500) NOT NULL DEFAULT ''`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_accounts JSONB NOT NULL DEFAULT '[]'`).catch(() => {});
 
 const mapConfig = (r) => ({
-  companyName:    r.company_name,
-  companyNuit:    r.company_nuit,
-  companyAddress: r.company_address,
-  companyPhone:   r.company_phone,
-  companyEmail:   r.company_email,
-  vatRate:        Number(r.vat_rate),
-  invoicePrefix:  r.invoice_prefix,
-  invoiceCounter: Number(r.invoice_counter),
-  vdPrefix:       r.vd_prefix || 'VD',
-  vdCounter:      Number(r.vd_counter || 0),
-  quotePrefix:    r.quote_prefix || 'COT',
-  quoteCounter:   Number(r.quote_counter || 0),
+  companyName:        r.company_name,
+  companyNuit:        r.company_nuit,
+  companyAddress:     r.company_address,
+  companyPhone:       r.company_phone,
+  companyEmail:       r.company_email,
+  vatRate:            Number(r.vat_rate),
+  invoicePrefix:      r.invoice_prefix,
+  invoiceCounter:     Number(r.invoice_counter),
+  vdPrefix:           r.vd_prefix || 'VD',
+  vdCounter:          Number(r.vd_counter || 0),
+  quotePrefix:        r.quote_prefix || 'COT',
+  quoteCounter:       Number(r.quote_counter || 0),
+  bankName:           r.bank_name || '',
+  bankAccount:        r.bank_account || '',
+  bankIban:           r.bank_iban || '',
+  bankAccountHolder:  r.bank_account_holder || '',
+  bankSwift:          r.bank_swift || '',
+  logoUrl:            r.logo_url || '',
+  logoIconUrl:        r.logo_icon_url || '',
+  bankAccounts:       Array.isArray(r.bank_accounts) ? r.bank_accounts : (r.bank_accounts ? JSON.parse(r.bank_accounts) : []),
 });
 
 // GET /api/tax/config
@@ -58,19 +74,43 @@ router.get('/config', authMiddleware, async (req, res) => {
 router.put('/config', authMiddleware, async (req, res) => {
   try {
     const c = req.body;
+
+    // Logo fields restricted to ADMIN / SUPER_ADMIN
+    const LOGO_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+    const userRoles = [
+      ...(Array.isArray(req.user.roles) ? req.user.roles : []),
+      req.user.role,
+    ].filter(Boolean).map(r => r.toUpperCase());
+    const isLogoAdmin = userRoles.some(r => LOGO_ROLES.includes(r));
+
+    if ((c.logoUrl !== undefined || c.logoIconUrl !== undefined) && !isLogoAdmin) {
+      return res.status(403).json({ error: 'Sem permissão para alterar o logotipo' });
+    }
     await pool.query(
       `UPDATE tax_config SET
-        company_name    = COALESCE($1, company_name),
-        company_nuit    = COALESCE($2, company_nuit),
-        company_address = COALESCE($3, company_address),
-        company_phone   = COALESCE($4, company_phone),
-        company_email   = COALESCE($5, company_email),
-        vat_rate        = COALESCE($6, vat_rate),
-        invoice_prefix  = COALESCE($7, invoice_prefix),
-        updated_at      = NOW()
+        company_name         = COALESCE($1, company_name),
+        company_nuit         = COALESCE($2, company_nuit),
+        company_address      = COALESCE($3, company_address),
+        company_phone        = COALESCE($4, company_phone),
+        company_email        = COALESCE($5, company_email),
+        vat_rate             = COALESCE($6, vat_rate),
+        invoice_prefix       = COALESCE($7, invoice_prefix),
+        bank_name            = COALESCE($8, bank_name),
+        bank_account         = COALESCE($9, bank_account),
+        bank_iban            = COALESCE($10, bank_iban),
+        bank_account_holder  = COALESCE($11, bank_account_holder),
+        bank_swift           = COALESCE($12, bank_swift),
+        logo_url             = COALESCE($13, logo_url),
+        logo_icon_url        = COALESCE($14, logo_icon_url),
+        bank_accounts        = COALESCE($15, bank_accounts),
+        updated_at           = NOW()
        WHERE id = 1`,
       [c.companyName, c.companyNuit, c.companyAddress, c.companyPhone,
-       c.companyEmail, c.vatRate, c.invoicePrefix]
+       c.companyEmail, c.vatRate, c.invoicePrefix,
+       c.bankName ?? null, c.bankAccount ?? null, c.bankIban ?? null,
+       c.bankAccountHolder ?? null, c.bankSwift ?? null,
+       c.logoUrl || null, c.logoIconUrl || null,
+       c.bankAccounts !== undefined ? JSON.stringify(c.bankAccounts) : null]
     );
     const { rows } = await pool.query('SELECT * FROM tax_config WHERE id = 1');
     res.json(mapConfig(rows[0]));

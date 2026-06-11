@@ -24,6 +24,7 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'products-list': '/admin/produtos',
   'products-categories': '/admin/produtos/categorias',
   'products-units': '/admin/produtos/unidades',
+  'products-labels': '/admin/produtos/etiquetas',
   // Compras - com submenus
   'purchases': '/admin/compras',
   'purchases-list': '/admin/compras',
@@ -58,8 +59,10 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'marketing': '/admin/marketing',
   // Blog
   'blog': '/admin/blog',
-  // POS
+  // Caixa (gestão de sessões) e POS (interface de venda)
   'pos': '/admin/caixa',
+  'caixa': '/admin/caixa',
+  'pos-sell': '/admin/pos',
   // Cotações
   'cotacoes': '/admin/cotacoes',
   // Finanças / IVA
@@ -95,6 +98,9 @@ export const getActivePageFromPath = (pathname: string): string => {
 
   // Mapeamento direto para sub-rotas (mais específico primeiro)
   const subRouteMap: Record<string, string> = {
+    '/admin/caixa': 'sales',
+    '/admin/pos': 'sales',
+    '/admin/cotacoes': 'sales',
     '/admin/vendas/pedidos': 'sales',
     '/admin/vendas/clientes': 'sales',
     '/admin/vendas/por-produto': 'sales',
@@ -102,6 +108,7 @@ export const getActivePageFromPath = (pathname: string): string => {
     '/admin/compras/fornecedores': 'purchases',
     '/admin/produtos/categorias': 'products',
     '/admin/produtos/unidades': 'products',
+    '/admin/produtos/etiquetas': 'products',
     '/admin/stock/movimentos': 'stock-management',
     '/admin/stock/alertas': 'stock-management',
     '/admin/stock/ajustes': 'stock-management',
@@ -125,7 +132,7 @@ export const getActivePageFromPath = (pathname: string): string => {
       // Retornar o pageId principal (sem sufixo como -list, -summaries)
       const mainPageId = pageId.split('-')[0];
       // Mapear de volta para IDs conhecidos
-      const knownIds = ['dashboard', 'orders', 'sales', 'customers', 'products', 'purchases', 'stock-management', 'media', 'tracking', 'users', 'profile'];
+      const knownIds = ['dashboard', 'orders', 'sales', 'caixa', 'customers', 'products', 'purchases', 'stock-management', 'media', 'tracking', 'users', 'profile'];
       if (knownIds.includes(pageId)) {
         return pageId;
       }
@@ -139,6 +146,7 @@ export const getActivePageFromPath = (pathname: string): string => {
           'products-list': 'products',
           'products-categories': 'products',
           'products-units': 'products',
+          'products-labels': 'products',
           'purchases-list': 'purchases',
           'purchases-by-product': 'purchases',
           'purchases-suppliers': 'purchases',

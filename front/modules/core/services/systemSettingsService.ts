@@ -1,4 +1,5 @@
 import { appSystemConfig } from '../../../config/appConfig';
+import api from './apiClient';
 
 export interface SystemSettings {
   system_name?: string;
@@ -16,23 +17,40 @@ export interface SystemSettings {
   [key: string]: unknown;
 }
 
-/**
- * Obtém todas as configurações do sistema a partir do ficheiro de configuração.
- */
-export const getSystemSettings = async (): Promise<SystemSettings> => {
-  return Promise.resolve(appSystemConfig as SystemSettings);
+const CACHE_KEY = 'sys_logo_settings';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export const invalidateLogoCache = (): void => {
+  localStorage.removeItem(CACHE_KEY);
 };
 
-/**
- * No-op: as configurações passaram a ser apenas em ficheiro de config.
- */
+export const getSystemSettings = async (): Promise<SystemSettings> => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { ts, data } = JSON.parse(cached);
+      if (Date.now() - ts < CACHE_TTL) return data;
+    }
+
+    const config = await api.get<any>('/tax/config');
+    const base = appSystemConfig as SystemSettings;
+    const settings: SystemSettings = {
+      ...base,
+      ...(config.logoUrl ? { logo_light: config.logoUrl, logo_dark: config.logoUrl } : {}),
+      ...(config.logoIconUrl ? { logo_icon: config.logoIconUrl } : {}),
+    };
+
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: settings }));
+    return settings;
+  } catch {
+    return appSystemConfig as SystemSettings;
+  }
+};
+
 export const saveSystemSettings = async (_settings: SystemSettings): Promise<boolean> => {
   return true;
 };
 
-/**
- * Atualiza o favicon dinamicamente
- */
 export const updateFavicon = (faviconUrl: string): void => {
   if (!faviconUrl) return;
 
@@ -50,9 +68,7 @@ export const updateFavicon = (faviconUrl: string): void => {
   const existingFavicons = document.querySelectorAll("link[rel*='icon']");
   existingFavicons.forEach(link => {
     const href = link.getAttribute('href') || '';
-    if (!href.startsWith('data:')) {
-      link.remove();
-    }
+    if (!href.startsWith('data:')) link.remove();
   });
 
   const link = document.createElement('link');
@@ -83,9 +99,6 @@ export const updateFavicon = (faviconUrl: string): void => {
   }
 };
 
-/**
- * Atualiza o título da página dinamicamente
- */
 export const updatePageTitle = (title: string): void => {
   document.title = title;
 };

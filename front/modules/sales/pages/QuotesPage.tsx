@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../core/services/apiClient';
 import { Product } from '../../core/types/types';
 import { getEffectivePrice } from '../../core/utils/pricing';
+import { Settings, Plus, Trash2, Edit2, X as XIcon, Eye, Download, Printer } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface QuoteItem {
@@ -42,6 +43,18 @@ interface Stats {
   total_mes: string;
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  holder: string;
+  account: string;
+  nib: string;
+  iban: string;
+  swift: string;
+}
+
+const emptyAccount = (): BankAccount => ({ id: crypto.randomUUID(), name: '', holder: '', account: '', nib: '', iban: '', swift: '' });
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const fmt = (n: number | string) => `MT ${Number(n ?? 0).toFixed(2)}`;
 const fmtDate = (iso: string | null) => iso
@@ -61,13 +74,22 @@ const STATUS_STYLE: Record<QuoteStatus, string> = {
   expirada:   'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 };
 
-// ── Print function (same as POS) ───────────────────────────────────────────────
-function printQuoteDoc(q: Quote, tax: { companyName: string; companyNuit: string; companyAddress: string; companyPhone: string; companyEmail: string; vatRate: number }, logoUrl = `${window.location.origin}/logo.png`) {
+// ── Quote document builder ─────────────────────────────────────────────────────
+function printQuoteDoc(q: Quote, tax: { companyName: string; companyNuit: string; companyAddress: string; companyPhone: string; companyEmail: string; vatRate: number; bankName?: string; bankAccount?: string; bankIban?: string; bankAccountHolder?: string; bankSwift?: string; bankAccounts?: BankAccount[] }, logoUrl = `${window.location.origin}/logo.png`, mode: 'print' | 'preview' | 'download' = 'print') {
   const vatMult  = 1 + tax.vatRate / 100;
   const baseIva  = q.total / vatMult;
   const ivaAmt   = q.total - baseIva;
   const today    = new Date().toLocaleString('pt-PT', { timeZone: 'Africa/Maputo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const validStr = q.validUntil ? fmtDate(q.validUntil) : '—';
+
+  // Prefer new bankAccounts array, fall back to legacy single fields
+  const accounts: BankAccount[] = (tax.bankAccounts && tax.bankAccounts.length > 0)
+    ? tax.bankAccounts
+    : (tax.bankName || tax.bankAccount)
+      ? [{ id: '1', name: tax.bankName || '', holder: tax.bankAccountHolder || '', account: tax.bankAccount || '', nib: '', iban: tax.bankIban || '', swift: tax.bankSwift || '' }]
+      : [];
+
+  const hasBankDetails = accounts.length > 0;
   const rows = q.items.map(c =>
     `<tr>
       <td>${c.productName}${c.variantName ? ` (${c.variantName})` : ''}${c.isPromo ? ' <span style="font-size:9px;background:#fff3cd;color:#b45309;padding:1px 4px;border-radius:3px">PROMO</span>' : ''}</td>
@@ -76,33 +98,69 @@ function printQuoteDoc(q: Quote, tax: { companyName: string; companyNuit: string
       <td class="r">MT ${(c.price * c.quantity).toFixed(2)}</td>
     </tr>`).join('');
 
+  const bankSection = hasBankDetails ? `
+<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;margin-top:16px">
+  <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Dados Bancários para Transferência</div>
+  ${accounts.map(acc => `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:#166534;border:1px solid #86efac;border-radius:6px;padding:8px 10px;background:#fff;margin-top:6px">
+    ${acc.name ? `<div><span style="color:#888">Banco:</span> <strong>${acc.name}</strong></div>` : ''}
+    <div><span style="color:#888">Titular:</span> <strong>${acc.holder || tax.companyName}</strong></div>
+    ${acc.account ? `<div><span style="color:#888">Nº Conta:</span> <strong>${acc.account}</strong></div>` : ''}
+    ${acc.nib ? `<div><span style="color:#888">NIB:</span> <strong>${acc.nib}</strong></div>` : ''}
+    ${acc.iban ? `<div><span style="color:#888">IBAN:</span> <strong>${acc.iban}</strong></div>` : ''}
+    ${acc.swift ? `<div><span style="color:#888">SWIFT/BIC:</span> <strong>${acc.swift}</strong></div>` : ''}
+  </div>`).join('')}
+  </div>
+</div>` : '';
+
+  const modeScript = mode === 'print'
+    ? `<script>window.onload=()=>{window.print();}<\/script>`
+    : mode === 'download'
+    ? `<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
+<script>window.onload=function(){html2pdf().set({margin:10,filename:'cotacao-${q.quoteNumber}.pdf',html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(document.getElementById('doc')).save().then(function(){setTimeout(function(){window.close();},600);});}<\/script>`
+    : `<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
+<script>function dlPdf(){html2pdf().set({margin:10,filename:'cotacao-${q.quoteNumber}.pdf',html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(document.getElementById('doc')).save();}<\/script>`;
+
+  const toolbar = mode === 'preview' ? `
+<div id="toolbar" style="position:sticky;top:0;z-index:100;background:#fff;border-bottom:2px solid #059669;padding:10px 20px;display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+  <span style="flex:1;font-weight:600;color:#059669;font-size:13px;">Cotação ${q.quoteNumber} — Pré-visualização</span>
+  <button onclick="window.print()" style="display:flex;align-items:center;gap:5px;padding:6px 14px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">&#128438; Imprimir</button>
+  <button onclick="dlPdf()" style="display:flex;align-items:center;gap:5px;padding:6px 14px;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">&#8681; Baixar PDF</button>
+  <button onclick="window.close()" style="padding:6px 12px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:12px;">Fechar</button>
+</div>` : '';
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cotação ${q.quoteNumber}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:Arial,sans-serif;font-size:12px;padding:28px;color:#111}
+  body{font-family:Arial,sans-serif;font-size:12px;color:#111}
+  #doc{padding:28px}
   .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}
-  .company{font-size:18px;font-weight:700;color:#16a34a}
-  .badge{background:#7c3aed;color:#fff;font-size:20px;font-weight:700;padding:8px 18px;border-radius:8px;letter-spacing:1px}
+  .company{font-size:18px;font-weight:700;color:#059669}
+  .badge{background:#059669;color:#fff;font-size:20px;font-weight:700;padding:8px 18px;border-radius:8px;letter-spacing:1px}
   .num{font-size:12px;color:#555;margin-top:4px;text-align:right}
-  .validity{background:#faf5ff;border:2px solid #7c3aed;border-radius:8px;padding:10px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
-  .vl{font-size:12px;color:#7c3aed;font-weight:600}
-  .vd{font-size:16px;font-weight:700;color:#7c3aed}
+  .validity{background:#f0fdf4;border:2px solid #059669;border-radius:8px;padding:10px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+  .vl{font-size:12px;color:#059669;font-weight:600}
+  .vd{font-size:16px;font-weight:700;color:#059669}
   .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
-  .info-box{background:#f9f9f9;border:1px solid #e5e7eb;border-radius:6px;padding:10px}
+  .info-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px}
   .info-box h4{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:4px}
   table{width:100%;border-collapse:collapse;margin-bottom:14px}
-  th{background:#7c3aed;color:#fff;padding:7px 8px;font-size:11px;text-align:left}
+  th{background:#059669;color:#fff;padding:7px 8px;font-size:11px;text-align:left}
   td{padding:6px 8px;font-size:11px;border-bottom:1px solid #e5e7eb}
+  tr:nth-child(even) td{background:#f9fafb}
   .r{text-align:right}
   .totals{margin-left:auto;width:260px}
   .totals td{padding:4px 8px;font-size:12px}
-  .bold{font-weight:700;font-size:15px;color:#7c3aed}
+  .bold td{font-weight:700;font-size:14px;color:#059669;border-top:2px solid #059669}
   .footer{margin-top:24px;font-size:10px;color:#888;text-align:center;border-top:1px solid #e5e7eb;padding-top:10px}
   .warning{background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:11px;color:#92400e;margin-top:16px;text-align:center;font-weight:600}
   .sig{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:32px}
-  .sig-box{border-top:1px solid #999;padding-top:6px;font-size:11px;color:#555;text-align:center}
-  ${q.notes ? '.notes{background:#f9f9f9;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-bottom:14px;font-size:11px;color:#555}' : ''}
+  .sig-box{border-top:2px solid #059669;padding-top:6px;font-size:11px;color:#555;text-align:center}
+  ${q.notes ? '.notes{background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-bottom:14px;font-size:11px;color:#555}' : ''}
+  @media print{#toolbar{display:none!important}}
 </style></head><body>
+${toolbar}
+<div id="doc">
 <div class="header">
   <div style="display:flex;align-items:center;gap:14px">
     <img src="${logoUrl}" onerror="this.style.display='none'" style="max-width:90px;max-height:55px;object-fit:contain">
@@ -135,12 +193,14 @@ ${q.notes ? `<div class="notes"><strong>Notas:</strong> ${q.notes}</div>` : ''}
   <tr><td>IVA ${tax.vatRate}%:</td><td class="r">MT ${ivaAmt.toFixed(2)}</td></tr>
   <tr class="bold"><td>TOTAL c/IVA:</td><td class="r">MT ${q.total.toFixed(2)}</td></tr>
 </table>
+${bankSection}
 <div class="warning">Este documento é uma cotação e NÃO constitui um documento fiscal. Não serve como comprovativo de pagamento.</div>
 <div class="sig"><div class="sig-box">Emitido por: ${tax.companyName}</div><div class="sig-box">Aceite pelo Cliente</div></div>
 <div class="footer">Cotação ${q.quoteNumber} | ${today} | ${tax.companyName} | NUIT ${tax.companyNuit || '—'}</div>
-<script>window.onload=()=>{window.print();}</script>
+</div>
+${modeScript}
 </body></html>`;
-  const win = window.open('', '_blank', 'width=900,height=700');
+  const win = window.open('', '_blank', mode === 'print' ? 'width=900,height=700' : '');
   if (win) { win.document.write(html); win.document.close(); }
 }
 
@@ -169,6 +229,12 @@ export const QuotesPage: React.FC = () => {
   const [form, setForm]           = useState(emptyForm());
   const [saving, setSaving]       = useState(false);
 
+  // Bank settings panel
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [accountForm, setAccountForm] = useState<BankAccount | null>(null);
+  const [savingBank, setSavingBank] = useState(false);
+
   // Product search in panel
   const [prodSearch, setProdSearch] = useState('');
   const [deleting, setDeleting]     = useState<string | null>(null);
@@ -189,7 +255,15 @@ export const QuotesPage: React.FC = () => {
       setQuotes(qs);
       setStats(s);
       setProducts(p || []);
-      setTaxConfig(t || {});
+      const cfg = t || {};
+      setTaxConfig(cfg);
+      // Populate bankAccounts — prefer new array, migrate legacy single fields
+      const accs: BankAccount[] = Array.isArray(cfg.bankAccounts) && cfg.bankAccounts.length > 0
+        ? cfg.bankAccounts
+        : (cfg.bankName || cfg.bankAccount)
+          ? [{ id: crypto.randomUUID(), name: cfg.bankName || '', holder: cfg.bankAccountHolder || '', account: cfg.bankAccount || '', nib: '', iban: cfg.bankIban || '', swift: cfg.bankSwift || '' }]
+          : [];
+      setBankAccounts(accs);
     } catch {}
     setLoading(false);
   }, [statusFilter, search]);
@@ -274,8 +348,30 @@ export const QuotesPage: React.FC = () => {
     setQuotes(prev => prev.map(x => x.id === updated.id ? updated : x));
   };
 
-  // ── Print ─────────────────────────────────────────────────────────────────────
-  const handlePrint = (q: Quote) => printQuoteDoc(q, taxConfig, taxConfig.logoUrl || `${window.location.origin}/logo.png`);
+  // ── Save bank settings ────────────────────────────────────────────────────────
+  const saveBank = async () => {
+    setSavingBank(true);
+    try {
+      const updated = await api.put<any>('/tax/config', { bankAccounts });
+      setTaxConfig((prev: any) => ({ ...prev, bankAccounts: updated.bankAccounts || bankAccounts }));
+      setSettingsOpen(false);
+    } catch {}
+    setSavingBank(false);
+  };
+
+  const saveAccountForm = () => {
+    if (!accountForm) return;
+    setBankAccounts(prev => {
+      const exists = prev.find(a => a.id === accountForm.id);
+      return exists ? prev.map(a => a.id === accountForm.id ? accountForm : a) : [...prev, accountForm];
+    });
+    setAccountForm(null);
+  };
+
+  // ── Quote actions ─────────────────────────────────────────────────────────────
+  const openQuote = (q: Quote, mode: 'print' | 'preview' | 'download') =>
+    printQuoteDoc(q, taxConfig, taxConfig.logoUrl || `${window.location.origin}/logo.png`, mode);
+  const handlePrint = (q: Quote) => openQuote(q, 'print');
 
   // ── Filtered products for search ─────────────────────────────────────────────
   const filteredProds = useMemo(() =>
@@ -295,10 +391,17 @@ export const QuotesPage: React.FC = () => {
             <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Cotações</h1>
             <p className="text-sm text-gray-500 mt-0.5">Gere propostas de preço para os seus clientes</p>
           </div>
-          <button onClick={openNew}
-            className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-medium rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors">
-            Nova Cotação
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSettingsOpen(true)}
+              title="Configurar dados bancários"
+              className="p-2 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <Settings className="w-4 h-4" />
+            </button>
+            <button onClick={openNew}
+              className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
+              <Plus className="w-4 h-4" /> Nova Cotação
+            </button>
+          </div>
         </div>
       </div>
 
@@ -335,7 +438,7 @@ export const QuotesPage: React.FC = () => {
           <div className="flex gap-1.5 flex-wrap">
             {(['todos', 'rascunho', 'enviada', 'aceite', 'rejeitada', 'convertida', 'expirada'] as const).map(s => (
               <button key={s} onClick={() => setStatus(s)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${statusFilter === s ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'}`}>
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${statusFilter === s ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-400'}`}>
                 {s === 'todos' ? 'Todos' : STATUS_LABELS[s as QuoteStatus]}
               </button>
             ))}
@@ -396,11 +499,22 @@ export const QuotesPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400">{fmtDate(q.createdAt)}</td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEdit(q)} className="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white font-medium transition-colors">Editar</button>
-                        <button onClick={() => handlePrint(q)} className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-medium transition-colors">Imprimir</button>
+                      <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openQuote(q, 'preview')} title="Pré-visualizar"
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-brand-700 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded font-medium transition-colors">
+                          <Eye className="w-3 h-3" /> Ver
+                        </button>
+                        <button onClick={() => openQuote(q, 'download')} title="Baixar PDF"
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded font-medium transition-colors">
+                          <Download className="w-3 h-3" /> PDF
+                        </button>
+                        <button onClick={() => openQuote(q, 'print')} title="Imprimir"
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded font-medium transition-colors">
+                          <Printer className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => openEdit(q)} className="px-2 py-1 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded font-medium transition-colors">Editar</button>
                         <button onClick={() => deleteQuote(q.id)} disabled={deleting === q.id}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors disabled:opacity-40">
+                          className="px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded font-medium transition-colors disabled:opacity-40">
                           {deleting === q.id ? '...' : 'Eliminar'}
                         </button>
                       </div>
@@ -412,6 +526,96 @@ export const QuotesPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* ── Bank Settings Panel ── */}
+      {settingsOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setSettingsOpen(false)} />
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Configurações de Cotações</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Dados bancários que aparecem na cotação impressa</p>
+              </div>
+              <button onClick={() => setSettingsOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-light leading-none">&times;</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                <p className="text-xs text-blue-700 dark:text-blue-300">Adicione uma ou mais contas bancárias. Todas aparecem nas cotações impressas.</p>
+              </div>
+
+              {/* Account list */}
+              {bankAccounts.map(acc => (
+                <div key={acc.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-1 relative">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold text-sm text-gray-900 dark:text-white">{acc.name || '—'}</div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => setAccountForm({ ...acc })} className="p-1 rounded text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setBankAccounts(p => p.filter(a => a.id !== acc.id))} className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">Titular: <strong>{acc.holder || taxConfig.companyName || '—'}</strong></p>
+                  {acc.account && <p className="text-xs text-gray-500">Nº Conta: <strong className="font-mono">{acc.account}</strong></p>}
+                  {acc.nib && <p className="text-xs text-gray-500">NIB: <strong className="font-mono">{acc.nib}</strong></p>}
+                  {acc.iban && <p className="text-xs text-gray-500">IBAN: <strong className="font-mono">{acc.iban}</strong></p>}
+                  {acc.swift && <p className="text-xs text-gray-500">SWIFT/BIC: <strong>{acc.swift}</strong></p>}
+                </div>
+              ))}
+
+              {/* Add account button */}
+              {!accountForm && (
+                <button onClick={() => setAccountForm(emptyAccount())}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:border-brand-400 hover:text-brand-600 transition-colors">
+                  <Plus className="w-4 h-4" /> Adicionar Conta Bancária
+                </button>
+              )}
+
+              {/* Add / Edit form */}
+              {accountForm && (
+                <div className="border-2 border-brand-300 dark:border-brand-700 rounded-xl p-4 space-y-3 bg-brand-50/40 dark:bg-brand-900/10">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white">{bankAccounts.find(a => a.id === accountForm.id) ? 'Editar Conta' : 'Nova Conta'}</p>
+                    <button onClick={() => setAccountForm(null)}><XIcon className="w-4 h-4 text-gray-400" /></button>
+                  </div>
+                  {[
+                    { key: 'name',    label: 'Nome do Banco',   placeholder: 'BCI, BIM, Millennium BIM…', mono: false },
+                    { key: 'holder',  label: 'Titular da Conta',placeholder: 'Deixe vazio para usar nome da empresa', mono: false },
+                    { key: 'account', label: 'Número de Conta', placeholder: '1234 5678 9012 3', mono: true },
+                    { key: 'nib',     label: 'NIB',             placeholder: '000300001000000000101', mono: true },
+                    { key: 'iban',    label: 'IBAN (opcional)',  placeholder: 'MZ59 0003 0000 1000 0000 1010 1', mono: true },
+                    { key: 'swift',   label: 'SWIFT/BIC (opcional)', placeholder: 'BCIOMZMA', mono: true },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label className="text-xs font-medium text-gray-500 mb-1 block">{f.label}</label>
+                      <input value={(accountForm as any)[f.key]}
+                        onChange={e => setAccountForm(p => p ? { ...p, [f.key]: e.target.value } : p)}
+                        placeholder={f.placeholder}
+                        className={`w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:outline-none ${f.mono ? 'font-mono' : ''}`} />
+                    </div>
+                  ))}
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setAccountForm(null)} className="flex-1 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancelar</button>
+                    <button onClick={saveAccountForm} className="flex-1 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium transition-colors">Guardar Conta</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between gap-3 shrink-0 bg-white dark:bg-gray-900">
+              <button onClick={() => setSettingsOpen(false)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={saveBank} disabled={savingBank}
+                className="px-5 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors disabled:opacity-40 font-medium">
+                {savingBank ? 'A guardar...' : 'Guardar Configurações'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Slide-over Panel ── */}
       {panelOpen && (
@@ -603,7 +807,7 @@ export const QuotesPage: React.FC = () => {
                   Guardar Rascunho
                 </button>
                 <button onClick={() => save('enviada')} disabled={saving || !form.items.length}
-                  className="px-4 py-2 text-sm bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors disabled:opacity-40 font-medium">
+                  className="px-4 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors disabled:opacity-40 font-medium">
                   {saving ? 'A guardar...' : 'Guardar e Marcar Enviada'}
                 </button>
               </div>

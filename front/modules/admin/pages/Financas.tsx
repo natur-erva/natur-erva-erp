@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Loader2, FileText, TrendingUp, Receipt, Printer, Store, CheckCircle, XCircle, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, Loader2, FileText, TrendingUp, Receipt, Printer, Store, CheckCircle, XCircle, Clock, Upload, Image } from 'lucide-react';
 import api from '../../core/services/apiClient';
+import { uploadService } from '../../../services/uploadService';
+import { invalidateLogoCache } from '../../core/services/systemSettingsService';
 import type { Toast } from '../../core/components/ui/Toast';
 
 interface FinancasProps {
@@ -11,6 +13,7 @@ type TaxConfig = {
   companyName: string; companyNuit: string; companyAddress: string;
   companyPhone: string; companyEmail: string;
   vatRate: number; invoicePrefix: string;
+  logoUrl?: string; logoIconUrl?: string;
 };
 
 type TaxReport = {
@@ -36,8 +39,13 @@ export const Financas: React.FC<FinancasProps> = ({ showToast }) => {
   const [config, setConfig] = useState<TaxConfig>({
     companyName: '', companyNuit: '', companyAddress: '',
     companyPhone: '', companyEmail: '', vatRate: 16, invoicePrefix: 'FACT',
+    logoUrl: '', logoIconUrl: '',
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const iconInputRef = useRef<HTMLInputElement>(null);
   const [reportStart, setReportStart] = useState(thisMonth().start);
   const [reportEnd, setReportEnd] = useState(thisMonth().end);
   const [report, setReport] = useState<TaxReport | null>(null);
@@ -54,10 +62,33 @@ export const Financas: React.FC<FinancasProps> = ({ showToast }) => {
     try {
       const updated = await api.put<TaxConfig>('/tax/config', config);
       setConfig(updated);
-      showToast?.('Configuração fiscal guardada', 'success');
+      invalidateLogoCache();
+      window.dispatchEvent(new Event('logo:updated'));
+      showToast?.('Configuração guardada', 'success');
     } catch (e: any) {
       showToast?.(e.message || 'Erro ao guardar', 'error');
     } finally { setSaving(false); }
+  };
+
+  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>, field: 'logoUrl' | 'logoIconUrl') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const setUploading = field === 'logoUrl' ? setUploadingLogo : setUploadingIcon;
+    setUploading(true);
+    try {
+      const result = await uploadService.uploadImage(file, 'logo', 1600);
+      if (result?.url) {
+        setConfig(p => ({ ...p, [field]: result.url }));
+        showToast?.('Imagem carregada — clique em Guardar para aplicar', 'success');
+      } else {
+        showToast?.('Erro ao carregar imagem', 'error');
+      }
+    } catch (e: any) {
+      showToast?.(e.message || 'Erro ao carregar imagem', 'error');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
   };
 
   const handleLoadReport = async () => {
@@ -185,6 +216,56 @@ ${s.summary?.expectedCash !== undefined ? `<p class="bold">Fundo esperado em cai
       {/* ── Configuração Fiscal ── */}
       {tab === TAB.CONFIG && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
+
+          {/* ── Identidade Visual ── */}
+          <h2 className="font-semibold text-gray-900 dark:text-white">Identidade Visual</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Logo principal */}
+            <div className="space-y-2">
+              <p className={labelCls}>Logotipo principal</p>
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-14 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+                  {config.logoUrl
+                    ? <img src={config.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain p-1" />
+                    : <Image className="w-6 h-6 text-gray-400" />}
+                </div>
+                <div className="flex-1">
+                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => handleUploadLogo(e, 'logoUrl')} />
+                  <button onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}
+                    className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 text-gray-700 dark:text-gray-300">
+                    {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {uploadingLogo ? 'A carregar…' : 'Carregar logo'}
+                  </button>
+                  <p className="text-xs text-gray-400 mt-1">PNG, SVG ou JPG recomendado</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ícone (sidebar) */}
+            <div className="space-y-2">
+              <p className={labelCls}>Ícone (sidebar / favicon)</p>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+                  {config.logoIconUrl
+                    ? <img src={config.logoIconUrl} alt="Ícone" className="max-w-full max-h-full object-contain p-1" />
+                    : <Image className="w-6 h-6 text-gray-400" />}
+                </div>
+                <div className="flex-1">
+                  <input ref={iconInputRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => handleUploadLogo(e, 'logoIconUrl')} />
+                  <button onClick={() => iconInputRef.current?.click()} disabled={uploadingIcon}
+                    className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 text-gray-700 dark:text-gray-300">
+                    {uploadingIcon ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {uploadingIcon ? 'A carregar…' : 'Carregar ícone'}
+                  </button>
+                  <p className="text-xs text-gray-400 mt-1">Quadrado, preferencialmente PNG</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-gray-200 dark:border-gray-700" />
           <h2 className="font-semibold text-gray-900 dark:text-white">Dados da Empresa</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

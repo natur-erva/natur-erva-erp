@@ -38,8 +38,10 @@ const StockAdjustmentsPage = lazy(() => import('./modules/products/pages/StockAd
 const StockLotsPage = lazy(() => import('./modules/products/pages/StockLotsPage').then(m => ({ default: m.StockLotsPage })));
 const StockAlerts = lazy(() => import('./modules/products/pages/StockAlerts').then(m => ({ default: m.StockAlerts })));
 const AuditReportPage = lazy(() => import('./modules/products/pages/AuditReportPage').then(m => ({ default: m.AuditReportPage })));
+const EtiquetasPage = lazy(() => import('./modules/products/pages/EtiquetasPage').then(m => ({ default: m.EtiquetasPage })));
 const ShopReceipts = lazy(() => import('./modules/sales/pages/ShopReceipts').then(m => ({ default: m.ShopReceipts })));
 const POS = lazy(() => import('./modules/sales/pages/POS').then(m => ({ default: m.POS })));
+const CaixaPage = lazy(() => import('./modules/sales/pages/CaixaPage').then(m => ({ default: m.CaixaPage })));
 const QuotesPage = lazy(() => import('./modules/sales/pages/QuotesPage').then(m => ({ default: m.QuotesPage })));
 const RemoteScannerPage = lazy(() => import('./modules/sales/pages/RemoteScannerPage').then(m => ({ default: m.RemoteScannerPage })));
 const Financas = lazy(() => import('./modules/admin/pages/Financas').then(m => ({ default: m.Financas })));
@@ -514,7 +516,14 @@ const App = () => {
               } />
               <Route path="caixa" element={
                 <ProtectedRoute user={currentUser} permission="sales.view">
-                  <TrackedPage pagePath="/admin/caixa" pageTitle="Caixa (POS)">
+                  <TrackedPage pagePath="/admin/caixa" pageTitle="Caixa">
+                    <CaixaPage showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="pos" element={
+                <ProtectedRoute user={currentUser} permission="sales.view">
+                  <TrackedPage pagePath="/admin/pos" pageTitle="Venda (POS)">
                     <POS showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
@@ -555,6 +564,11 @@ const App = () => {
                   <TrackedPage pagePath="/admin/produtos/unidades" pageTitle="Unidades de Produtos">
                     <Products key="tab-unidades" showToast={showToast} onReloadData={loadData} totalProductsCount={counts?.products} showManagementTab="units" />
                   </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="produtos/etiquetas" element={
+                <ProtectedRoute user={currentUser} permission="products.view">
+                  <EtiquetasPage />
                 </ProtectedRoute>
               } />
               <Route path="compras" element={

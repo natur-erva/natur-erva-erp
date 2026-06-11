@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sale, SaleItem, Product, Order, OrderStatus, SaleType } from '../../core/types/types';
 import { Plus, Search, Upload, Loader2, Edit2, Eye, Trash2, Save, X, Calendar, DollarSign, Package, ArrowUp, ArrowDown, ArrowUpDown, ChevronLeft, ChevronRight, Image as ImageIcon, CheckSquare, Square, BarChart3, FileText, Grid3x3, List, Download, LayoutGrid, Table, Filter, FileSpreadsheet, Check, RefreshCw, ShoppingCart } from 'lucide-react';
 import { dataService } from '../../core/services/dataService';
@@ -168,9 +169,16 @@ export const Sales: React.FC<SalesProps> = ({
   // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const navigate = useNavigate();
+
   // Tab: Resumos | Por Produto - sincronizado com a rota (defaultTab muda sem remontar)
   const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
   useEffect(() => { setActiveTab(defaultTab); }, [defaultTab]);
+
+  const switchTab = (tab: TabType) => {
+    if (tab === 'summaries') navigate('/admin/vendas');
+    else navigate('/admin/vendas/por-produto');
+  };
   // By-product tab state
   const [byProductSearchQuery, setByProductSearchQuery] = useState('');
   const [productGroupMode, setProductGroupMode] = useState<ProductGroupMode>('with-variants');
@@ -1953,7 +1961,7 @@ export const Sales: React.FC<SalesProps> = ({
 
   return (
     <PageShell
-      title="Gestão de Vendas"
+      title="Resumos de Vendas"
       actions={
         <div className="flex items-center gap-2">
           {activeTab === 'summaries' && (
@@ -2043,7 +2051,31 @@ export const Sales: React.FC<SalesProps> = ({
       }
     >
 
-      {/* Tabs removidas - navegação agora é pelo sidebar com submenus */}
+      {/* ── Tab bar ── */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4 -mt-2">
+        <button
+          onClick={() => switchTab('summaries')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === 'summaries'
+              ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          Resumos
+        </button>
+        <button
+          onClick={() => switchTab('byProduct')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === 'byProduct'
+              ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          Por Produto
+        </button>
+      </div>
 
       {/* Resumos Tab */}
       {activeTab === 'summaries' && (

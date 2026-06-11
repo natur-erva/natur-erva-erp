@@ -29,33 +29,26 @@ export const Logo: React.FC<LogoProps> = ({
     const loadLogo = async () => {
       try {
         const settings = await getSystemSettings();
-        
         if (variant === 'icon') {
-          // Para é­cone, usar logo_icon se disponé­vel, senéo usar padréo
-          if (settings.logo_icon) {
-            setLogoUrl(settings.logo_icon);
-          }
+          if (settings.logo_icon) setLogoUrl(settings.logo_icon);
         } else {
-          // Para logo completo, usar logo_dark ou logo_light baseado no tema
           if (isDarkMode && settings.logo_dark) {
             setLogoUrl(settings.logo_dark);
           } else if (!isDarkMode && settings.logo_light) {
             setLogoUrl(settings.logo_light);
           } else {
-            // Fallback: usar logo_light se disponé­vel, senéo logo_dark, senéo manter padréo
             const customLogo = settings.logo_light || settings.logo_dark;
-            if (customLogo) {
-              setLogoUrl(customLogo);
-            }
+            if (customLogo) setLogoUrl(customLogo);
           }
         }
-      } catch (error) {
-        // Silenciosamente usar URL padréo em caso de erro
-        // Néo precisa fazer nada pois jé¡ esté¡ inicializado com padréo
+      } catch {
+        // silently use default
       }
     };
 
     loadLogo();
+    window.addEventListener('logo:updated', loadLogo);
+    return () => window.removeEventListener('logo:updated', loadLogo);
   }, [variant, isDarkMode]);
 
   return (

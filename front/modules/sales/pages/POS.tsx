@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Minus, ShoppingCart, CheckCircle, X, Printer, Store, LogOut, Clock, ScanLine, Smartphone, Wifi, ChevronLeft } from 'lucide-react';
 import api from '../../core/services/apiClient';
 import { orderService } from '../services/orderService';
@@ -42,12 +43,6 @@ type ByMethod = { method: string; count: number; total: number };
 type CloseReport = {
   session: PosSession;
   summary: { totalSales: number; totalOrders: number; byMethod: ByMethod[]; expectedCash: number };
-};
-type SessionHistoryItem = {
-  id: string; cashierName: string; openedAt: string; closedAt?: string;
-  initialAmount: number; isOpen: boolean;
-  summary: CloseReport['summary'] | null;
-  totalSales: number; totalOrders: number;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -221,31 +216,6 @@ function printInvoice(r: SaleReceipt, tax: TaxConfig, invoiceNumber: string, log
 <script>window.onload=()=>{window.print();}</script>
 </body></html>`;
   const win = window.open('', '_blank', 'width=900,height=700');
-  if (win) { win.document.write(html); win.document.close(); }
-}
-
-function printCloseReport(s: PosSession, summary: CloseReport['summary'], companyName = 'NaturErva', logoUrl = `${window.location.origin}/logo.png`) {
-  const fmt2 = (n: number) => `MT ${Number(n).toFixed(2)}`;
-  const rows = summary.byMethod.map(m =>
-    `<tr><td>${PAY_LABELS[m.method] || m.method}</td><td style="text-align:center">${m.count}</td><td style="text-align:right">${fmt2(m.total)}</td></tr>`
-  ).join('') || '<tr><td colspan="3" style="text-align:center">Sem vendas</td></tr>';
-  const openDt = new Date(s.opened_at).toLocaleString('pt-PT', { timeZone: TZ });
-  const closeDt = s.closed_at ? new Date(s.closed_at).toLocaleString('pt-PT', { timeZone: TZ }) : '—';
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fecho de Caixa</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;width:80mm;margin:0 auto;padding:12px}.c{text-align:center}.b{font-weight:bold}.lg{font-size:15px}hr{border:none;border-top:1px dashed #000;margin:7px 0}table{width:100%;border-collapse:collapse}td{padding:2px 0}img.logo{display:block;margin:0 auto 6px;max-width:110px;max-height:55px;object-fit:contain}</style>
-</head><body>
-<div class="c"><img class="logo" src="${logoUrl}" alt="Logo" onerror="this.style.display='none'"><p class="b lg">${companyName}</p><p>FECHO DE CAIXA</p></div><hr>
-<p>Caixa: ${s.cashier_name}</p><p>Abertura: ${openDt}</p><p>Fecho: ${closeDt}</p><p>Fundo inicial: ${fmt2(Number(s.initial_amount))}</p><hr>
-<table><tr><td class="b">Método</td><td class="b" style="text-align:center">Qtd</td><td class="b" style="text-align:right">Total</td></tr>${rows}</table><hr>
-<table>
-<tr><td class="b">Total Vendas:</td><td class="b" style="text-align:right">${fmt2(summary.totalSales)}</td></tr>
-<tr><td>Transações:</td><td style="text-align:right">${summary.totalOrders}</td></tr>
-<tr><td>Fundo esperado:</td><td style="text-align:right">${fmt2(summary.expectedCash)}</td></tr>
-</table><hr>
-<div class="c"><p>Relatório de Fecho de Caixa</p></div>
-<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}</script>
-</body></html>`;
-  const win = window.open('', '_blank', 'width=360,height=680');
   if (win) { win.document.write(html); win.document.close(); }
 }
 
@@ -465,6 +435,7 @@ function printCotacao(items: CartItem[], tax: TaxConfig, quoteNumber: string, lo
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export const POS: React.FC<POSProps> = ({ showToast }) => {
+  const navigate = useNavigate();
   // Session
   const [session, setSession] = useState<PosSession | null | 'loading'>('loading');
   const [initialAmtInput, setInitialAmtInput] = useState('');
@@ -487,10 +458,6 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [taxConfig, setTaxConfig] = useState<TaxConfig>({ companyName: 'NaturErva', companyNuit: '', companyAddress: '', companyPhone: '', companyEmail: '', vatRate: 16, invoicePrefix: 'FACT' });
-  const [sessions, setSessions] = useState<SessionHistoryItem[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [loadingSessions, setLoadingSessions] = useState(false);
-
   // Scanner remoto (telemóvel → computador)
   const [remoteSession, setRemoteSession] = useState<{ sessionId: string; url: string } | null>(null);
   const [showRemoteModal, setShowRemoteModal] = useState(false);
@@ -528,16 +495,6 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
 
   // Parar poller ao desmontar
   useEffect(() => () => { if (remotePollerRef.current) clearInterval(remotePollerRef.current); }, []);
-
-  const loadSessions = async () => {
-    if (loadingSessions) return;
-    setLoadingSessions(true);
-    try {
-      const s = await api.get<SessionHistoryItem[]>('/pos/sessions');
-      setSessions(s || []);
-    } catch { }
-    finally { setLoadingSessions(false); }
-  };
 
   useEffect(() => {
     Promise.all([
@@ -689,196 +646,44 @@ export const POS: React.FC<POSProps> = ({ showToast }) => {
     );
   }
 
-  // ── Abrir Caixa ───────────────────────────────────────────────────────────────
+  // ── Sem sessão — redireciona para Caixa ──────────────────────────────────────
   if (!session && !closeReport) {
     return (
-      <><div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-950 p-4">
+      <div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-950 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 w-full max-w-sm text-center">
-          <div className="w-16 h-16 bg-brand-50 dark:bg-brand-900/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
-            <Store className="w-8 h-8 text-brand-600" />
+          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <Store className="w-8 h-8 text-gray-400" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Abrir Caixa</h2>
-          <p className="text-sm text-gray-500 mb-6">Introduz o fundo de maneio para iniciar a sessão</p>
-
-          <div className="mb-4 text-left">
-            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Fundo inicial (MT)</label>
-            <input
-              type="number" value={initialAmtInput}
-              onChange={e => setInitialAmtInput(e.target.value)}
-              placeholder="0.00" min={0}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-lg font-semibold text-center focus:ring-2 focus:ring-brand-500 focus:outline-none"
-              onKeyDown={e => e.key === 'Enter' && handleOpenSession()}
-            />
-          </div>
-
-          <button onClick={handleOpenSession} disabled={openingSession}
-            className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50">
-            {openingSession ? 'A abrir...' : 'Abrir Caixa'}
-          </button>
-          <button onClick={() => { setShowHistory(true); loadSessions(); }}
-            className="w-full mt-3 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2">
-            <Clock className="w-4 h-4" />
-            Ver Histórico de Sessões
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Caixa Fechada</h2>
+          <p className="text-sm text-gray-500 mb-6">Abre uma sessão de caixa antes de iniciar vendas.</p>
+          <button onClick={() => navigate('/admin/caixa')}
+            className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors">
+            Ir para Caixa
           </button>
         </div>
       </div>
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowHistory(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="font-bold text-gray-900 dark:text-white">Histórico de Caixa</h2>
-              <button onClick={() => setShowHistory(false)}><X className="w-5 h-5 text-gray-400" /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {loadingSessions ? <p className="text-center py-8 text-gray-400 text-sm">A carregar...</p>
-                : sessions.length === 0 ? <p className="text-center py-8 text-gray-400 text-sm">Nenhuma sessão encontrada</p>
-                : sessions.map(sh => (
-                <div key={sh.id} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">{sh.cashierName}</p>
-                      <p className="text-xs text-gray-500">{new Date(sh.openedAt).toLocaleDateString('pt-PT')} · {fmtTime(sh.openedAt)} → {sh.closedAt ? fmtTime(sh.closedAt) : 'Aberta'}</p>
-                    </div>
-                    {sh.isOpen ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Aberta</span>
-                      : <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-full">Fechada</span>}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-brand-600">{fmt(sh.totalSales)}</p>
-                      <p className="text-xs text-gray-400">{sh.totalOrders} venda{sh.totalOrders !== 1 ? 's' : ''}</p>
-                    </div>
-                    {!sh.isOpen && sh.summary && (
-                      <button onClick={() => { const ps: PosSession = { id: sh.id, cashier_name: sh.cashierName, cashier_id: '', opened_at: sh.openedAt, closed_at: sh.closedAt, initial_amount: sh.initialAmount, is_open: false }; printCloseReport(ps, sh.summary!, taxConfig.companyName, taxConfig.logoUrl); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-xs font-medium">
-                        <Printer className="w-3.5 h-3.5" />Imprimir
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-      </>
-  );
+    );
   }
 
-  // ── Relatório de Fecho ────────────────────────────────────────────────────────
+  // ── Relatório de Fecho — redireciona para Caixa ──────────────────────────────
   if (closeReport) {
-    const { summary, session: s } = closeReport;
-    const duration = fmtDuration(s.opened_at);
     return (
-      <><div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-950 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 w-full max-w-md overflow-hidden">
-          {/* Header */}
-          <div className="bg-brand-600 px-6 py-5 text-white text-center">
-            <CheckCircle className="w-10 h-10 mx-auto mb-2" />
-            <h2 className="text-xl font-bold">Caixa Fechada</h2>
-            <p className="text-brand-100 text-sm mt-1">
-              {fmtTime(s.opened_at)} → {fmtTime(s.closed_at!)} · {duration}
-            </p>
-            <p className="text-brand-100 text-sm">Caixa: {s.cashier_name}</p>
+      <div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-950 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 w-full max-w-sm text-center">
+          <div className="w-16 h-16 bg-green-50 dark:bg-green-900/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-
-          {/* Resumo */}
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.totalOrders}</p>
-                <p className="text-xs text-gray-500 mt-1">Vendas realizadas</p>
-              </div>
-              <div className="bg-brand-50 dark:bg-brand-900/20 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-brand-600">{fmt(summary.totalSales)}</p>
-                <p className="text-xs text-gray-500 mt-1">Total vendido</p>
-              </div>
-            </div>
-
-            {/* Por método */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Por método de pagamento</p>
-              <div className="space-y-2">
-                {summary.byMethod.length === 0
-                  ? <p className="text-sm text-gray-400 text-center py-2">Nenhuma venda nesta sessão</p>
-                  : summary.byMethod.map(m => (
-                    <div key={m.method} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-lg px-4 py-2.5">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{PAY_LABELS[m.method] || m.method}</p>
-                        <p className="text-xs text-gray-400">{m.count} {m.count === 1 ? 'venda' : 'vendas'}</p>
-                      </div>
-                      <p className="font-semibold text-gray-900 dark:text-white">{fmt(m.total)}</p>
-                    </div>
-                  ))}
-              </div>
-            </div>
-
-            {/* Fundo esperado */}
-            <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 rounded-xl px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Fundo esperado em caixa</p>
-                <p className="text-xs text-gray-400">Fundo inicial + vendas a dinheiro</p>
-              </div>
-              <p className="text-xl font-bold text-green-600">{fmt(summary.expectedCash)}</p>
-            </div>
-          </div>
-
-          <div className="px-6 pb-6 space-y-2">
-            <div className="flex gap-2">
-              <button onClick={() => printCloseReport(s, summary, taxConfig.companyName, taxConfig.logoUrl)}
-                className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm flex items-center justify-center gap-1.5">
-                <Printer className="w-4 h-4" />Imprimir Fecho
-              </button>
-              <button onClick={() => { setShowHistory(true); loadSessions(); }}
-                className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm flex items-center justify-center gap-1.5">
-                <Clock className="w-4 h-4" />Histórico
-              </button>
-            </div>
-            <button onClick={() => setCloseReport(null)}
-              className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors">
-              Abrir Nova Caixa
-            </button>
-          </div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Caixa Fechada</h2>
+          <p className="text-sm text-gray-500 mb-2">
+            {fmt(closeReport.summary.totalSales)} em {closeReport.summary.totalOrders} vendas
+          </p>
+          <p className="text-xs text-gray-400 mb-6">Ver o relatório completo na página de Caixa.</p>
+          <button onClick={() => navigate('/admin/caixa')}
+            className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors">
+            Ir para Caixa
+          </button>
         </div>
       </div>
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowHistory(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="font-bold text-gray-900 dark:text-white">Histórico de Caixa</h2>
-              <button onClick={() => setShowHistory(false)}><X className="w-5 h-5 text-gray-400" /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {loadingSessions ? <p className="text-center py-8 text-gray-400 text-sm">A carregar...</p>
-                : sessions.length === 0 ? <p className="text-center py-8 text-gray-400 text-sm">Nenhuma sessão encontrada</p>
-                : sessions.map(sh => (
-                <div key={sh.id} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">{sh.cashierName}</p>
-                      <p className="text-xs text-gray-500">{new Date(sh.openedAt).toLocaleDateString('pt-PT')} · {fmtTime(sh.openedAt)} → {sh.closedAt ? fmtTime(sh.closedAt) : 'Aberta'}</p>
-                    </div>
-                    {sh.isOpen ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Aberta</span>
-                      : <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-full">Fechada</span>}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-brand-600">{fmt(sh.totalSales)}</p>
-                      <p className="text-xs text-gray-400">{sh.totalOrders} venda{sh.totalOrders !== 1 ? 's' : ''}</p>
-                    </div>
-                    {!sh.isOpen && sh.summary && (
-                      <button onClick={() => { const ps: PosSession = { id: sh.id, cashier_name: sh.cashierName, cashier_id: '', opened_at: sh.openedAt, closed_at: sh.closedAt, initial_amount: sh.initialAmount, is_open: false }; printCloseReport(ps, sh.summary!, taxConfig.companyName, taxConfig.logoUrl); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-xs font-medium">
-                        <Printer className="w-3.5 h-3.5" />Imprimir
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-      </>
     );
   }
 

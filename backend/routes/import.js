@@ -84,11 +84,31 @@ router.post('/products', authMiddleware, async (req, res) => {
         const productCost  = hasVariants ? 0 : toFloat(first.preco_custo);
         const productStock = hasVariants ? 0 : toFloat(first.stock);
 
+        const barcode = String(first.barcode || '').trim() || null;
+        const image   = String(first.image   || '').trim() || null;
+        const image2  = String(first.image2  || '').trim() || null;
+        const image3  = String(first.image3  || '').trim() || null;
+        const image4  = String(first.image4  || '').trim() || null;
+
+        // If barcode provided, check it's not already in use
+        if (barcode) {
+          const { rows: bcCheck } = await client.query(
+            'SELECT id FROM products WHERE barcode = $1 LIMIT 1',
+            [barcode]
+          );
+          if (bcCheck.length > 0) {
+            result.errors.push({ nome, reason: `Código de barras "${barcode}" já está em uso por outro produto` });
+            result.skipped++;
+            continue;
+          }
+        }
+
         const { rows: inserted } = await client.query(
           `INSERT INTO products
             (name, slug, price, cost_price, type, category, stock, min_stock, unit,
-             show_in_shop, description, description_long, benefits, how_to_use, ingredients)
-           VALUES ($1,$2,$3,$4,'GERAL',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+             show_in_shop, description, description_long, benefits, how_to_use, ingredients,
+             barcode, image, image_url2, image_url3, image_url4)
+           VALUES ($1,$2,$3,$4,'GERAL',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
            RETURNING id`,
           [
             nome,
@@ -105,6 +125,11 @@ router.post('/products', authMiddleware, async (req, res) => {
             String(first.beneficios || '').trim() || null,
             String(first.como_usar || '').trim() || null,
             String(first.ingredientes || '').trim() || null,
+            barcode,
+            image,
+            image2,
+            image3,
+            image4,
           ]
         );
 

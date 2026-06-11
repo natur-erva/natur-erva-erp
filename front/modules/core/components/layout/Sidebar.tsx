@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, ShoppingCart, Package, LogOut, Award, TrendingUp, Warehouse, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, Egg, UserCheck, Repeat, Truck, FileText, BarChart3, ArrowLeftRight, Wallet, Download, Activity, ArrowRight, Upload, Globe, CreditCard, Megaphone, Target, Share2, Eye, MapPin, Store, Image, Tv, List, Layers, Ruler, Tag, ClipboardCheck, Scale, AlertTriangle, Shield, Boxes } from 'lucide-react';
 import { User, UserRole } from '../../../core/types/types';
@@ -26,6 +26,9 @@ import { Logo } from '../ui/Logo';
 import { Avatar } from '../ui/Avatar';
 import { LanguageFlag } from '../ui/LanguageFlag';
 import { usePermissions } from '../../../core/hooks/usePermissions';
+import { uploadService } from '../../../../services/uploadService';
+import api from '../../services/apiClient';
+import { invalidateLogoCache } from '../../services/systemSettingsService';
 
 const BASE_PATH = '/';
 
@@ -68,6 +71,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const { t, language, setLanguage } = useLanguage();
   const { hasPermission } = usePermissions(currentUser);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const LOGO_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+  const canChangeLogo = (currentUser.roles?.some(r => LOGO_ROLES.includes(r.toUpperCase())) ?? false)
+    || LOGO_ROLES.includes((currentUser.role ?? '').toUpperCase());
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const result = await uploadService.uploadImage(file, 'logo', 1600);
+      if (result?.url) {
+        await api.put('/tax/config', { logoUrl: result.url });
+        invalidateLogoCache();
+        window.dispatchEvent(new Event('logo:updated'));
+      }
+    } catch { /* silent */ } finally {
+      setUploadingLogo(false);
+      e.target.value = '';
+    }
+  };
 
   // State for enabled modules
   const [enabledModules, setEnabledModules] = React.useState<Record<string, boolean>>({});
@@ -144,9 +169,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Estrutura do menu com submenus (definida aqui para usar no useEffect)
   const menuItemsWithChildren: { id: string; children?: { path: string }[] }[] = [
-    { id: 'sales', children: [{ path: '/admin/vendas' }, { path: '/admin/vendas/por-produto' }, { path: '/admin/vendas/pedidos' }, { path: '/admin/vendas/clientes' }, { path: '/admin/caixa' }] },
+    { id: 'sales', children: [{ path: '/admin/pos' }, { path: '/admin/caixa' }, { path: '/admin/vendas/pedidos' }, { path: '/admin/cotacoes' }, { path: '/admin/vendas/clientes' }, { path: '/admin/vendas' }] },
     { id: 'purchases', children: [{ path: '/admin/compras' }, { path: '/admin/compras/por-produto' }, { path: '/admin/compras/fornecedores' }] },
-    { id: 'products', children: [{ path: '/admin/produtos' }, { path: '/admin/produtos/categorias' }, { path: '/admin/produtos/unidades' }] },
+    { id: 'products', children: [{ path: '/admin/produtos' }, { path: '/admin/produtos/categorias' }, { path: '/admin/produtos/unidades' }, { path: '/admin/produtos/etiquetas' }] },
     { id: 'stock-management', children: [{ path: '/admin/stock' }, { path: '/admin/stock/alertas' }, { path: '/admin/stock/movimentos' }, { path: '/admin/stock/lotes' }, { path: '/admin/stock/auditoria' }, { path: '/admin/stock/ajustes' }] },
     { id: 'users', children: [{ path: '/admin/usuarios' }, { path: '/admin/usuarios/roles' }] },
   ];
@@ -212,12 +237,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: TrendingUp,
       permission: 'sales.view',
       children: [
-        { id: 'pos', label: 'Caixa (POS)', icon: Store, path: '/admin/caixa' },
-        { id: 'cotacoes', label: 'Cotações', icon: FileText, path: '/admin/cotacoes' },
-        { id: 'sales-orders', label: t.nav.orders, icon: ShoppingCart, path: '/admin/vendas/pedidos' },
-        { id: 'sales-customers', label: t.nav.customers, icon: Users, path: '/admin/vendas/clientes' },
-        { id: 'sales-summaries', label: 'Resumos', icon: List, path: '/admin/vendas' },
-        { id: 'sales-by-product', label: 'Por Produto', icon: Package, path: '/admin/vendas/por-produto' },
+        { id: 'pos-sell', label: 'Vender',   icon: CreditCard,  path: '/admin/pos' },
+        { id: 'caixa',    label: 'Caixa',    icon: Store,       path: '/admin/caixa' },
+        { id: 'sales-orders',    label: 'Pedidos',   icon: ShoppingCart, path: '/admin/vendas/pedidos' },
+        { id: 'cotacoes',        label: 'Cotações',  icon: FileText,     path: '/admin/cotacoes' },
+        { id: 'sales-customers', label: 'Clientes',  icon: Users,        path: '/admin/vendas/clientes' },
+        { id: 'sales-summaries', label: 'Resumos',   icon: List,         path: '/admin/vendas' },
       ]
     },
     {
@@ -240,6 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'products-list', label: 'Produtos', icon: Package, path: '/admin/produtos' },
         { id: 'products-categories', label: 'Categorias', icon: Tag, path: '/admin/produtos/categorias' },
         { id: 'products-units', label: 'Unidades', icon: Ruler, path: '/admin/produtos/unidades' },
+        { id: 'products-labels', label: 'Etiquetas', icon: ClipboardCheck, path: '/admin/produtos/etiquetas' },
       ]
     },
     {
@@ -295,18 +321,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className={`bg-surface-overlay h-screen border-r border-border-default flex flex-col fixed left-0 top-0 z-10 hidden md:flex transition-all duration-300 ${isOpen ? 'w-64' : 'w-20'}`}>
         {/* Header */}
         <div className={`flex items-center border-b border-border-default transition-all duration-300 ${isOpen ? 'px-4 py-4 justify-start' : 'px-2 py-4 justify-center'}`}>
-          <button
-            onClick={() => {
-              navigate('/');
-            }}
-            className="flex-shrink-0 flex items-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            {isOpen ? (
-              <Logo variant="full" width={240} height={76} className="h-16 sm:h-20 w-auto max-w-[calc(100%-2rem)] object-contain" isDarkMode={isDarkMode} />
-            ) : (
-              <Logo variant="icon" width={180} height={56} className="w-[180px] h-[56px] object-contain" isDarkMode={isDarkMode} />
+          <div className="relative group flex-shrink-0">
+            <button onClick={() => navigate('/')} className="flex items-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
+              {isOpen ? (
+                <Logo variant="full" width={240} height={76} className="h-16 sm:h-20 w-auto max-w-[calc(100%-2rem)] object-contain" isDarkMode={isDarkMode} />
+              ) : (
+                <Logo variant="icon" width={180} height={56} className="w-[180px] h-[56px] object-contain" isDarkMode={isDarkMode} />
+              )}
+            </button>
+            {canChangeLogo && (
+              <>
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                <button
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={uploadingLogo}
+                  title="Trocar logotipo"
+                  className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  {uploadingLogo
+                    ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <Upload className="w-5 h-5 text-white drop-shadow" />}
+                </button>
+              </>
             )}
-          </button>
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2">

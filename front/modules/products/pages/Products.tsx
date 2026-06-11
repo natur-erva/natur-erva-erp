@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Product, ProductType, ProductVariant } from '../../core/types/types';
-import { Plus, Edit2, Trash2, Filter, Sprout, ArrowUpDown, ArrowUp, ArrowDown, Settings, X, Layers, Package, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, Filter, Sprout, ArrowUpDown, ArrowUp, ArrowDown, Settings, X, Layers, Package, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Upload, Tag } from 'lucide-react';
 import { productService } from '../services/productService';
 import { Toast } from '../../core/components/ui/Toast';
 import { ConfirmDialog } from '../../core/components/ui/ConfirmDialog';
@@ -8,6 +8,7 @@ import { ProductManagement } from '../components/ui/ProductManagement';
 import { ProductFormModal } from '../components/modals/ProductFormModal';
 import { ProductVariantModal } from '../components/modals/ProductVariantModal';
 import { ProductImportModal } from '../components/modals/ProductImportModal';
+import { LabelPrintModal } from '../components/modals/LabelPrintModal';
 import uploadService, { uploadProductImage, deleteProductImage } from '../../../services/uploadService';
 import { uploadVariantImage, validateImageFile } from '../../media/services/imageService';
 import { useMobile } from '../../core/hooks/useMobile';
@@ -100,6 +101,9 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
 
   // Import modal
   const [isImportOpen, setIsImportOpen] = useState(false);
+
+  // Label print modal
+  const [isLabelPrintOpen, setIsLabelPrintOpen] = useState(false);
 
   // Categories and Units from management system (API returns id, name, abbreviation, isActive)
   const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; isActive?: boolean }>>([]);
@@ -552,37 +556,100 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
 
   const exportToExcel = async () => {
     try {
-      if (sortedTableRows.length === 0) {
+      if (products.length === 0) {
         showToast('Não há dados para exportar', 'warning');
         return;
       }
 
-      const exportData = sortedTableRows.map((row) => {
-        const product = row.product;
-        const defaultVariant = product.variants?.length ? getDefaultVariant(product) : null;
-        const name = row.type === 'variant' ? `${product.name} ${row.variant.name}` : product.name;
-        const cost = row.type === 'variant' ? (row.variant.costPrice ?? 0) : (defaultVariant ? (defaultVariant.costPrice ?? 0) : (product.costPrice ?? 0));
-        const sell = row.type === 'variant' ? row.variant.price : (defaultVariant ? defaultVariant.price : product.price);
-        const stk = row.type === 'variant' ? row.variant.stock : calculateTotalStock(product);
-        const margin = cost > 0 ? ((sell - cost) / cost) * 100 : 0;
+      const exportData: Record<string, unknown>[] = [];
 
-        return {
-          'Produto': name,
-          'Preço Compra (MT)': cost,
-          'Preço Venda (MT)': sell,
-          'Margem %': cost > 0 ? `${margin.toFixed(1)}%` : '—',
-          'Stock': stk,
-        };
-      });
+      for (const product of products) {
+        const hasVariants = product.variants && product.variants.length > 0;
+
+        if (!hasVariants) {
+          exportData.push({
+            nome: product.name,
+            categoria: product.category || '',
+            unidade: product.unit || 'un',
+            preco_venda: product.price ?? 0,
+            preco_custo: product.costPrice ?? 0,
+            stock: product.stock ?? 0,
+            stock_minimo: product.minStock ?? 0,
+            barcode: product.barcode || '',
+            image: product.image || '',
+            image2: product.image2 || '',
+            image3: product.image3 || '',
+            image4: product.image4 || '',
+            mostrar_na_loja: product.showInShop ? 'Sim' : 'Nao',
+            descricao: product.description || '',
+            descricao_longa: product.descriptionLong || '',
+            beneficios: product.benefits || '',
+            como_usar: product.howToUse || '',
+            ingredientes: product.ingredients || '',
+            variante_nome: '',
+            variante_preco_venda: '',
+            variante_preco_custo: '',
+            variante_stock: '',
+            variante_padrao: '',
+          });
+        } else {
+          product.variants!.forEach((v, i) => {
+            exportData.push({
+              nome: product.name,
+              categoria: i === 0 ? (product.category || '') : '',
+              unidade: i === 0 ? (product.unit || 'un') : '',
+              preco_venda: '',
+              preco_custo: '',
+              stock: '',
+              stock_minimo: '',
+              barcode: i === 0 ? (product.barcode || '') : '',
+              image: i === 0 ? (product.image || '') : '',
+              image2: i === 0 ? (product.image2 || '') : '',
+              image3: i === 0 ? (product.image3 || '') : '',
+              image4: i === 0 ? (product.image4 || '') : '',
+              mostrar_na_loja: i === 0 ? (product.showInShop ? 'Sim' : 'Nao') : '',
+              descricao: i === 0 ? (product.description || '') : '',
+              descricao_longa: i === 0 ? (product.descriptionLong || '') : '',
+              beneficios: i === 0 ? (product.benefits || '') : '',
+              como_usar: i === 0 ? (product.howToUse || '') : '',
+              ingredientes: i === 0 ? (product.ingredients || '') : '',
+              variante_nome: v.name,
+              variante_preco_venda: v.price ?? '',
+              variante_preco_custo: v.costPrice ?? '',
+              variante_stock: v.stock ?? '',
+              variante_padrao: v.isDefault ? 'Sim' : 'Nao',
+            });
+          });
+        }
+      }
 
       const wb = createWorkbook();
       const ws = addWorksheet(wb, 'Produtos');
-      addRowsFromJson(ws, exportData as Record<string, unknown>[]);
-      [35, 18, 18, 12, 12].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+      addRowsFromJson(ws, exportData);
+
+      // Style header row
+      ws.getRow(1).eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } };
+        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+      ws.getRow(1).height = 24;
+      ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+      // Alternate row colors
+      for (let r = 2; r <= exportData.length + 1; r++) {
+        ws.getRow(r).eachCell(cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: r % 2 === 0 ? 'FFF0fdf4' : 'FFFFFFFF' } };
+          cell.font = { size: 10 };
+        });
+      }
+
+      const colWidths = [32, 22, 10, 14, 14, 10, 12, 18, 50, 50, 50, 50, 14, 36, 36, 36, 36, 36, 24, 18, 18, 14, 14];
+      colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
       const filename = `produtos_${getTodayDateString()}.xlsx`;
       await writeWorkbookToFile(wb, filename);
-      showToast(`Exportação concluída: ${sortedTableRows.length} produtos`, 'success');
+      showToast(`Exportação concluída: ${products.length} produto(s)`, 'success');
     } catch (error) {
       console.error('Erro ao exportar para Excel:', error);
       showToast('Erro ao exportar para Excel', 'error');
@@ -594,10 +661,18 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
       <button
         onClick={() => setShowManagement(true)}
         className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors flex items-center shadow-lg px-4 py-2"
-        title="Gestão de Categorias, Unidades e Templates"
+        title="Gerir Categorias, Unidades e Templates"
       >
         <Settings className="w-5 h-5 mr-2" />
-        <span className="hidden sm:inline">Gestão</span>
+        <span className="hidden sm:inline">Categorias</span>
+      </button>
+      <button
+        onClick={() => setIsLabelPrintOpen(true)}
+        className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center shadow-lg transition-colors px-4 py-2"
+        title="Imprimir etiquetas de produtos"
+      >
+        <Tag className="w-5 h-5 mr-2" />
+        <span className="hidden sm:inline">Etiquetas</span>
       </button>
       <button
         onClick={() => setIsImportOpen(true)}
@@ -610,10 +685,10 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
       <button
         onClick={exportToExcel}
         className="bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center shadow-lg transition-colors px-4 py-2"
-        title="Exportar para Excel"
+        title="Exportar todos os produtos para Excel"
       >
         <FileSpreadsheet className="w-5 h-5 mr-2" />
-        <span className="hidden sm:inline">Excel</span>
+        <span className="hidden sm:inline">Exportar</span>
       </button>
       <button
         onClick={() => {
@@ -874,17 +949,17 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
                   className={`bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border-2 transition-all ${isSelected ? 'border-brand-500 dark:border-brand-400' : 'border-transparent'
                     }`}
                 >
-                  <div className="relative h-48 bg-gray-100 dark:bg-gray-700">
+                  <div className="relative aspect-[4/3] bg-gray-50 dark:bg-gray-700/60">
                     {product.image && !brokenImages.has(product.image) ? (
-                      <img 
-                        src={uploadService.getPublicUrl(product.image)} 
-                        alt={product.name} 
-                        className="w-full h-full object-cover" 
+                      <img
+                        src={uploadService.getPublicUrl(product.image)}
+                        alt={product.name}
+                        className="w-full h-full object-contain p-2"
                         onError={() => handleImageError(product.image)}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Sprout className="w-12 h-12 text-brand-600 dark:text-brand-400" />
+                        <Sprout className="w-12 h-12 text-brand-600 dark:text-brand-400 opacity-40" />
                       </div>
                     )}
                     <div className="absolute top-2 left-2">
@@ -1252,6 +1327,14 @@ export const Products: React.FC<ProductsProps> = ({ showToast, onReloadData, tot
         onClose={() => setIsImportOpen(false)}
         onSuccess={() => { loadProducts(); showToast('Produtos importados com sucesso!', 'success'); }}
         showToast={showToast}
+      />
+
+      <LabelPrintModal
+        products={products}
+        preselected={selectedProducts.size > 0 ? products.filter(p => selectedProducts.has(p.id)) : []}
+        open={isLabelPrintOpen}
+        onClose={() => setIsLabelPrintOpen(false)}
+        onBarcodeAssigned={() => { onReloadData?.(); loadProducts(); }}
       />
     </PageShell>
   );

@@ -1,11 +1,14 @@
-import React, { useState, memo } from 'react';
+import React, { useState, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { User, LogIn, LogOut, Settings, ShoppingCart, Menu, X, ShoppingBag, Home, Info, Shield, Phone, BookOpen } from 'lucide-react';
+import { User, LogIn, LogOut, Settings, ShoppingCart, Menu, X, ShoppingBag, Home, Info, Shield, Phone, BookOpen, Upload } from 'lucide-react';
 import { UserRole } from '../../../core/types/types';
 import { Logo } from '../ui/Logo';
 import { useMobile } from '../../../core/hooks/useMobile';
 import { User as UserType } from '../../../core/types/types';
+import { uploadService } from '../../../../services/uploadService';
+import api from '../../services/apiClient';
+import { invalidateLogoCache } from '../../services/systemSettingsService';
 
 interface HeaderProps {
   currentUser: UserType | null;
@@ -35,8 +38,33 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const isMobile = useMobile(768);
   const isTablet = useMobile(1024);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const closeSidebar = () => setSidebarOpen(false);
+
+  const LOGO_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+  const canChangeLogo = currentUser && (
+    (currentUser.roles?.some(r => LOGO_ROLES.includes(r.toUpperCase())) ?? false)
+    || LOGO_ROLES.includes((currentUser.role ?? '').toUpperCase())
+  );
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const result = await uploadService.uploadImage(file, 'logo', 1600);
+      if (result?.url) {
+        await api.put('/tax/config', { logoUrl: result.url });
+        invalidateLogoCache();
+        window.dispatchEvent(new Event('logo:updated'));
+      }
+    } catch { /* silent */ } finally {
+      setUploadingLogo(false);
+      e.target.value = '';
+    }
+  };
 
   const handleLogout = () => { onLogout?.(); };
 
@@ -57,14 +85,31 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           <div className="flex items-center justify-between h-16 sm:h-[68px] gap-4">
 
             {/* Logo */}
-            <Link to="/" className="flex-shrink-0 flex items-center hover:opacity-80 transition-opacity" aria-label="Início">
-              <Logo
-                width={isMobile ? 100 : isTablet ? 120 : 140}
-                height={isMobile ? 34 : isTablet ? 40 : 44}
-                className="w-auto"
-                isDarkMode={isDarkMode}
-              />
-            </Link>
+            <div className="relative group flex-shrink-0">
+              <Link to="/" className="flex items-center hover:opacity-80 transition-opacity" aria-label="Início">
+                <Logo
+                  width={isMobile ? 100 : isTablet ? 120 : 140}
+                  height={isMobile ? 34 : isTablet ? 40 : 44}
+                  className="w-auto"
+                  isDarkMode={isDarkMode}
+                />
+              </Link>
+              {canChangeLogo && (
+                <>
+                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  <button
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                    title="Trocar logotipo"
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    {uploadingLogo
+                      ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      : <Upload className="w-5 h-5 text-white drop-shadow" />}
+                  </button>
+                </>
+              )}
+            </div>
 
             {/* Nav links — desktop */}
             {!isMobile && (

@@ -146,6 +146,56 @@ router.get('/count', async (req, res) => {
   }
 });
 
+// POST /api/products/bulk-assign-barcodes
+// Generates and persists EAN-13 barcodes for products that lack one.
+// Uses GS1 internal-use prefix 200 + 9 random digits + check digit.
+router.post('/bulk-assign-barcodes', authMiddleware, async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return res.json({ assigned: [] });
+    }
+
+    function calcEAN13CheckDigit(code12) {
+      let s = 0;
+      for (let i = 0; i < 12; i++) s += parseInt(code12[i]) * (i % 2 === 0 ? 1 : 3);
+      return (10 - (s % 10)) % 10;
+    }
+
+    async function generateUniqueEAN13() {
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const mid = String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, '0');
+        const code12 = '200' + mid;
+        const barcode = code12 + calcEAN13CheckDigit(code12);
+        const { rows } = await pool.query('SELECT id FROM products WHERE barcode = $1 LIMIT 1', [barcode]);
+        if (!rows.length) return barcode;
+      }
+      throw new Error('Não foi possível gerar um código único');
+    }
+
+    // Only target products that genuinely have no barcode
+    const { rows: targets } = await pool.query(
+      `SELECT id FROM products WHERE id = ANY($1::uuid[]) AND (barcode IS NULL OR barcode = '')`,
+      [productIds]
+    );
+
+    const assigned = [];
+    for (const { id } of targets) {
+      const barcode = await generateUniqueEAN13();
+      await pool.query(
+        `UPDATE products SET barcode = $1, updated_at = NOW() WHERE id = $2`,
+        [barcode, id]
+      );
+      assigned.push({ id, barcode });
+    }
+
+    res.json({ assigned });
+  } catch (err) {
+    console.error('[bulk-assign-barcodes]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/products/:id
 router.get('/:id', async (req, res) => {
   try {

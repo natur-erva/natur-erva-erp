@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Product } from '../../../core/types/types';
 import { Modal } from '../shared/Modal';
-import { Upload, X, ImageOff, Loader2, Camera } from 'lucide-react';
+import { Upload, X, ImageOff, Loader2, Camera, ScanLine } from 'lucide-react';
+import { BarcodeScanner } from '../../../sales/components/BarcodeScanner';
 
 // Comprime imagens > 2 MB ou > 1920 px antes de enviar (fotos de câmera chegam a 8–12 MB)
 async function compressImage(file: File, maxSizeMB = 2, maxDim = 1920): Promise<File> {
@@ -118,6 +119,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [formData, setFormData] = useState<ProductFormData>(defaultFormData);
   const [uploadingImage, setUploadingImage] = useState<Record<string, boolean>>({});
   const [imageLoadError, setImageLoadError] = useState<Record<string, boolean>>({});
+  const [showScanner, setShowScanner] = useState(false);
   const initializedRef = React.useRef<string | null>(null); // guarda o "id" da abertura actual
 
   useEffect(() => {
@@ -344,6 +346,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   };
 
   return (
+    <>
+    {showScanner && (
+      <BarcodeScanner
+        onScan={(code) => {
+          setFormData((prev) => ({ ...prev, barcode: code }));
+          setShowScanner(false);
+          showToast(`Código lido: ${code}`, 'success');
+        }}
+        onClose={() => setShowScanner(false)}
+      />
+    )}
     <Modal
       open={open}
       onClose={onClose}
@@ -388,15 +401,25 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Código de Barras
+                  Código de Barras / QR
                 </label>
-                <input
-                  type="text"
-                  value={formData.barcode}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, barcode: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 font-mono"
-                  placeholder="EAN-13 / QR"
-                />
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={formData.barcode}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, barcode: e.target.value }))}
+                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 font-mono"
+                    placeholder="EAN-13 / QR"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowScanner(true)}
+                    title="Fazer scan de QR ou código de barras"
+                    className="flex-shrink-0 px-2.5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-400 transition-colors"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -641,5 +664,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         </div>
       </div>
     </Modal>
+    </>
   );
 };

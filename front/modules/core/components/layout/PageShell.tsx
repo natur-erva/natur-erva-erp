@@ -37,13 +37,17 @@ export const PageShell: React.FC<PageShellProps> = ({
 
   return (
     <div className={[withInnerPadding ? 'p-3 md:p-6' : '', 'space-y-6', className].join(' ')}>
-      <div className={headerClass}>
-        <div>
-          <h1 className={titleClass}>{title}</h1>
-          {description && <p className={descriptionClass}>{description}</p>}
+      {(title || actions) && (
+        <div className={headerClass}>
+          {title && (
+            <div>
+              <h1 className={titleClass}>{title}</h1>
+              {description && <p className={descriptionClass}>{description}</p>}
+            </div>
+          )}
+          {actions && <div className="flex gap-2 flex-wrap">{actions}</div>}
         </div>
-        {actions && <div className="flex gap-2 flex-wrap">{actions}</div>}
-      </div>
+      )}
       {children}
     </div>
   );

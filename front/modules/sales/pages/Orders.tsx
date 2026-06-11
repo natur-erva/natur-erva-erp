@@ -2562,7 +2562,7 @@ ${order.trackingCode ? `<div class="track-box"><span style="font-size:10px;color
   return (
     <div className="relative pb-20">
       <PageShell
-        title="Gestão de Pedidos"
+        title="Pedidos"
         actions={
           <div className="flex items-center gap-2">
             {canCreate && (
