@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, Loader2, FileText, TrendingUp, Receipt, Printer, Store, CheckCircle, XCircle, Clock, Upload, Image, Palette, RotateCcw } from 'lucide-react';
+import { PageShell } from '../../core/components/layout/PageShell';
 import api from '../../core/services/apiClient';
 import { uploadService } from '../../../services/uploadService';
 import { invalidateLogoCache } from '../../core/services/systemSettingsService';
@@ -221,29 +222,26 @@ ${s.summary?.expectedCash !== undefined ? `<p class="bold">Fundo esperado em cai
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Finanças / IVA</h1>
-        <p className="text-sm text-gray-500 mt-1">Configuração fiscal e relatório de IVA</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700">
-        {[
-          { id: TAB.CONFIG,    label: 'Config. Fiscal',  icon: FileText },
-          { id: TAB.REPORT,    label: 'Relatório IVA',   icon: TrendingUp },
-          { id: TAB.SESSIONS,  label: 'Sessões Caixa',   icon: Store },
-          { id: TAB.APARENCIA, label: 'Aparência',       icon: Palette },
-        ].map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id as any); if (t.id === TAB.SESSIONS) loadSessions(); }}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-              tab === t.id
-                ? 'border-brand-600 text-brand-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}>
-            <t.icon className="w-4 h-4" />{t.label}
-          </button>
-        ))}
+    <PageShell title="Finanças / IVA" description="Configuração fiscal e relatório de IVA" compactHeaderMobile>
+      {/* Tabs — margens negativas para ir de borda a borda */}
+      <div className="border-b border-border-default -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8">
+        <div className="flex overflow-x-auto">
+          {[
+            { id: TAB.CONFIG,    label: 'Config. Fiscal',  icon: FileText },
+            { id: TAB.REPORT,    label: 'Relatório IVA',   icon: TrendingUp },
+            { id: TAB.SESSIONS,  label: 'Sessões Caixa',   icon: Store },
+            { id: TAB.APARENCIA, label: 'Aparência',       icon: Palette },
+          ].map(t => (
+            <button key={t.id} onClick={() => { setTab(t.id as any); if (t.id === TAB.SESSIONS) loadSessions(); }}
+              className={`flex items-center gap-2 px-4 sm:px-5 py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                tab === t.id
+                  ? 'border-brand-600 text-brand-600 dark:text-brand-400 dark:border-brand-400'
+                  : 'border-transparent text-content-muted hover:text-content-primary'
+              }`}>
+              <t.icon className="w-4 h-4" />{t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Configuração Fiscal ── */}
@@ -689,6 +687,6 @@ ${s.summary?.expectedCash !== undefined ? `<p class="bold">Fundo esperado em cai
         </div>
       )}
 
-    </div>
+    </PageShell>
   );
 };

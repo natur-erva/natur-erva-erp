@@ -10,6 +10,7 @@ import { StockAudit, StockAuditItem, StockAuditStatus, StockAdjustmentReason } f
 import { stockAuditService } from '../services/stockAuditService';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useLanguage } from '../../core/contexts/LanguageContext';
+import { PageShell } from '../../core/components/layout/PageShell';
 import { addPDFHeader, addPDFFooter, addPDFTableHeader, addPDFTableRow, getBrandColors, calculateColumnWidths } from '../../core/services/reportService';
 
 const AUDIT_ADJUSTMENT_NOTES = 'Auditoria de stock, correção do stock de acordo com a contagem';
@@ -306,8 +307,8 @@ export const AuditReportPage: React.FC = () => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px]">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
-                <p className="text-gray-600 dark:text-gray-400">{t.stock.loadingReport}</p>
+                <Loader2 className="w-10 h-10 animate-spin text-brand-600 mb-4" />
+                <p className="text-content-secondary">{t.stock.loadingReport}</p>
             </div>
         );
     }
@@ -318,63 +319,43 @@ export const AuditReportPage: React.FC = () => {
     const canRevert = audit.status === StockAuditStatus.APPLIED;
 
     return (
-        <div className="p-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-4">
+        <PageShell
+            title={t.stock.viewReport}
+            description={audit.description || `Auditoria de ${new Date(audit.auditDate).toLocaleDateString('pt-PT')}`}
+            compactHeaderMobile
+            actions={
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => navigate('/admin/stock/auditoria')}
-                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        className="p-2 rounded-lg hover:bg-surface-base transition-colors text-content-secondary border border-border-default"
                         title={t.common.back}
                     >
-                        <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                        <ArrowLeft className="w-4 h-4" />
                     </button>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <FileText className="w-6 h-6 text-blue-600" />
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                {t.stock.viewReport}
-                            </h1>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {audit.description || `Auditoria de ${new Date(audit.auditDate).toLocaleDateString('pt-PT')}`}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3 mt-4 md:mt-0">
                     <button
                         onClick={handleExportExcel}
                         disabled={exportingExcel}
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm disabled:opacity-50"
+                        className="flex items-center gap-2 px-3 py-2 bg-surface-raised border border-border-default text-content-secondary rounded-lg text-sm font-medium hover:bg-surface-base transition-colors disabled:opacity-50"
                     >
-                        {exportingExcel ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <Download className="w-4 h-4" />
-                        )}
-                        Exportar Excel
+                        {exportingExcel ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        <span className="hidden sm:inline">Excel</span>
                     </button>
                     <button
                         onClick={handleExportPDF}
                         disabled={exporting}
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm disabled:opacity-50"
+                        className="flex items-center gap-2 px-3 py-2 bg-surface-raised border border-border-default text-content-secondary rounded-lg text-sm font-medium hover:bg-surface-base transition-colors disabled:opacity-50"
                     >
-                        {exporting ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <Download className="w-4 h-4" />
-                        )}
-                        {t.stock.exportPDF}
+                        {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        <span className="hidden sm:inline">PDF</span>
                     </button>
                 </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col min-h-[600px]">
+            }
+        >
+            <div className="bg-surface-raised rounded-xl shadow-sm border border-border-default flex flex-col min-h-[600px]">
 
                 {/* Info Banner */}
                 {canApply && stats.itemsWithDiscrepancy > 0 && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-b border-border-default">
                         <div className="flex items-start gap-2">
                             <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                             <div className="text-sm text-blue-800 dark:text-blue-200">
@@ -385,7 +366,7 @@ export const AuditReportPage: React.FC = () => {
                 )}
 
                 {/* Filters */}
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-4">
+                <div className="p-4 border-b border-border-default space-y-4">
                     <div className="flex flex-col md:flex-row gap-4">
                         {/* Search */}
                         <div className="flex-1 relative">
@@ -431,7 +412,7 @@ export const AuditReportPage: React.FC = () => {
                 {/* Table */}
                 <div className="flex-1 overflow-auto">
                     <table className="w-full border-collapse">
-                        <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                        <thead className="bg-surface-base sticky top-0 z-10">
                             <tr>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t.common.product}</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 w-16">{t.stock.unit}</th>
@@ -505,23 +486,23 @@ export const AuditReportPage: React.FC = () => {
                 </div>
 
                 {/* Footer with Stats and Actions */}
-                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-4 bg-surface-base border-t border-border-default">
                     <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
                         {/* Stats Cards at Bottom */}
                         <div className="flex flex-wrap items-center gap-4">
-                            <div className="px-4 py-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm min-w-[120px]">
+                            <div className="px-4 py-2 bg-surface-raised rounded-lg border border-border-default shadow-sm min-w-[120px]">
                                 <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-tight">{t.stock.totalItems}</p>
                                 <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.totalItems}</p>
                             </div>
-                            <div className="px-4 py-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm min-w-[120px]">
+                            <div className="px-4 py-2 bg-surface-raised rounded-lg border border-border-default shadow-sm min-w-[120px]">
                                 <p className="text-[10px] text-orange-500 uppercase font-bold tracking-tight">{t.stock.discrepanciesCount}</p>
                                 <p className="text-xl font-bold text-orange-600">{stats.itemsWithDiscrepancy}</p>
                             </div>
-                            <div className="px-4 py-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm min-w-[120px]">
+                            <div className="px-4 py-2 bg-surface-raised rounded-lg border border-border-default shadow-sm min-w-[120px]">
                                 <p className="text-[10px] text-green-500 uppercase font-bold tracking-tight">{t.stock.positiveCount}</p>
                                 <p className="text-xl font-bold text-green-600">{stats.positiveDiscrepancies}</p>
                             </div>
-                            <div className="px-4 py-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm min-w-[120px]">
+                            <div className="px-4 py-2 bg-surface-raised rounded-lg border border-border-default shadow-sm min-w-[120px]">
                                 <p className="text-[10px] text-red-500 uppercase font-bold tracking-tight">{t.stock.negativeCount}</p>
                                 <p className="text-xl font-bold text-red-600">{stats.negativeDiscrepancies}</p>
                             </div>
@@ -531,7 +512,7 @@ export const AuditReportPage: React.FC = () => {
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => navigate('/admin/stock/auditoria')}
-                                className="px-6 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl font-semibold transition-colors border border-gray-200 dark:border-gray-700"
+                                className="px-6 py-2.5 text-content-secondary hover:bg-surface-base rounded-xl font-semibold transition-colors border border-border-default"
                             >
                                 {t.common.close}
                             </button>
@@ -581,7 +562,7 @@ export const AuditReportPage: React.FC = () => {
             {/* Modal de progresso ao aplicar ajustes - bloqueia a página até terminar */}
             {applying && (
                 <div className="fixed inset-0 min-h-screen min-w-full z-[100] flex items-center justify-center modal-overlay">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 max-w-md mx-4 flex flex-col items-center gap-4">
+                    <div className="bg-surface-raised rounded-xl shadow-xl border border-border-default p-6 max-w-md mx-4 flex flex-col items-center gap-4">
                         <Loader2 className="w-12 h-12 text-orange-500 animate-spin flex-shrink-0" />
                         <div className="text-center space-y-2">
                             <p className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -603,6 +584,6 @@ export const AuditReportPage: React.FC = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageShell>
     );
 };

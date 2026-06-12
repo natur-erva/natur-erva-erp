@@ -3,6 +3,7 @@ import { Role, Permission } from '../../core/types/types';
 import api from '../../core/services/apiClient';
 import { Search, Plus, Edit, Trash2, Shield } from 'lucide-react';
 import { normalizeForSearch } from '../../core/services/serviceUtils';
+import { PageShell } from '../../core/components/layout/PageShell';
 
 export const Roles: React.FC<{
   currentUser?: any;
@@ -132,37 +133,36 @@ export const Roles: React.FC<{
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestão de Roles e Permissões</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gerir roles do sistema e suas permissões</p>
-        </div>
+    <PageShell
+      title="Gestão de Roles e Permissões"
+      description="Gerir roles do sistema e suas permissões"
+      compactHeaderMobile
+      actions={
         <button
           onClick={() => { setEditingRole(null); setShowRoleModal(true); }}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-medium transition-colors"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-4 w-4" />
           <span>Novo Role</span>
         </button>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      }
+    >
+      <div className="bg-surface-raised rounded-xl border border-border-default shadow-sm">
+        <div className="p-4 border-b border-border-default">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-content-muted h-5 w-5" />
             <input
               type="text"
               placeholder="Pesquisar roles..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-border-default bg-surface-base text-content-primary rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -170,16 +170,16 @@ export const Roles: React.FC<{
         {filteredRoles.length === 0 ? (
           <div className="p-12 text-center">
             <div className="flex flex-col items-center justify-center">
-              <Shield className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+              <Shield className="h-12 w-12 text-content-muted mb-3" />
+              <p className="text-content-muted text-sm mb-4">
                 {searchTerm ? 'Nenhum role encontrado com essa pesquisa' : 'Nenhum role cadastrado no sistema'}
               </p>
               {!searchTerm && (
                 <button
                   onClick={() => { setEditingRole(null); setShowRoleModal(true); }}
-                  className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-medium transition-colors"
                 >
-                  <Plus className="h-5 w-5" />
+                  <Plus className="h-4 w-4" />
                   <span>Criar Primeiro Role</span>
                 </button>
               )}
@@ -188,25 +188,25 @@ export const Roles: React.FC<{
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
             {filteredRoles.map((role) => (
-              <div key={role.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg shadow p-4 hover:shadow-md transition-shadow">
+              <div key={role.id} className="bg-surface-base rounded-lg border border-border-default p-4 hover:shadow-sm transition-shadow">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{role.displayName}</h3>
+                  <h3 className="font-semibold text-content-primary">{role.displayName}</h3>
                   <div className="flex items-center space-x-2">
                     {role.isSystemRole && (
-                      <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">Sistema</span>
+                      <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">Sistema</span>
                     )}
                     {!role.isSystemRole && (
                       <>
                         <button
                           onClick={() => { setEditingRole(role); setShowRoleModal(true); }}
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
                           title="Editar role"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteRole(role.id)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                          className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
                           title="Apagar role"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -215,30 +215,30 @@ export const Roles: React.FC<{
                     )}
                   </div>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{role.description || 'Sem descrição'}</p>
+                <p className="text-sm text-content-secondary mb-3">{role.description || 'Sem descrição'}</p>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Permissões ({role.permissions?.length || 0}):</p>
+                  <p className="text-xs font-medium text-content-muted">Permissões ({role.permissions?.length || 0}):</p>
                   <div className="flex flex-wrap gap-1">
                     {role.permissions && role.permissions.length > 0 ? (
                       <>
                         {role.permissions.slice(0, 5).map((perm) => (
-                          <span key={perm.id} className="text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">
+                          <span key={perm.id} className="text-xs bg-surface-overlay border border-border-default text-content-secondary px-2 py-0.5 rounded">
                             {perm.name}
                           </span>
                         ))}
                         {role.permissions.length > 5 && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">+{role.permissions.length - 5} mais</span>
+                          <span className="text-xs text-content-muted">+{role.permissions.length - 5} mais</span>
                         )}
                       </>
                     ) : (
-                      <span className="text-xs text-gray-400 dark:text-gray-500">Nenhuma permissão atribuída</span>
+                      <span className="text-xs text-content-muted">Nenhuma permissão atribuída</span>
                     )}
                   </div>
                 </div>
                 {!role.isSystemRole && (
                   <button
                     onClick={() => { setEditingRole(role); setShowRoleModal(true); }}
-                    className="mt-3 w-full text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
+                    className="mt-3 w-full text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 font-medium"
                   >
                     Gerir Permissões
                   </button>
@@ -257,7 +257,7 @@ export const Roles: React.FC<{
           onClose={() => { setShowRoleModal(false); setEditingRole(null); }}
         />
       )}
-    </div>
+    </PageShell>
   );
 };
 
@@ -312,74 +312,74 @@ const RoleModal: React.FC<{
 
   return (
     <div className="fixed inset-0 min-h-screen min-w-full modal-overlay flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">{role ? 'Editar Role' : 'Novo Role'}</h2>
+      <div className="bg-surface-raised rounded-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl border border-border-default">
+        <h2 className="text-xl font-bold mb-4 text-content-primary">{role ? 'Editar Role' : 'Novo Role'}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           {!role && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Role *</label>
+              <label className="block text-sm font-medium text-content-secondary mb-1">Nome do Role *</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Ex: GESTOR_FINANCEIRO"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-border-default bg-surface-base text-content-primary rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 required
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Será convertido para maiúsculas automaticamente</p>
+              <p className="text-xs text-content-muted mt-1">Será convertido para maiúsculas automaticamente</p>
             </div>
           )}
           {role && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Role</label>
+              <label className="block text-sm font-medium text-content-secondary mb-1">Nome do Role</label>
               <input
                 type="text"
                 value={formData.name}
                 disabled
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-lg bg-gray-100 dark:bg-gray-900"
+                className="w-full px-3 py-2 border border-border-default bg-surface-base text-content-muted rounded-lg opacity-60"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Nome do role não pode ser alterado</p>
+              <p className="text-xs text-content-muted mt-1">Nome do role não pode ser alterado</p>
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome de Exibição *</label>
+            <label className="block text-sm font-medium text-content-secondary mb-1">Nome de Exibição *</label>
             <input
               type="text"
               value={formData.displayName}
               onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
               placeholder="Ex: Gestor Financeiro"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-border-default bg-surface-base text-content-primary rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
+            <label className="block text-sm font-medium text-content-secondary mb-1">Descrição</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Descreva o propósito deste role..."
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-border-default bg-surface-base text-content-primary rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Permissões</label>
-            <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 max-h-96 overflow-y-auto space-y-4 bg-gray-50 dark:bg-gray-900">
+            <label className="block text-sm font-medium text-content-secondary mb-2">Permissões</label>
+            <div className="border border-border-default rounded-lg p-4 max-h-96 overflow-y-auto space-y-4 bg-surface-base">
               {Object.entries(permissionsByCategory).map(([category, perms]) => (
-                <div key={category} className="border-b border-gray-200 dark:border-gray-700 pb-3 last:border-b-0 last:pb-0">
+                <div key={category} className="border-b border-border-default pb-3 last:border-b-0 last:pb-0">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 text-sm">{category}</h4>
+                    <h4 className="font-semibold text-content-secondary text-sm">{category}</h4>
                     <button
                       type="button"
                       onClick={() => selectAllInCategory(category)}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                      className="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-700"
                     >
                       {(perms as Permission[]).every(p => formData.permissionIds.includes(p.id)) ? 'Desmarcar Todas' : 'Selecionar Todas'}
                     </button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {(perms as Permission[]).map((perm) => (
-                      <label key={perm.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded">
+                      <label key={perm.id} className="flex items-center space-x-2 cursor-pointer hover:bg-surface-overlay p-2 rounded">
                         <input
                           type="checkbox"
                           checked={formData.permissionIds.includes(perm.id)}
@@ -387,9 +387,9 @@ const RoleModal: React.FC<{
                           className="rounded"
                         />
                         <div className="flex-1">
-                          <span className="text-sm text-gray-900 dark:text-white">{perm.name}</span>
+                          <span className="text-sm text-content-primary">{perm.name}</span>
                           {perm.description && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{perm.description}</p>
+                            <p className="text-xs text-content-muted">{perm.description}</p>
                           )}
                         </div>
                       </label>
@@ -398,24 +398,24 @@ const RoleModal: React.FC<{
                 </div>
               ))}
               {permissions.length === 0 && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Nenhuma permissão disponível</p>
+                <p className="text-sm text-content-muted text-center py-4">Nenhuma permissão disponível</p>
               )}
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            <p className="text-xs text-content-muted mt-2">
               {formData.permissionIds.length} permissão(ões) selecionada(s)
             </p>
           </div>
-          <div className="flex space-x-3 pt-4">
+          <div className="flex gap-3 pt-4">
             <button
               type="submit"
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="flex-1 bg-brand-600 hover:bg-brand-700 text-white py-2 rounded-lg font-medium transition-colors"
             >
               {role ? 'Atualizar' : 'Criar'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              className="flex-1 bg-surface-base border border-border-default text-content-secondary py-2 rounded-lg font-medium hover:bg-surface-overlay transition-colors"
             >
               Cancelar
             </button>

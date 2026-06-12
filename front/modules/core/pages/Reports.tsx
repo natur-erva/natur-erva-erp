@@ -34,6 +34,7 @@ import { PeriodFilter, PeriodOption } from '../../core/components/forms/PeriodFi
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { addPDFHeader, addPDFFooter } from '../../core/services/reportService';
+import { PageShell } from '../components/layout/PageShell';
 import { toDateStringInTimezone } from '../../core/utils/dateUtils';
 import {
   BarChart,
@@ -572,23 +573,12 @@ export const Reports: React.FC<ReportsProps> = ({ showToast }) => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.reports.title}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Gere e visualize relaté³rios detalhados do sistema
-          </p>
-        </div>
-      </div>
-
+    <PageShell title={t.reports.title} description="Gere e visualize relatórios detalhados do sistema" compactHeaderMobile>
       {/* Filtros */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Seleçéo de Categoria */}
+      <div className="bg-surface-raised rounded-xl border border-border-default shadow-sm p-5 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-content-secondary mb-2">
               {t.reports.selectCategory}
             </label>
             <select
@@ -598,7 +588,7 @@ export const Reports: React.FC<ReportsProps> = ({ showToast }) => {
                 const firstReport = reportConfig[e.target.value as ReportCategory]?.reports[0]?.type;
                 if (firstReport) setSelectedReport(firstReport);
               }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             >
               {Object.entries(reportConfig).map(([key, config]) => (
                 <option key={key} value={key}>{config.label}</option>
@@ -606,15 +596,14 @@ export const Reports: React.FC<ReportsProps> = ({ showToast }) => {
             </select>
           </div>
 
-          {/* Seleçéo de Relaté³rio */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-content-secondary mb-2">
               {t.reports.selectReport}
             </label>
             <select
               value={selectedReport}
               onChange={(e) => setSelectedReport(e.target.value as ReportType)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             >
               {availableReports.map((report) => (
                 <option key={report.type} value={report.type}>{report.label}</option>
@@ -622,10 +611,8 @@ export const Reports: React.FC<ReportsProps> = ({ showToast }) => {
             </select>
           </div>
 
-          {/* Seleçéo de Entidade (apenas para relaté³rios financeiros) */}
-          {/* Filtro de Período */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-content-secondary mb-2">
               {t.reports.period}
             </label>
             <PeriodFilter
@@ -641,11 +628,10 @@ export const Reports: React.FC<ReportsProps> = ({ showToast }) => {
           </div>
         </div>
 
-        {/* Botéµes de Açéo */}
         <div className="flex gap-3">
           <button
             onClick={generateReport}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors text-sm font-medium"
           >
             <FileText className="w-4 h-4" />
             {t.reports.generateReport}
@@ -653,7 +639,7 @@ export const Reports: React.FC<ReportsProps> = ({ showToast }) => {
           <button
             onClick={exportReport}
             disabled={!reportData}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 border border-border-default text-content-secondary rounded-lg hover:bg-surface-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
           >
             <Download className="w-4 h-4" />
             {t.reports.exportReport}
@@ -661,9 +647,8 @@ export const Reports: React.FC<ReportsProps> = ({ showToast }) => {
         </div>
       </div>
 
-      {/* Renderizaçéo de Relaté³rios */}
       {reportData && (
-        <div ref={reportRef} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div ref={reportRef} className="bg-surface-raised rounded-xl border border-border-default shadow-sm p-5">
           <ReportRenderer
             category={selectedCategory}
             reportType={selectedReport}
@@ -672,7 +657,7 @@ export const Reports: React.FC<ReportsProps> = ({ showToast }) => {
           />
         </div>
       )}
-    </div>
+    </PageShell>
   );
 };
 

@@ -11,6 +11,7 @@ import { AuditCountModal } from '../components/modals/AuditCountModal';
 import { useLanguage } from '../../core/contexts/LanguageContext';
 import { useAppAuth } from '../../auth/hooks/useAppAuth';
 import { formatDateOnly, formatDateTime } from '../../core/utils/dateUtils';
+import { PageShell } from '../../core/components/layout/PageShell';
 
 interface StockAuditProps {
     products: Product[];
@@ -103,49 +104,40 @@ export const StockAuditPage: React.FC<StockAuditProps> = ({ products, showToast 
     const formatDateTimeDisplay = (dateStr: string) => formatDateTime(dateStr);
 
     return (
-        <div className="p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <ClipboardCheck className="w-7 h-7 text-blue-600" />
-                        {t.stock.auditTitle}
-                    </h1>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {t.stock.auditDescription || 'Registe contagens físicas e compare com o sistema'}
-                    </p>
-                </div>
+        <PageShell
+            title={t.stock.auditTitle}
+            description={t.stock.auditDescription || 'Registe contagens físicas e compare com o sistema'}
+            compactHeaderMobile
+            actions={
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-medium transition-colors"
                 >
                     <Plus className="w-4 h-4" />
                     {t.stock.startAudit}
                 </button>
-            </div>
-
+            }
+        >
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{t.common.total} {t.stock.audit}</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                        {audits.length}
-                    </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-surface-raised rounded-xl p-4 border border-border-default">
+                    <p className="text-sm text-content-muted">{t.common.total} {t.stock.audit}</p>
+                    <p className="text-2xl font-bold text-content-primary mt-1">{audits.length}</p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{t.common.draft}</p>
+                <div className="bg-surface-raised rounded-xl p-4 border border-border-default">
+                    <p className="text-sm text-content-muted">{t.common.draft}</p>
                     <p className="text-2xl font-bold text-yellow-600 mt-1">
                         {audits.filter(a => a.status === StockAuditStatus.DRAFT).length}
                     </p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{t.common.completed}</p>
+                <div className="bg-surface-raised rounded-xl p-4 border border-border-default">
+                    <p className="text-sm text-content-muted">{t.common.completed}</p>
                     <p className="text-2xl font-bold text-blue-600 mt-1">
                         {audits.filter(a => a.status === StockAuditStatus.COMPLETED).length}
                     </p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{t.common.applied}</p>
+                <div className="bg-surface-raised rounded-xl p-4 border border-border-default">
+                    <p className="text-sm text-content-muted">{t.common.applied}</p>
                     <p className="text-2xl font-bold text-green-600 mt-1">
                         {audits.filter(a => a.status === StockAuditStatus.APPLIED).length}
                     </p>
@@ -153,26 +145,26 @@ export const StockAuditPage: React.FC<StockAuditProps> = ({ products, showToast 
             </div>
 
             {/* Audits List */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="font-semibold text-gray-900 dark:text-white">
+            <div className="bg-surface-raised rounded-xl border border-border-default shadow-sm">
+                <div className="p-4 border-b border-border-default">
+                    <h2 className="font-semibold text-content-primary">
                         {t.stock.auditHistory || 'Histórico de Auditorias'}
                     </h2>
                 </div>
 
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
-                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
                     </div>
                 ) : audits.length === 0 ? (
                     <div className="text-center py-12">
-                        <ClipboardCheck className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-600 dark:text-gray-400">
+                        <ClipboardCheck className="w-12 h-12 text-content-muted mx-auto mb-3" />
+                        <p className="text-content-secondary">
                             {t.stock.noAudits || 'Nenhuma auditoria registada'}
                         </p>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
+                            className="mt-4 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors inline-flex items-center gap-2 text-sm font-medium"
                         >
                             <Plus className="w-4 h-4" />
                             {t.stock.createFirstAudit || 'Criar Primeira Auditoria'}
@@ -181,39 +173,27 @@ export const StockAuditPage: React.FC<StockAuditProps> = ({ products, showToast 
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-gray-50 dark:bg-gray-700">
+                            <thead className="bg-surface-base">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300">
-                                        {t.common.date}
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300">
-                                        {t.common.description}
-                                    </th>
-                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 dark:text-gray-300">
-                                        {t.common.scope}
-                                    </th>
-                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 dark:text-gray-300">
-                                        {t.stock.status}
-                                    </th>
-                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 dark:text-gray-300">
-                                        {t.common.createdAt}
-                                    </th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 dark:text-gray-300">
-                                        {t.common.actions}
-                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-content-muted">{t.common.date}</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-content-muted">{t.common.description}</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-content-muted">{t.common.scope}</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-content-muted">{t.stock.status}</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-content-muted">{t.common.createdAt}</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-content-muted">{t.common.actions}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tbody className="divide-y divide-border-default">
                                 {audits.map(audit => (
-                                    <tr key={audit.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                    <tr key={audit.id} className="hover:bg-surface-base transition-colors">
+                                        <td className="px-4 py-3 text-sm font-medium text-content-primary">
                                             {formatDate(audit.auditDate)}
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <td className="px-4 py-3 text-sm text-content-secondary">
                                             {audit.description || '-'}
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
+                                            <span className="text-xs px-2 py-0.5 bg-surface-base border border-border-default text-content-secondary rounded">
                                                 {audit.scope === 'all' ? t.common.all : audit.scope === 'selected' ? t.common.selected : t.common.category}
                                             </span>
                                         </td>
@@ -223,7 +203,7 @@ export const StockAuditPage: React.FC<StockAuditProps> = ({ products, showToast 
                                                 {STATUS_LABELS[audit.status]}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-center text-xs text-gray-600 dark:text-gray-400">
+                                        <td className="px-4 py-3 text-center text-xs text-content-muted">
                                             {formatDateTimeDisplay(audit.createdAt)}
                                         </td>
                                         <td className="px-4 py-3">
@@ -265,7 +245,6 @@ export const StockAuditPage: React.FC<StockAuditProps> = ({ products, showToast 
                 )}
             </div>
 
-            {/* Modals */}
             <CreateAuditModal
                 open={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
@@ -285,6 +264,6 @@ export const StockAuditPage: React.FC<StockAuditProps> = ({ products, showToast 
                 showToast={showToast}
                 isSuperAdmin={isSuperAdmin}
             />
-        </div>
+        </PageShell>
     );
 };
