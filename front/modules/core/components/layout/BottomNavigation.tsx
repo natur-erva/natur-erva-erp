@@ -87,7 +87,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               key={item.id}
               onClick={() => handleNavigate(item.id)}
               className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all relative ${isActive
-                ? 'text-green-600 dark:text-green-400'
+                ? 'text-brand-600 dark:text-brand-400'
                 : 'text-gray-500 dark:text-gray-400'
                 }`}
               aria-label={item.label}
@@ -95,20 +95,19 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <div className="relative">
                 <Icon className={`w-6 h-6 transition-transform ${isActive ? 'scale-110' : ''}`} />
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-gradient-to-r from-green-500 to-green-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-lg animate-pulse">
+                  <span className="absolute -top-2 -right-2 bg-brand-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-lg animate-pulse">
                     {item.badge > 99 ? '99+' : item.badge}
                   </span>
                 )}
               </div>
               <span className={`text-[10px] font-medium transition-colors ${isActive
-                ? 'text-green-600 dark:text-green-400'
+                ? 'text-brand-600 dark:text-brand-400'
                 : 'text-gray-500 dark:text-gray-400'
                 }`}>
                 {item.label}
               </span>
-              {/* Indicador de pé¡gina ativa */}
               {isActive && (
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-green-600 dark:bg-green-400 rounded-full" />
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-brand-600 dark:bg-brand-400 rounded-full" />
               )}
             </button>
           );

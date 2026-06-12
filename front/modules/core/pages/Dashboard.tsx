@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { Customer, Order, OrderStatus, Sale, Product, Purchase, PurchaseRequest, StockMovement, Activity } from '../../core/types/types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getChartTheme } from '../../core/utils/chartTheme';
 import { TrendingUp, Users, ShoppingBag, Clock, Calendar, DollarSign, TrendingDown, Award, Package, Percent, CreditCard, Truck, Settings, ExternalLink, AlertTriangle } from 'lucide-react';
 import { PeriodFilter, PeriodOption } from '../../core/components/forms/PeriodFilter';
@@ -49,6 +49,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
   const [productsSoldView, setProductsSoldView] = React.useState<'fixos' | 'variáveis'>('fixos');
   const [productsPurchasedView, setProductsPurchasedView] = React.useState<'fixos' | 'variáveis'>('fixos');
   const [topProductsView, setTopProductsView] = React.useState<'fixos' | 'variáveis'>('fixos');
+  const [salesEvolutionPeriod, setSalesEvolutionPeriod] = React.useState<'7D' | '30D' | '90D'>('7D');
+
+  const salesEvolutionData = useMemo(() => {
+    const days = salesEvolutionPeriod === '7D' ? 7 : salesEvolutionPeriod === '30D' ? 30 : 90;
+    const toLocalDateStr = (iso: string) => {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    return Array.from({ length: days }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (days - 1 - i));
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const label = salesEvolutionPeriod === '7D'
+        ? d.toLocaleDateString('pt-PT', { weekday: 'short' }).replace('.', '')
+        : d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
+      // Mesma lógica do KPI: orders não cancelados, campo totalAmount
+      const vendas = orders
+        .filter(o => o.status !== OrderStatus.CANCELLED && toLocalDateStr(o.createdAt) === dateStr)
+        .reduce((sum, o) => sum + (o.totalAmount ?? 0), 0);
+      return { name: label, vendas };
+    });
+  }, [salesEvolutionPeriod, orders]);
 
   // Dashboard preferences
   const { isCardVisible, setIsConfigOpen, getVisibleCards } = useDashboardPreferences();
@@ -992,60 +1014,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
             }
             if (id === 'total-sales') {
               return (
-                <div key={id} onClick={() => handleCardClick('sales')} className={`${cardBaseClass} ${cardClickClass}`}>
+                <div key={id} onClick={() => handleCardClick('sales')} className={`${cardBaseClass} ${cardClickClass}`} style={{}}>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-content-muted truncate">Vendas do Período</p>
-                    <h3 className="text-sm sm:text-xl lg:text-2xl font-bold text-content-primary mt-1 sm:mt-2 break-all">{formatMoney(currentPeriodSales)}</h3>
+                    <h3 className="text-lg sm:text-xl lg:text-[2rem] font-bold text-content-primary mt-1 sm:mt-2 break-all">{formatMoney(currentPeriodSales)}</h3>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-2">
                       {salesGrowth >= 0 ? <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-500" /> : <TrendingDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-500" />}
                       <span className={`text-xs font-medium ${salesGrowth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPercent(salesGrowth)}</span>
                     </div>
                   </div>
-                  <div className="p-1.5 sm:p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg ml-1.5 sm:ml-2">
-                    <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+                  <div className="p-1.5 sm:p-2.5 bg-brand-50 dark:bg-brand-900/20 ml-1.5 sm:ml-2" style={{ borderRadius: 'var(--radius-md, 8px)' }}>
+                    <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-brand-600 dark:text-brand-400" />
                   </div>
                 </div>
               );
             }
             if (id === 'total-orders') {
               return (
-                <div key={id} onClick={() => handleCardClick('orders')} className={`${cardBaseClass} ${cardClickClass}`}>
+                <div key={id} onClick={() => handleCardClick('orders')} className={`${cardBaseClass} ${cardClickClass}`} style={{}}>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-content-muted truncate">Pedidos do Período</p>
-                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-content-primary mt-1 sm:mt-2">{currentPeriodOrders}</h3>
+                    <h3 className="text-xl sm:text-2xl lg:text-[2rem] font-bold text-content-primary mt-1 sm:mt-2">{currentPeriodOrders}</h3>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-2">
                       {ordersGrowth >= 0 ? <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-500" /> : <TrendingDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-500" />}
                       <span className={`text-xs font-medium ${ordersGrowth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPercent(ordersGrowth)}</span>
                     </div>
                   </div>
-                  <div className="p-1.5 sm:p-2.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg ml-1.5 sm:ml-2">
-                    <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
+                  <div className="p-1.5 sm:p-2.5 bg-brand-50 dark:bg-brand-900/20 ml-1.5 sm:ml-2" style={{ borderRadius: 'var(--radius-md, 8px)' }}>
+                    <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-brand-600 dark:text-brand-400" />
                   </div>
                 </div>
               );
             }
             if (id === 'avg-ticket') {
               return (
-                <div key={id} className={cardBaseClass}>
+                <div key={id} className={cardBaseClass} style={{}}>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-content-muted">Ticket Médio do Período</p>
-                    <h3 className="text-sm sm:text-xl lg:text-2xl font-bold text-content-primary mt-1 sm:mt-2 break-all">{formatMoney(currentPeriodAvgTicket)}</h3>
+                    <h3 className="text-lg sm:text-xl lg:text-[2rem] font-bold text-content-primary mt-1 sm:mt-2 break-all">{formatMoney(currentPeriodAvgTicket)}</h3>
                   </div>
-                  <div className="p-1.5 sm:p-2.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg ml-1.5 sm:ml-2">
-                    <Award className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
+                  <div className="p-1.5 sm:p-2.5 bg-brand-50 dark:bg-brand-900/20 ml-1.5 sm:ml-2" style={{ borderRadius: 'var(--radius-md, 8px)' }}>
+                    <Award className="w-5 h-5 sm:w-6 sm:h-6 text-brand-600 dark:text-brand-400" />
                   </div>
                 </div>
               );
             }
             if (id === 'completion-rate') {
               return (
-                <div key={id} className={cardBaseClass}>
+                <div key={id} className={cardBaseClass} style={{}}>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs sm:text-sm font-medium text-content-muted">Taxa de Conclusão do Período</p>
-                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-content-primary mt-1 sm:mt-2">{completionRate.toFixed(1)}%</h3>
+                    <h3 className="text-xl sm:text-2xl lg:text-[2rem] font-bold text-content-primary mt-1 sm:mt-2">{completionRate.toFixed(1)}%</h3>
                   </div>
-                  <div className="p-1.5 sm:p-2.5 bg-green-50 dark:bg-green-900/20 rounded-lg ml-1.5 sm:ml-2">
-                    <Percent className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
+                  <div className="p-1.5 sm:p-2.5 bg-brand-50 dark:bg-brand-900/20 ml-1.5 sm:ml-2" style={{ borderRadius: 'var(--radius-md, 8px)' }}>
+                    <Percent className="w-5 h-5 sm:w-6 sm:h-6 text-brand-600 dark:text-brand-400" />
                   </div>
                 </div>
               );
@@ -1073,9 +1095,69 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
 
 
 
-      {/* Grelha única de widgets (gráficos, listas, entregas/pagamentos) — preenche o espaço pela ordem das preferências */}
-      {widgetCardsInOrder.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
+      {/* Grelha única de widgets (gráfico de evolução + outros cards) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
+
+        {/* Gráfico de evolução de vendas */}
+        <div
+          className="bg-surface-raised rounded-xl border border-border-default p-4 sm:p-5 lg:p-6"
+          style={{}}
+        >
+          <div className="flex items-center justify-between mb-4 sm:mb-5">
+            <h3 className="text-base sm:text-lg font-bold text-content-primary">Evolução de Vendas</h3>
+            <div className="flex gap-1">
+              {(['7D', '30D', '90D'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setSalesEvolutionPeriod(p)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-150 ${
+                    salesEvolutionPeriod === p
+                      ? 'text-white'
+                      : 'text-content-muted hover:bg-black/[0.04] dark:hover:bg-white/[0.05]'
+                  }`}
+                  style={salesEvolutionPeriod === p ? { background: 'var(--brand-600)' } : undefined}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="h-44 sm:h-52 lg:h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={salesEvolutionData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartTheme.grid.stroke} strokeOpacity={chartTheme.grid.strokeOpacity} />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: chartTheme.tick.fill, fontSize: 10 }}
+                  interval={salesEvolutionPeriod === '7D' ? 0 : salesEvolutionPeriod === '30D' ? 4 : 14}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: chartTheme.tick.fill, fontSize: 10 }}
+                  tickFormatter={(v: number) => v === 0 ? '0' : `${(v / 1000).toFixed(0)}k`}
+                />
+                <Tooltip
+                  contentStyle={chartTheme.tooltip.contentStyle}
+                  labelStyle={chartTheme.tooltip.labelStyle}
+                  formatter={(value: number) => [value.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) + ' MT', 'Vendas']}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="vendas"
+                  stroke="var(--brand-600)"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4, fill: 'var(--brand-600)' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {widgetCardsInOrder.length > 0 && (<>
           {widgetCardsInOrder.map((card) => {
             const id = card.id;
             if (id === 'orders-chart') {
@@ -1143,9 +1225,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                     {onNavigate && <span className="text-xs font-medium text-brand-600 dark:text-brand-400">Ver todos</span>}
                   </div>
                   {lowStockItemsGrouped.length === 0 ? (
-                    <div className="h-32 flex flex-col items-center justify-center text-content-muted">
-                      <Package className="w-8 h-8 mb-2 opacity-50" />
-                      <p className="text-sm">Nenhum produto com stock baixo</p>
+                    <div className="flex flex-col items-center justify-center py-10 gap-3">
+                      <Package className="w-12 h-12 opacity-30" style={{ color: 'var(--brand-600)' }} />
+                      <div className="text-center">
+                        <p className="text-sm" style={{ color: '#9CA3AF' }}>Nenhum produto com stock baixo</p>
+                        <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>Todos os produtos estão com stock adequado</p>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -1175,9 +1260,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                     {onNavigate && <span className="text-xs font-medium text-brand-600 dark:text-brand-400">Ver todos</span>}
                   </div>
                   {insufficientForWeekItems.length === 0 ? (
-                    <div className="h-32 flex flex-col items-center justify-center text-content-muted">
-                      <Package className="w-8 h-8 mb-2 opacity-50" />
-                      <p className="text-sm">Stock suficiente para a semana</p>
+                    <div className="flex flex-col items-center justify-center py-10 gap-3">
+                      <TrendingUp className="w-12 h-12 opacity-30" style={{ color: 'var(--brand-600)' }} />
+                      <div className="text-center">
+                        <p className="text-sm" style={{ color: '#9CA3AF' }}>Stock suficiente para a semana</p>
+                        <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>Registe vendas para ver previsões de reposição</p>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -1240,9 +1328,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                 <div key={id} className="bg-surface-raised p-4 sm:p-5 lg:p-6 rounded-xl shadow-sm border border-border-default">
                   <h3 className="text-base sm:text-lg font-bold text-content-primary mb-3 sm:mb-4">Clientes Mais Valiosos</h3>
                   {topCustomers.length === 0 ? (
-                    <div className="h-48 flex flex-col items-center justify-center text-content-muted">
-                      <Users className="w-8 h-8 mb-2 opacity-50" />
-                      <p className="text-sm">Sem clientes neste período</p>
+                    <div className="flex flex-col items-center justify-center py-10 gap-3">
+                      <Users className="w-12 h-12 opacity-30" style={{ color: 'var(--brand-600)' }} />
+                      <div className="text-center">
+                        <p className="text-sm" style={{ color: '#9CA3AF' }}>Sem clientes neste período</p>
+                        <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>Registe uma venda para ver clientes aqui</p>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1320,7 +1411,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                   </div>
                   {productsPurchasedView === 'fixos' ? (
                     productsPurchasedByProduct.length === 0 ? (
-                      <div className="h-48 flex flex-col items-center justify-center text-content-muted"><ShoppingBag className="w-8 h-8 mb-2 opacity-50" /><p className="text-sm">Sem compras neste período</p></div>
+                      <div className="flex flex-col items-center justify-center py-10 gap-3">
+                        <ShoppingBag className="w-12 h-12 opacity-30" style={{ color: 'var(--brand-600)' }} />
+                        <div className="text-center">
+                          <p className="text-sm" style={{ color: '#9CA3AF' }}>Sem compras neste período</p>
+                          <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>Registe compras no período para ver os dados</p>
+                        </div>
+                      </div>
                     ) : (
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {productsPurchasedByProduct.slice(0, 15).map((row, i) => (
@@ -1333,7 +1430,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
                     )
                   ) : (
                     productsPurchasedByVariant.length === 0 ? (
-                      <div className="h-48 flex flex-col items-center justify-center text-content-muted"><ShoppingBag className="w-8 h-8 mb-2 opacity-50" /><p className="text-sm">Sem compras neste período</p></div>
+                      <div className="flex flex-col items-center justify-center py-10 gap-3">
+                        <ShoppingBag className="w-12 h-12 opacity-30" style={{ color: 'var(--brand-600)' }} />
+                        <div className="text-center">
+                          <p className="text-sm" style={{ color: '#9CA3AF' }}>Sem compras neste período</p>
+                          <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>Registe compras no período para ver os dados</p>
+                        </div>
+                      </div>
                     ) : (
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {productsPurchasedByVariant.slice(0, 15).map((row, i) => (
@@ -1374,8 +1477,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
             }
             return null;
           })}
-        </div>
-      )}
+        </>)}
+
+      </div>
 
     </div >
   );

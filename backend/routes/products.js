@@ -300,6 +300,21 @@ router.put('/:id', authMiddleware, async (req, res) => {
       values
     );
     if (!rows.length) return res.status(404).json({ error: 'Produto não encontrado' });
+
+    // Sync stock/minStock to the default variant so dashboard and stock management stay consistent
+    if (p.stock !== undefined || p.minStock !== undefined) {
+      const syncFields = [];
+      const syncValues = [];
+      let si = 1;
+      if (p.stock !== undefined)    { syncFields.push(`stock = $${si++}`);     syncValues.push(p.stock); }
+      if (p.minStock !== undefined) { syncFields.push(`min_stock = $${si++}`); syncValues.push(p.minStock); }
+      syncValues.push(req.params.id);
+      await pool.query(
+        `UPDATE product_variants SET ${syncFields.join(', ')}, updated_at = NOW() WHERE product_id = $${si} AND is_default = true`,
+        syncValues
+      ).catch(e => console.warn('[PUT /products] variant sync skipped:', e.message));
+    }
+
     res.json(mapProduct(rows[0]));
   } catch (err) {
     console.error('[PUT /products]', err);

@@ -773,6 +773,176 @@ router.post('/snapshot', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/stock/period-summary
+// Calculates stock period summary from product_variants.stock (current truth) + movements in period.
+// initial_qty = current_stock - purchases_in_period + sales_in_period - adjustments_in_period
+router.get('/period-summary', authMiddleware, async (req, res) => {
+  try {
+    const { start_date, end_date, include_zero_stock } = req.query;
+    if (!start_date || !end_date) return res.status(400).json({ error: 'start_date and end_date required' });
+    const includeZero = include_zero_stock !== 'false';
+
+    // All variants with current stock
+    const { rows: variants } = await pool.query(`
+      SELECT pv.id AS variant_id, pv.product_id, pv.name AS variant_name,
+             pv.stock::float AS current_stock, pv.cost_price::float AS cost_price,
+             pv.unit AS variant_unit, pv.is_default, pv.display_order,
+             p.name AS product_name, p.unit AS product_unit
+      FROM product_variants pv
+      JOIN products p ON p.id = pv.product_id
+      ORDER BY p.name ASC, pv.is_default DESC, pv.display_order ASC NULLS LAST
+    `);
+
+    // Products without any variant (truly simple products)
+    const { rows: simpleProducts } = await pool.query(`
+      SELECT p.id, p.name, p.stock::float AS stock, p.cost_price::float AS cost_price, p.unit
+      FROM products p
+      WHERE NOT EXISTS (SELECT 1 FROM product_variants pv WHERE pv.product_id = p.id)
+      ORDER BY p.name ASC
+    `);
+
+    // Movements in the period (cast to date to avoid timezone issues with TIMESTAMPTZ column)
+    const { rows: movements } = await pool.query(
+      `SELECT id, date, items FROM stock_movements WHERE date::date >= $1::date AND date::date <= $2::date`,
+      [start_date, end_date]
+    );
+
+    // Adjustments in the period
+    const { rows: adjustments } = await pool.query(
+      `SELECT product_id, variant_id, quantity::float FROM stock_adjustments WHERE date >= $1 AND date <= $2`,
+      [start_date, end_date]
+    );
+
+    // Aggregate movements per variantId and per productId (no-variant movements)
+    const variantMov = new Map(); // variantId → {in, out, inV, outV}
+    const productMov = new Map(); // productId → {in, out, inV, outV}
+    const empty = () => ({ in: 0, out: 0, inV: 0, outV: 0 });
+
+    for (const m of movements) {
+      const items = typeof m.items === 'string' ? JSON.parse(m.items) : (m.items || []);
+      for (const item of items) {
+        const qty = Number(item.quantity) || 0;
+        if (qty === 0) continue;
+        const price = Number(item.unitPrice) || 0;
+        if (item.variantId) {
+          const e = variantMov.get(item.variantId) || empty();
+          if (qty > 0) { e.in += qty; e.inV += qty * price; }
+          else { e.out += Math.abs(qty); e.outV += Math.abs(qty) * price; }
+          variantMov.set(item.variantId, e);
+        } else if (item.productId) {
+          const e = productMov.get(item.productId) || empty();
+          if (qty > 0) { e.in += qty; e.inV += qty * price; }
+          else { e.out += Math.abs(qty); e.outV += Math.abs(qty) * price; }
+          productMov.set(item.productId, e);
+        }
+      }
+    }
+
+    // Adjustments per variantId / productId
+    const variantAdj = new Map();
+    const productAdj = new Map();
+    for (const a of adjustments) {
+      if (a.variant_id) variantAdj.set(a.variant_id, (variantAdj.get(a.variant_id) || 0) + Number(a.quantity));
+      else productAdj.set(a.product_id, (productAdj.get(a.product_id) || 0) + Number(a.quantity));
+    }
+
+    const result = [];
+
+    for (const v of variants) {
+      const vm = variantMov.get(v.variant_id) || empty();
+      // Default variant also inherits product-level movements (for simple products stored as variants)
+      const pm = v.is_default ? (productMov.get(v.product_id) || empty()) : empty();
+      const purchases = vm.in + pm.in;
+      const sales = vm.out + pm.out;
+      const purchasesValue = vm.inV + pm.inV;
+      const salesValue = vm.outV + pm.outV;
+      const adj = (variantAdj.get(v.variant_id) || 0) + (v.is_default ? (productAdj.get(v.product_id) || 0) : 0);
+      const currentStock = Number(v.current_stock) || 0;
+      const costPrice = Number(v.cost_price) || 0;
+      const initialStock = currentStock - purchases + sales - adj;
+      const finalStock = currentStock;
+
+      if (!includeZero && initialStock === 0 && finalStock === 0 && purchases === 0 && sales === 0 && adj === 0) continue;
+
+      result.push({
+        product_id: v.product_id,
+        product_name: v.product_name,
+        variant_id: v.is_default ? null : v.variant_id,
+        variant_name: v.is_default ? null : v.variant_name,
+        unit: v.variant_unit || v.product_unit || 'un',
+        cost_price: costPrice,
+        initial_qty: initialStock,
+        purchases_qty: purchases,
+        sales_qty: sales,
+        adjustments_qty: adj,
+        final_qty: finalStock,
+        initial_value: initialStock * costPrice,
+        purchases_value: purchasesValue,
+        sales_value: salesValue,
+        final_value: finalStock * costPrice
+      });
+    }
+
+    // Simple products (no variants in product_variants table)
+    for (const p of simpleProducts) {
+      const pm = productMov.get(p.id) || empty();
+      const adj = productAdj.get(p.id) || 0;
+      const currentStock = Number(p.stock) || 0;
+      const costPrice = Number(p.cost_price) || 0;
+      const purchases = pm.in;
+      const sales = pm.out;
+      const initialStock = currentStock - purchases + sales - adj;
+      const finalStock = currentStock;
+
+      if (!includeZero && initialStock === 0 && finalStock === 0 && purchases === 0 && sales === 0 && adj === 0) continue;
+
+      result.push({
+        product_id: p.id,
+        product_name: p.name,
+        variant_id: null,
+        variant_name: null,
+        unit: p.unit || 'un',
+        cost_price: costPrice,
+        initial_qty: initialStock,
+        purchases_qty: purchases,
+        sales_qty: sales,
+        adjustments_qty: adj,
+        final_qty: finalStock,
+        initial_value: initialStock * costPrice,
+        purchases_value: pm.inV,
+        sales_value: pm.outV,
+        final_value: finalStock * costPrice
+      });
+    }
+
+    result.sort((a, b) => a.product_name.localeCompare(b.product_name));
+    res.json(result);
+  } catch (err) {
+    console.error('[GET /stock/period-summary]', err);
+    res.status(500).json({ error: 'Erro ao calcular resumo de stock' });
+  }
+});
+
+// POST /api/stock/sync-product-stock
+// One-time migration: copies products.stock → default variant stock for products where variant.stock = 0
+router.post('/sync-product-stock', authMiddleware, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(`
+      UPDATE product_variants pv
+      SET stock = p.stock, updated_at = NOW()
+      FROM products p
+      WHERE pv.product_id = p.id
+        AND pv.is_default = true
+        AND pv.stock = 0
+        AND p.stock > 0
+    `);
+    res.json({ success: true, updated: rowCount });
+  } catch (err) {
+    console.error('[POST /stock/sync-product-stock]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/stock/transactions
 router.get('/transactions', authMiddleware, async (req, res) => {
   try {

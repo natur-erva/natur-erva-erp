@@ -9,6 +9,8 @@ export interface SystemSettings {
   favicon?: string;
   primary_color?: string;
   secondary_color?: string;
+  theme_font?: string;
+  theme_radius?: string;
   company_name?: string;
   company_email?: string;
   company_phone?: string;
@@ -38,6 +40,9 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
       ...base,
       ...(config.logoUrl ? { logo_light: config.logoUrl, logo_dark: config.logoUrl } : {}),
       ...(config.logoIconUrl ? { logo_icon: config.logoIconUrl } : {}),
+      ...(config.themePrimaryColor ? { primary_color: config.themePrimaryColor } : {}),
+      ...(config.themeFont ? { theme_font: config.themeFont } : {}),
+      ...(config.themeRadius ? { theme_radius: config.themeRadius } : {}),
     };
 
     localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: settings }));

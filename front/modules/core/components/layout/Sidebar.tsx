@@ -316,6 +316,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
   }, [hasPermission, t, enabledModules]);
 
+  // --- Visual helpers (CSS only, sem lógica) ---
+  const activeItemStyle: React.CSSProperties = {
+    background: 'color-mix(in srgb, var(--brand-600) 12%, transparent)',
+    color: 'var(--brand-600)',
+    fontWeight: 600,
+  };
+  // Separadores visuais antes destes grupos (apenas CSS)
+  const GROUP_STARTERS = new Set(['sales', 'media', 'logistics']);
+
   return (
     <>
       <div className={`bg-surface-overlay h-screen border-r border-border-default flex flex-col fixed left-0 top-0 z-10 hidden md:flex transition-all duration-300 ${isOpen ? 'w-64' : 'w-20'}`}>
@@ -349,6 +358,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2">
           {filteredMenuItems.map((item) => {
+            const groupSeparator = GROUP_STARTERS.has(item.id) && (
+              <div key={`sep-${item.id}`} className="mx-2 my-1 border-t border-gray-100 dark:border-gray-700/50" />
+            );
             const Icon = item.icon;
             const hasChildren = item.children && item.children.length > 0;
             const isExpanded = expandedMenus[item.id];
@@ -363,16 +375,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             if (!isOpen) {
               if (hasChildren) {
                 return (
-                  <div key={item.id} className="relative group">
+                  <React.Fragment key={item.id}>
+                    {groupSeparator}
+                    <div className="relative group">
                     <button
                       onClick={() => onNavigate(item.id)}
                       title={item.label}
-                      className={`w-full flex items-center justify-center py-2.5 px-2 rounded-lg transition-colors text-sm font-medium relative ${isActive
-                        ? 'bg-brand-logo-dark/15 dark:bg-brand-logo-dark text-brand-logo-dark dark:text-white dark:border-l-2 dark:border-l-brand-logo-light'
-                        : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary'
+                      className={`w-full flex items-center justify-center py-2.5 px-2 rounded-lg transition-all duration-150 text-sm font-medium relative ${isActive
+                        ? ''
+                        : 'text-content-secondary hover:bg-black/[0.04] dark:hover:bg-white/[0.05] hover:text-content-primary'
                         }`}
+                      style={isActive ? activeItemStyle : undefined}
                     >
-                      <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-brand-logo-dark dark:text-white' : 'text-content-muted'}`} />
+                      <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? '' : 'text-content-muted'}`} />
                     </button>
                     {/* Tooltip com submenus ao hover quando sidebar fechado */}
                     <div className="absolute left-full ml-2 top-0 bg-surface-raised border border-border-strong text-content-primary text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-lg min-w-[160px]">
@@ -411,45 +426,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <div className="absolute right-full top-3 border-4 border-transparent border-r-surface-raised"></div>
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               }
 
               return (
-                <button
-                  key={item.id}
-                  onClick={() => onNavigate(item.id)}
-                  title={item.label}
-                  className={`w-full flex items-center justify-center py-2.5 px-2 rounded-lg transition-colors text-sm font-medium relative group ${isActive
-                    ? 'bg-brand-logo-dark/15 dark:bg-brand-logo-dark text-brand-logo-dark dark:text-white dark:border-l-2 dark:border-l-brand-logo-light'
-                    : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary'
-                    }`}
-                >
-                  <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-brand-logo-dark dark:text-white' : 'text-content-muted'}`} />
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-surface-raised border border-border-strong text-content-primary text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-lg">
-                    {item.label}
-                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-surface-raised"></div>
-                  </div>
-                </button>
+                <React.Fragment key={item.id}>
+                  {groupSeparator}
+                  <button
+                    onClick={() => onNavigate(item.id)}
+                    title={item.label}
+                    className={`w-full flex items-center justify-center py-2.5 px-2 rounded-lg transition-all duration-150 text-sm font-medium relative group ${isActive
+                      ? ''
+                      : 'text-content-secondary hover:bg-black/[0.04] dark:hover:bg-white/[0.05] hover:text-content-primary'
+                      }`}
+                    style={isActive ? activeItemStyle : undefined}
+                  >
+                    <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? '' : 'text-content-muted'}`} />
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-surface-raised border border-border-strong text-content-primary text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-lg">
+                      {item.label}
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-surface-raised"></div>
+                    </div>
+                  </button>
+                </React.Fragment>
               );
             }
 
             // Sidebar aberto - mostrar menu completo com accordion
             if (hasChildren) {
               return (
-                <div key={item.id} className="space-y-1">
+                <React.Fragment key={item.id}>
+                  {groupSeparator}
+                  <div className="space-y-1">
                   {/* Menu principal com seta de expansão */}
                   <button
                     onClick={() => toggleMenuExpansion(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors text-sm font-medium ${isActive
-                      ? 'bg-brand-logo-dark/15 dark:bg-brand-logo-dark/30 text-brand-logo-dark dark:text-white'
-                      : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary'
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium ${isActive
+                      ? ''
+                      : 'text-content-secondary hover:bg-black/[0.04] dark:hover:bg-white/[0.05] hover:text-content-primary'
                       }`}
+                    style={isActive ? activeItemStyle : undefined}
                   >
                     <div className="flex items-center space-x-3">
-                      <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-brand-logo-dark dark:text-white' : 'text-content-muted'}`} />
+                      <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? '' : 'text-content-muted'}`} />
                       <span className="truncate">{item.label}</span>
                     </div>
-                    <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''} ${isActive ? 'text-brand-logo-dark dark:text-white' : 'text-content-muted'}`} />
+                    <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''} ${isActive ? '' : 'text-content-muted'}`} />
                   </button>
 
                   {/* Submenus com animação */}
@@ -484,23 +506,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       })}
                     </div>
                   </div>
-                </div>
+                  </div>
+                </React.Fragment>
               );
             }
 
             // Item sem submenus
             return (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium ${isActive
-                  ? 'bg-brand-logo-dark/15 dark:bg-brand-logo-dark text-brand-logo-dark dark:text-white dark:border-l-2 dark:border-l-brand-logo-light'
-                  : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary'
-                  }`}
-              >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-brand-logo-dark dark:text-white' : 'text-content-muted'}`} />
-                <span className="truncate">{item.label}</span>
-              </button>
+              <React.Fragment key={item.id}>
+                {groupSeparator}
+                <button
+                  onClick={() => onNavigate(item.id)}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium ${isActive
+                    ? ''
+                    : 'text-content-secondary hover:bg-black/[0.04] dark:hover:bg-white/[0.05] hover:text-content-primary'
+                    }`}
+                  style={isActive ? activeItemStyle : undefined}
+                >
+                  <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? '' : 'text-content-muted'}`} />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              </React.Fragment>
             );
           })}
         </nav>
@@ -514,12 +540,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center ${isOpen ? 'space-x-2 px-2 py-2 mb-2' : 'justify-center py-2 mb-2'} rounded-lg hover:bg-surface-raised transition-colors relative group`}
             title={!isOpen ? currentUser.name : ''}
           >
-            <Avatar
-              src={currentUser.avatar}
-              alt={currentUser.name}
-              name={currentUser.name}
-              size="sm"
-            />
+            <span style={{ borderRadius: '50%', boxShadow: '0 0 0 2px var(--brand-600)', flexShrink: 0, display: 'inline-flex' }}>
+              <Avatar
+                src={currentUser.avatar}
+                alt={currentUser.name}
+                name={currentUser.name}
+                size="sm"
+              />
+            </span>
             {isOpen && (
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-xs font-medium text-content-primary truncate">{currentUser.name}</p>

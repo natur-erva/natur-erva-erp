@@ -37,6 +37,7 @@ import blogRoutes from './routes/blog.js';
 import posRoutes from './routes/pos.js';
 import taxRoutes from './routes/tax.js';
 import quotesRoutes from './routes/quotes.js';
+import reviewRoutes from './routes/reviews.js';
 
 const app = express();
 const PORT = process.env.PORT || 3060;
@@ -136,6 +137,7 @@ app.use('/api/blog', blogRoutes);
 app.use('/api/pos',    posRoutes);
 app.use('/api/tax',    taxRoutes);
 app.use('/api/quotes', quotesRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

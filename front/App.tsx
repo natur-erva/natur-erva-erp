@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation as useRouterLocation } from 'react-router-dom';
 import { dataService } from './modules/core/services/dataService';
-import { applyTheme } from './modules/core/utils/theme';
+import { applyTheme, applyFontFamily, applyBorderRadius } from './modules/core/utils/theme';
 import { type User, Order, OrderStatus, Product, Customer, Sale, Purchase, PurchaseRequest, Supplier, UserRole, ProductVariant } from './modules/core/types/types';
 
 // Core Imports
@@ -69,7 +69,7 @@ const Contactos = lazy(() => import('./modules/shop/pages/Contactos'));
 
 // Services & Utils
 import { Lock, User as UserIcon, Loader2, Info, Eye, EyeOff } from 'lucide-react';
-import { getSystemSettings, updateFavicon, updatePageTitle } from './modules/core/services/systemSettingsService';
+import { getSystemSettings, updateFavicon, updatePageTitle, invalidateLogoCache } from './modules/core/services/systemSettingsService';
 import { ForgotPasswordModal } from './modules/core/components/modals/ForgotPasswordModal';
 import { SignUpModal } from './modules/core/components/modals/SignUpModal';
 import { LoginModal } from './modules/core/components/modals/LoginModal';
@@ -208,6 +208,12 @@ const App = () => {
         if (settings.primary_color) {
           applyTheme(settings.primary_color);
         }
+        if (settings.theme_font) {
+          applyFontFamily(settings.theme_font);
+        }
+        if (settings.theme_radius) {
+          applyBorderRadius(settings.theme_radius);
+        }
       } catch (error) {
         console.warn('Erro ao carregar configurações do sistema:', error);
       }
@@ -263,6 +269,13 @@ const App = () => {
   useEffect(() => {
     if (currentUser) {
       loadData();
+      // Re-apply theme after login: invalidate cache so we get fresh settings with auth
+      invalidateLogoCache();
+      getSystemSettings().then(settings => {
+        if (settings.primary_color) applyTheme(settings.primary_color);
+        if (settings.theme_font)    applyFontFamily(settings.theme_font);
+        if (settings.theme_radius)  applyBorderRadius(settings.theme_radius);
+      }).catch(() => {});
     }
   }, [currentUser, loadData]);
 

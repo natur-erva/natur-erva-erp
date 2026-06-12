@@ -1,4 +1,9 @@
-import { supabase, isSupabaseConfigured } from '../../core/services/supabaseClient';
+/**
+ * reviewService — REST API backend (product_reviews table).
+ * GET endpoints are public; POST requires auth token.
+ * Falls back to localStorage when backend is unreachable.
+ */
+import api from '../../core/services/apiClient';
 
 export interface ProductReview {
   id: string;
@@ -14,95 +19,67 @@ export interface RatingStats {
   total: number;
 }
 
-// Module-level cache to avoid duplicate queries across cards
-const statsCache = new Map<string, RatingStats>();
+// Per-product stats cache (TTL: 30 s)
+const statsCache = new Map<string, { data: RatingStats; ts: number }>();
+const CACHE_TTL = 30_000;
 
 const STORAGE_KEY = 'naturerva_reviews';
 
 function getLocalReviews(): ProductReview[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
 }
 
 function saveLocalReviews(reviews: ProductReview[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
 }
 
-function computeStats(ratings: number[]): RatingStats {
-  if (!ratings.length) return { average: 0, total: 0 };
-  const sum = ratings.reduce((a, b) => a + b, 0);
-  const average = Math.round((sum / ratings.length) * 10) / 10;
-  return { average, total: ratings.length };
-}
+// ── Stats ────────────────────────────────────────────────────────────────────
 
 export async function getProductRating(productId: string): Promise<RatingStats> {
-  if (statsCache.has(productId)) return statsCache.get(productId)!;
+  const cached = statsCache.get(productId);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('product_reviews')
-        .select('rating')
-        .eq('product_id', productId);
-
-      if (!error && data) {
-        const stats = computeStats(data.map((r) => r.rating));
-        statsCache.set(productId, stats);
-        return stats;
-      }
-    } catch {
-      // fall through to localStorage
-    }
+  try {
+    const data = await api.get<{ total: number; average: number }>(`/reviews/stats/${productId}`);
+    const stats: RatingStats = { average: Number(data?.average ?? 0), total: Number(data?.total ?? 0) };
+    statsCache.set(productId, { data: stats, ts: Date.now() });
+    return stats;
+  } catch {
+    // fallback to localStorage
+    const local = getLocalReviews().filter(r => r.product_id === productId);
+    if (!local.length) return { average: 0, total: 0 };
+    const avg = local.reduce((s, r) => s + r.rating, 0) / local.length;
+    return { average: Math.round(avg * 10) / 10, total: local.length };
   }
-
-  const reviews = getLocalReviews().filter((r) => r.product_id === productId);
-  const stats = computeStats(reviews.map((r) => r.rating));
-  statsCache.set(productId, stats);
-  return stats;
 }
+
+// ── Per-product reviews ───────────────────────────────────────────────────────
 
 export async function getProductReviews(productId: string): Promise<ProductReview[]> {
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('product_reviews')
-        .select('*')
-        .eq('product_id', productId)
-        .order('created_at', { ascending: false });
-
-      if (!error && data) return data as ProductReview[];
-    } catch {
-      // fall through to localStorage
-    }
+  try {
+    const data = await api.get<ProductReview[]>(`/reviews/product/${productId}`);
+    return data || [];
+  } catch {
+    return getLocalReviews().filter(r => r.product_id === productId);
   }
-
-  return getLocalReviews()
-    .filter((r) => r.product_id === productId)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
+// ── All reviews (for testimonials section) ───────────────────────────────────
+
 export async function getAllReviews(limit = 24): Promise<ProductReview[]> {
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('product_reviews')
-        .select('*')
-        .not('comment', 'is', null)
-        .not('comment', 'eq', '')
-        .gte('rating', 4)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-      if (!error && data) return data as ProductReview[];
-    } catch {}
-  }
+  try {
+    const data = await api.get<ProductReview[]>(`/reviews?limit=${limit}`);
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch { /* fall through */ }
+
+  // localStorage fallback (shows reviews written on this device)
   return getLocalReviews()
     .filter(r => r.comment?.trim() && r.rating >= 4)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, limit);
 }
+
+// ── Submit ────────────────────────────────────────────────────────────────────
 
 export async function submitReview(
   productId: string,
@@ -119,23 +96,23 @@ export async function submitReview(
     created_at: new Date().toISOString(),
   };
 
-  let savedToSupabase = false;
+  let savedToBackend = false;
+  try {
+    await api.post('/reviews', {
+      product_id: productId,
+      user_name: userName.trim(),
+      rating,
+      comment: comment.trim(),
+    });
+    savedToBackend = true;
+  } catch { /* fall through */ }
 
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      const { error } = await supabase.from('product_reviews').insert([review]);
-      if (!error) savedToSupabase = true;
-    } catch {
-      // fall through to localStorage
-    }
-  }
-
-  if (!savedToSupabase) {
+  if (!savedToBackend) {
+    // Save locally so the user sees their own review immediately
     const reviews = getLocalReviews();
     reviews.unshift(review);
     saveLocalReviews(reviews);
   }
 
-  // Invalidate cache so next fetch reflects new review
   statsCache.delete(productId);
 }

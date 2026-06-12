@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 
 import { User, UserRole } from '../../../core/types/types';
-import { Menu, X, LogOut, Moon, Sun, ChevronDown, User as UserIcon, Globe, LayoutDashboard, ShoppingCart, TrendingUp, Truck, Users, Package, ShoppingBag, BarChart3, Activity, Warehouse, Egg, ArrowRight, FileText, ArrowLeftRight, Wallet, Download, Upload, Repeat, UserCheck, Award, Share2, Target, Megaphone, Eye, Image, Tv, Tag, Ruler, Layers, List, ClipboardCheck, AlertTriangle, Scale, Shield, Boxes, Store, MapPin } from 'lucide-react';
+import { Menu, X, LogOut, Moon, Sun, ChevronDown, User as UserIcon, Globe, LayoutDashboard, ShoppingCart, TrendingUp, Truck, Users, Package, ShoppingBag, BarChart3, Activity, Warehouse, Egg, ArrowRight, FileText, ArrowLeftRight, Wallet, Download, Upload, Repeat, UserCheck, Award, Share2, Target, Megaphone, Eye, Image, Tv, Tag, Ruler, Layers, List, ClipboardCheck, AlertTriangle, Scale, Shield, Boxes, Store, MapPin, CreditCard } from 'lucide-react';
 import { useLanguage } from '../../../core/contexts/LanguageContext';
 import { Logo } from '../ui/Logo';
 import { Avatar } from '../ui/Avatar';
@@ -61,9 +61,9 @@ export const Layout: React.FC<LayoutProps> = ({
 
   // Estrutura simplificada para verificação de rotas (definida antes do useEffect)
   const menuItemsWithChildren = [
-    { id: 'sales', children: [{ path: '/admin/caixa' }, { path: '/admin/cotacoes' }, { path: '/admin/vendas' }, { path: '/admin/vendas/por-produto' }, { path: '/admin/vendas/pedidos' }, { path: '/admin/vendas/clientes' }] },
+    { id: 'sales', children: [{ path: '/admin/pos' }, { path: '/admin/caixa' }, { path: '/admin/cotacoes' }, { path: '/admin/vendas/pedidos' }, { path: '/admin/vendas/clientes' }, { path: '/admin/vendas' }, { path: '/admin/vendas/por-produto' }] },
     { id: 'purchases', children: [{ path: '/admin/compras' }, { path: '/admin/compras/por-produto' }, { path: '/admin/compras/fornecedores' }] },
-    { id: 'products', children: [{ path: '/admin/produtos' }, { path: '/admin/produtos/categorias' }, { path: '/admin/produtos/unidades' }] },
+    { id: 'products', children: [{ path: '/admin/produtos' }, { path: '/admin/produtos/categorias' }, { path: '/admin/produtos/unidades' }, { path: '/admin/produtos/etiquetas' }] },
     { id: 'stock-management', children: [{ path: '/admin/stock' }, { path: '/admin/stock/alertas' }, { path: '/admin/stock/movimentos' }, { path: '/admin/stock/lotes' }, { path: '/admin/stock/auditoria' }, { path: '/admin/stock/ajustes' }] },
     { id: 'users', children: [{ path: '/admin/usuarios' }, { path: '/admin/usuarios/roles' }] },
   ];
@@ -146,12 +146,13 @@ export const Layout: React.FC<LayoutProps> = ({
       icon: TrendingUp,
       permission: 'sales.view',
       children: [
-        { id: 'pos', label: 'Caixa (POS)', icon: Store, path: '/admin/caixa' },
-        { id: 'cotacoes', label: 'Cotações', icon: FileText, path: '/admin/cotacoes' },
-        { id: 'sales-orders', label: t.nav.orders, icon: ShoppingCart, path: '/admin/vendas/pedidos' },
-        { id: 'sales-customers', label: t.nav.customers, icon: Users, path: '/admin/vendas/clientes' },
-        { id: 'sales-summaries', label: 'Resumos', icon: List, path: '/admin/vendas' },
-        { id: 'sales-by-product', label: 'Por Produto', icon: Package, path: '/admin/vendas/por-produto' },
+        { id: 'pos-sell',        label: 'Vender',     icon: CreditCard,   path: '/admin/pos' },
+        { id: 'caixa',           label: 'Caixa',      icon: Store,        path: '/admin/caixa' },
+        { id: 'sales-orders',    label: t.nav.orders, icon: ShoppingCart, path: '/admin/vendas/pedidos' },
+        { id: 'cotacoes',        label: 'Cotações',   icon: FileText,     path: '/admin/cotacoes' },
+        { id: 'sales-customers', label: t.nav.customers, icon: Users,     path: '/admin/vendas/clientes' },
+        { id: 'sales-summaries', label: 'Resumos',    icon: List,         path: '/admin/vendas' },
+        { id: 'sales-by-product', label: 'Por Produto', icon: Package,   path: '/admin/vendas/por-produto' },
       ]
     },
     {
@@ -171,9 +172,10 @@ export const Layout: React.FC<LayoutProps> = ({
       icon: Package,
       permission: 'products.view',
       children: [
-        { id: 'products-list', label: 'Produtos', icon: Package, path: '/admin/produtos' },
-        { id: 'products-categories', label: 'Categorias', icon: Tag, path: '/admin/produtos/categorias' },
-        { id: 'products-units', label: 'Unidades', icon: Ruler, path: '/admin/produtos/unidades' },
+        { id: 'products-list',       label: 'Produtos',   icon: Package,       path: '/admin/produtos' },
+        { id: 'products-categories', label: 'Categorias', icon: Tag,           path: '/admin/produtos/categorias' },
+        { id: 'products-units',      label: 'Unidades',   icon: Ruler,         path: '/admin/produtos/unidades' },
+        { id: 'products-labels',     label: 'Etiquetas',  icon: ClipboardCheck, path: '/admin/produtos/etiquetas' },
       ]
     },
     {
@@ -201,8 +203,8 @@ export const Layout: React.FC<LayoutProps> = ({
         { id: 'users-roles', label: 'Gerir Roles', icon: Shield, path: '/admin/usuarios/roles' },
       ]
     },
-    { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'users.view' },
     { id: 'financas', label: 'Finanças / IVA', icon: Wallet, permission: 'users.view' },
+    { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'users.view' },
     { id: 'logistics', label: 'Logística', icon: Truck, permission: 'logistics.manage' },
     { id: 'coupons', label: 'Cupões', icon: Tag, permission: 'sales.discount' },
     { id: 'refunds', label: 'Reembolsos', icon: Repeat, permission: 'orders.view' },

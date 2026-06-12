@@ -231,7 +231,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                       </button>
                     </>
                   ) : (
-                    <button onClick={() => { onLogin?.(); closeSidebar(); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 transition-all">
+                    <button onClick={() => { onLogin?.(); closeSidebar(); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-all">
                       <LogIn className="h-5 w-5" />Entrar
                     </button>
                   )}

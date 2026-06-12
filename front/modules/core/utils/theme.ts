@@ -64,6 +64,74 @@ export const getContrastColor = (hex: string): string => {
     return yiq >= 128 ? '#000000' : '#ffffff';
 };
 
+export const FONT_OPTIONS = [
+  { value: 'Inter',   label: 'Inter',     stack: '"Inter", sans-serif' },
+  { value: 'Poppins', label: 'Poppins',   stack: '"Poppins", sans-serif' },
+  { value: 'DM Sans', label: 'DM Sans',   stack: '"DM Sans", sans-serif' },
+  { value: 'Nunito',  label: 'Nunito',    stack: '"Nunito", sans-serif' },
+  { value: 'Roboto',  label: 'Roboto',    stack: '"Roboto", sans-serif' },
+  { value: 'System',  label: 'Sistema',   stack: 'system-ui, -apple-system, sans-serif' },
+] as const;
+
+export const RADIUS_OPTIONS = [
+  { value: 'sharp',   label: 'Recto',         preview: 'rounded-none' },
+  { value: 'default', label: 'Padrão',         preview: 'rounded-lg' },
+  { value: 'rounded', label: 'Arredondado',    preview: 'rounded-2xl' },
+  { value: 'pill',    label: 'Pílula',         preview: 'rounded-full' },
+] as const;
+
+export const COLOR_PRESETS = [
+  { label: 'Verde Natura',  value: '#059669' },
+  { label: 'Esmeralda',     value: '#10b981' },
+  { label: 'Azul',          value: '#2563eb' },
+  { label: 'Índigo',        value: '#4f46e5' },
+  { label: 'Violeta',       value: '#7c3aed' },
+  { label: 'Rosa',          value: '#db2777' },
+  { label: 'Laranja',       value: '#ea580c' },
+  { label: 'Âmbar',         value: '#d97706' },
+  { label: 'Cinza Escuro',  value: '#374151' },
+  { label: 'Ardósia',       value: '#0f172a' },
+];
+
+export const applyFontFamily = (font: string): void => {
+  const found = FONT_OPTIONS.find(f => f.value === font);
+  const stack = found ? found.stack : FONT_OPTIONS[0].stack;
+
+  if (font && font !== 'System') {
+    const linkId = 'theme-google-font';
+    const existing = document.getElementById(linkId) as HTMLLinkElement | null;
+    const fontQuery = font.replace(/ /g, '+');
+    const href = `https://fonts.googleapis.com/css2?family=${fontQuery}:wght@400;500;600;700&display=swap`;
+    if (!existing) {
+      const link = document.createElement('link');
+      link.id = linkId;
+      link.rel = 'stylesheet';
+      link.href = href;
+      document.head.appendChild(link);
+    } else if (existing.href !== href) {
+      existing.href = href;
+    }
+  }
+
+  document.documentElement.style.setProperty('--font-body', stack);
+  document.body.style.fontFamily = stack;
+};
+
+export const applyBorderRadius = (preset: string): void => {
+  const scale: Record<string, Record<string, string>> = {
+    sharp:   { sm: '1px',   md: '2px',   lg: '2px',   xl: '2px' },
+    default: { sm: '4px',   md: '8px',   lg: '12px',  xl: '16px' },
+    rounded: { sm: '8px',   md: '14px',  lg: '22px',  xl: '28px' },
+    pill:    { sm: '999px', md: '999px', lg: '999px', xl: '999px' },
+  };
+  const s = scale[preset] || scale['default'];
+  const root = document.documentElement;
+  root.style.setProperty('--radius-sm', s.sm);
+  root.style.setProperty('--radius-md', s.md);
+  root.style.setProperty('--radius-lg', s.lg);
+  root.style.setProperty('--radius-xl', s.xl);
+};
+
 /**
  * Generate a color palette and apply it to CSS variables
  * @param primaryHex The primary brand color in hex format
@@ -92,5 +160,11 @@ export const applyTheme = (primaryHex: string) => {
 
     // Contrast Text
     root.style.setProperty('--brand-contrast', getContrastColor(primaryHex));
+
+    // Sync brand-logo-* vars — stored as "R G B" channels so Tailwind opacity modifiers work
+    const logoRgb      = hexToRgb(shade(primaryHex, 0.05));
+    const logoLightRgb = hexToRgb(tint(primaryHex, 0.30));
+    if (logoRgb)      root.style.setProperty('--brand-logo-dark',  `${logoRgb.r} ${logoRgb.g} ${logoRgb.b}`);
+    if (logoLightRgb) root.style.setProperty('--brand-logo-light', `${logoLightRgb.r} ${logoLightRgb.g} ${logoLightRgb.b}`);
 };
 

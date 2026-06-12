@@ -38,6 +38,9 @@ pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_swift VARCHAR(5
 pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500) NOT NULL DEFAULT ''`).catch(() => {});
 pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS logo_icon_url VARCHAR(500) NOT NULL DEFAULT ''`).catch(() => {});
 pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_accounts JSONB NOT NULL DEFAULT '[]'`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS theme_primary_color VARCHAR(20) DEFAULT ''`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS theme_font VARCHAR(100) DEFAULT ''`).catch(() => {});
+pool.query(`ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS theme_radius VARCHAR(20) DEFAULT ''`).catch(() => {});
 
 const mapConfig = (r) => ({
   companyName:        r.company_name,
@@ -60,6 +63,9 @@ const mapConfig = (r) => ({
   logoUrl:            r.logo_url || '',
   logoIconUrl:        r.logo_icon_url || '',
   bankAccounts:       Array.isArray(r.bank_accounts) ? r.bank_accounts : (r.bank_accounts ? JSON.parse(r.bank_accounts) : []),
+  themePrimaryColor:  r.theme_primary_color || '',
+  themeFont:          r.theme_font || '',
+  themeRadius:        r.theme_radius || '',
 });
 
 // GET /api/tax/config
@@ -103,6 +109,9 @@ router.put('/config', authMiddleware, async (req, res) => {
         logo_url             = COALESCE($13, logo_url),
         logo_icon_url        = COALESCE($14, logo_icon_url),
         bank_accounts        = COALESCE($15, bank_accounts),
+        theme_primary_color  = COALESCE($16, theme_primary_color),
+        theme_font           = COALESCE($17, theme_font),
+        theme_radius         = COALESCE($18, theme_radius),
         updated_at           = NOW()
        WHERE id = 1`,
       [c.companyName, c.companyNuit, c.companyAddress, c.companyPhone,
@@ -110,7 +119,8 @@ router.put('/config', authMiddleware, async (req, res) => {
        c.bankName ?? null, c.bankAccount ?? null, c.bankIban ?? null,
        c.bankAccountHolder ?? null, c.bankSwift ?? null,
        c.logoUrl || null, c.logoIconUrl || null,
-       c.bankAccounts !== undefined ? JSON.stringify(c.bankAccounts) : null]
+       c.bankAccounts !== undefined ? JSON.stringify(c.bankAccounts) : null,
+       c.themePrimaryColor || null, c.themeFont || null, c.themeRadius || null]
     );
     const { rows } = await pool.query('SELECT * FROM tax_config WHERE id = 1');
     res.json(mapConfig(rows[0]));

@@ -4,6 +4,7 @@ import {
   CreditCard, CheckCircle, RefreshCw,
 } from 'lucide-react';
 import api from '../../core/services/apiClient';
+import { PageShell } from '../../core/components/layout/PageShell';
 import type { Toast } from '../../core/components/ui/Toast';
 
 interface CaixaPageProps {
@@ -146,7 +147,6 @@ export const CaixaPage: React.FC<CaixaPageProps> = ({ showToast }) => {
     setClosing(false);
   };
 
-  // Live payment breakdown from recent orders
   const liveByMethod = ['cash', 'mpesa', 'transfer'].map(method => {
     const orders = recentOrders.filter(o => (o.paymentMethod || 'cash') === method);
     return { method, count: orders.length, total: orders.reduce((s, o) => s + Number(o.totalAmount), 0) };
@@ -157,353 +157,326 @@ export const CaixaPage: React.FC<CaixaPageProps> = ({ showToast }) => {
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (session === 'loading') return (
-    <div className="flex items-center justify-center h-[calc(100vh-64px)]">
-      <div className="text-center text-gray-400">
+    <div className="flex items-center justify-center h-48">
+      <div className="text-center text-content-muted">
         <Store className="w-10 h-10 mx-auto mb-3 animate-pulse" />
         <p className="text-sm">A carregar caixa...</p>
       </div>
     </div>
   );
 
+  // ── Status badge ─────────────────────────────────────────────────────────────
+  const statusBadge = sess ? (
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full border border-green-200 dark:border-green-800">
+      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+      Aberta há {fmtDuration(sess.opened_at)}
+    </span>
+  ) : (
+    <span className="text-xs font-medium px-2.5 py-1 bg-surface-base text-content-muted rounded-full border border-border-default">Fechada</span>
+  );
+
   // ── Close Report ─────────────────────────────────────────────────────────────
   if (closeReport) {
     const { summary, session: s } = closeReport;
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-        <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-6 py-5">
-          <div className="max-w-5xl mx-auto">
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Caixa</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Sessão encerrada</p>
-          </div>
-        </div>
-        <div className="max-w-md mx-auto px-6 py-10">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
-            <div className="bg-brand-600 px-6 py-6 text-white text-center">
+      <PageShell title="Caixa" description="Sessão encerrada" compactHeaderMobile>
+        <div className="max-w-md mx-auto">
+          <div className="bg-surface-raised rounded-2xl border border-border-default overflow-hidden shadow-sm">
+            <div className="px-6 py-6 text-white text-center" style={{ background: 'var(--brand-600)' }}>
               <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-90" />
               <h2 className="text-xl font-bold">Caixa Fechada</h2>
-              <p className="text-brand-100 text-sm mt-1">
+              <p className="text-sm mt-1 opacity-80">
                 {fmtTime(s.opened_at)} → {s.closed_at ? fmtTime(s.closed_at) : '—'} · {fmtDuration(s.opened_at)}
               </p>
-              <p className="text-brand-100 text-sm">{s.cashier_name}</p>
+              <p className="text-sm opacity-80">{s.cashier_name}</p>
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.totalOrders}</p>
-                  <p className="text-xs text-gray-500 mt-1">Vendas realizadas</p>
+                <div className="bg-surface-base rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-content-primary">{summary.totalOrders}</p>
+                  <p className="text-xs text-content-muted mt-1">Vendas realizadas</p>
                 </div>
-                <div className="bg-brand-50 dark:bg-brand-900/20 rounded-xl p-4 text-center">
-                  <p className="text-xl font-bold text-brand-600">{fmt(summary.totalSales)}</p>
-                  <p className="text-xs text-gray-500 mt-1">Total vendido</p>
+                <div className="bg-surface-base rounded-xl p-4 text-center">
+                  <p className="text-xl font-bold" style={{ color: 'var(--brand-600)' }}>{fmt(summary.totalSales)}</p>
+                  <p className="text-xs text-content-muted mt-1">Total vendido</p>
                 </div>
               </div>
-
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Por método de pagamento</p>
+                <p className="text-xs font-semibold text-content-muted uppercase tracking-wide">Por método de pagamento</p>
                 {summary.byMethod.length === 0
-                  ? <p className="text-sm text-gray-400 text-center py-3">Nenhuma venda</p>
+                  ? <p className="text-sm text-content-muted text-center py-3">Nenhuma venda</p>
                   : summary.byMethod.map(m => (
-                    <div key={m.method} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg px-4 py-2.5">
+                    <div key={m.method} className="flex items-center justify-between bg-surface-base rounded-lg px-4 py-2.5">
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{PAY_LABELS[m.method] || m.method}</p>
-                        <p className="text-xs text-gray-400">{m.count} {m.count === 1 ? 'venda' : 'vendas'}</p>
+                        <p className="text-sm font-medium text-content-primary">{PAY_LABELS[m.method] || m.method}</p>
+                        <p className="text-xs text-content-muted">{m.count} {m.count === 1 ? 'venda' : 'vendas'}</p>
                       </div>
-                      <p className="font-semibold text-gray-900 dark:text-white font-mono">{fmt(m.total)}</p>
+                      <p className="font-semibold text-content-primary font-mono">{fmt(m.total)}</p>
                     </div>
                   ))}
               </div>
-
-              <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 rounded-xl px-4 py-3">
+              <div className="flex items-center justify-between bg-surface-base rounded-xl px-4 py-3 border border-border-default">
                 <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Fundo esperado em caixa</p>
-                  <p className="text-xs text-gray-400">Fundo inicial + vendas a dinheiro</p>
+                  <p className="text-sm font-medium text-content-secondary">Fundo esperado em caixa</p>
+                  <p className="text-xs text-content-muted">Fundo inicial + vendas a dinheiro</p>
                 </div>
                 <p className="text-xl font-bold text-green-600">{fmt(summary.expectedCash)}</p>
               </div>
-
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => printCloseReport(s, summary, taxConfig.companyName, logoUrl)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium">
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-border-default text-content-secondary rounded-xl hover:bg-surface-base transition-colors text-sm font-medium">
                   <Printer className="w-4 h-4" />Imprimir
                 </button>
                 <button
                   onClick={() => { setCloseReport(null); setTab('atual'); }}
-                  className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors text-sm">
+                  className="flex-1 py-2.5 text-white font-semibold rounded-xl transition-colors text-sm"
+                  style={{ background: 'var(--brand-600)' }}>
                   Abrir Nova Caixa
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   // ── Main layout ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-
-      {/* Header */}
-      <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-6 py-5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Caixa</h1>
-              {sess ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full border border-green-200 dark:border-green-800">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                  Aberta há {fmtDuration(sess.opened_at)}
-                </span>
-              ) : (
-                <span className="text-xs font-medium px-2.5 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-full">Fechada</span>
-              )}
-            </div>
-            <p className="text-sm text-gray-500 mt-0.5">Gerencie a sua sessão de caixa</p>
-          </div>
+    <PageShell
+      title="Caixa"
+      description="Gerencie a sua sessão de caixa"
+      actions={statusBadge}
+      compactHeaderMobile
+    >
+      {/* Tabs — margens negativas para ir de borda a borda dentro do <main> */}
+      <div className="border-b border-border-default -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8">
+        <div className="flex">
+          {([
+            { id: 'atual', label: 'Caixa Atual' },
+            { id: 'anteriores', label: 'Caixas Anteriores' },
+          ] as const).map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`px-4 py-3.5 text-sm font-medium border-b-2 transition-colors ${
+                tab === t.id
+                  ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
+                  : 'border-transparent text-content-muted hover:text-content-primary'
+              }`}>
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex">
-            {([
-              { id: 'atual', label: 'Caixa Atual' },
-              { id: 'anteriores', label: 'Caixas Anteriores' },
-            ] as const).map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={`px-4 py-3.5 text-sm font-medium border-b-2 transition-colors ${
-                  tab === t.id
-                    ? 'border-gray-900 dark:border-white text-gray-900 dark:text-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}>
-                {t.label}
-              </button>
-            ))}
+      {/* ── Tab: Caixa Atual — sem sessão ──────────────────────────────────── */}
+      {tab === 'atual' && !sess && (
+        <div className="flex items-center justify-center py-8 sm:py-16">
+          <div className="bg-surface-raised rounded-2xl border border-border-default p-6 sm:p-8 w-full max-w-sm text-center shadow-sm">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+              style={{ background: 'color-mix(in srgb, var(--brand-600) 10%, transparent)' }}>
+              <Store className="w-8 h-8" style={{ color: 'var(--brand-600)' }} />
+            </div>
+            <h2 className="text-xl font-bold text-content-primary mb-1">Abrir Caixa</h2>
+            <p className="text-sm text-content-muted mb-6">Introduz o fundo de maneio para iniciar a sessão</p>
+            <label className="text-xs font-medium text-content-muted mb-1.5 block text-left">Fundo inicial (MT)</label>
+            <input
+              type="number" value={initialAmt}
+              onChange={e => setInitialAmt(e.target.value)}
+              placeholder="0.00" min={0}
+              onKeyDown={e => e.key === 'Enter' && handleOpen()}
+              className="w-full px-4 py-3 rounded-xl border border-border-default bg-surface-base text-lg font-semibold text-center focus:ring-2 focus:ring-brand-500 focus:outline-none mb-4 text-content-primary"
+            />
+            <button onClick={handleOpen} disabled={opening}
+              className="w-full py-3 text-white font-semibold rounded-xl transition-colors disabled:opacity-50"
+              style={{ background: 'var(--brand-600)' }}>
+              {opening ? 'A abrir...' : 'Abrir Caixa'}
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      {/* ── Tab: Caixa Atual — sessão aberta — 3 colunas ──────────────────── */}
+      {tab === 'atual' && sess && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
 
-        {/* ── Tab: Caixa Atual — sem sessão ────────────────────────────────── */}
-        {tab === 'atual' && !sess && (
-          <div className="flex items-center justify-center py-16">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-8 w-full max-w-sm text-center shadow-sm">
-              <div className="w-16 h-16 bg-brand-50 dark:bg-brand-900/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
-                <Store className="w-8 h-8 text-brand-600" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Abrir Caixa</h2>
-              <p className="text-sm text-gray-500 mb-6">Introduz o fundo de maneio para iniciar a sessão</p>
-              <label className="text-xs font-medium text-gray-500 mb-1.5 block text-left">Fundo inicial (MT)</label>
-              <input
-                type="number" value={initialAmt}
-                onChange={e => setInitialAmt(e.target.value)}
-                placeholder="0.00" min={0}
-                onKeyDown={e => e.key === 'Enter' && handleOpen()}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-lg font-semibold text-center focus:ring-2 focus:ring-brand-500 focus:outline-none mb-4"
-              />
-              <button onClick={handleOpen} disabled={opening}
-                className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50">
-                {opening ? 'A abrir...' : 'Abrir Caixa'}
+          {/* Col 1: Resumo */}
+          <div className="bg-surface-raised border border-border-default rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border-default flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-content-primary">Resumo do Caixa</h3>
+              <button onClick={loadAll} title="Atualizar"
+                className="text-content-muted hover:text-content-primary transition-colors p-1 rounded">
+                <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
-          </div>
-        )}
-
-        {/* ── Tab: Caixa Atual — sessão aberta — 3 colunas ─────────────────── */}
-        {tab === 'atual' && sess && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-            {/* Col 1: Resumo */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Resumo do Caixa</h3>
-                <button onClick={loadAll} title="Atualizar"
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1 rounded">
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-2 text-xs text-content-muted">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span>Aberto {fmtTime(sess.opened_at)} ({fmtDuration(sess.opened_at)})</span>
               </div>
-              <div className="p-5 space-y-4">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  <span>Aberto {fmtTime(sess.opened_at)} ({fmtDuration(sess.opened_at)})</span>
+              <div className="space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-content-muted">Saldo inicial</span>
+                  <span className="text-sm font-semibold text-content-primary font-mono">{fmt(sess.initial_amount)}</span>
                 </div>
-
-                <div className="space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Saldo inicial</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white font-mono">{fmt(sess.initial_amount)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Total de vendas</span>
-                    <span className="text-sm font-semibold text-brand-600 font-mono">{fmt(liveTotalSales)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Nº de vendas</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{recentOrders.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-t border-gray-100 dark:border-gray-800 pt-3 mt-1">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Saldo Final (est.)</span>
-                    <span className="text-base font-bold text-gray-900 dark:text-white font-mono">
-                      {fmt(Number(sess.initial_amount) + liveTotalSales)}
-                    </span>
-                  </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-content-muted">Total de vendas</span>
+                  <span className="text-sm font-semibold font-mono" style={{ color: 'var(--brand-600)' }}>{fmt(liveTotalSales)}</span>
                 </div>
-
-                <div className="text-xs text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
-                  Caixeiro: <span className="font-medium text-gray-600 dark:text-gray-300">{sess.cashier_name}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-content-muted">Nº de vendas</span>
+                  <span className="text-sm font-semibold text-content-primary">{recentOrders.length}</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Col 2: Meios de Pagamento */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Meio de Pagamento</h3>
-              </div>
-              <div className="p-5 space-y-3">
-                {liveByMethod.map(m => {
-                  const icon = m.method === 'cash'
-                    ? <Banknote className="w-5 h-5" />
-                    : m.method === 'mpesa'
-                    ? <Smartphone className="w-5 h-5" />
-                    : <CreditCard className="w-5 h-5" />;
-                  const color = m.method === 'cash'
-                    ? 'text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400'
-                    : m.method === 'mpesa'
-                    ? 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400'
-                    : 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400';
-                  return (
-                    <div key={m.method} className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
-                      m.total > 0
-                        ? 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700'
-                        : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'
-                    }`}>
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
-                        {icon}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{PAY_LABELS[m.method]}</p>
-                        {m.count > 0 && (
-                          <p className="text-xs text-gray-400">{m.count} {m.count === 1 ? 'venda' : 'vendas'}</p>
-                        )}
-                      </div>
-                      <span className={`text-sm font-semibold font-mono ${m.total > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
-                        {fmt(m.total)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Col 3: Movimentações + Fechar */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden flex flex-col">
-              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Movimentação</h3>
-                <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
-                  {recentOrders.length} {recentOrders.length === 1 ? 'venda' : 'vendas'}
-                </span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto" style={{ maxHeight: '360px' }}>
-                {/* Abertura de caixa */}
-                <div className="flex items-start gap-3 px-5 py-3.5 border-b border-gray-50 dark:border-gray-800/60">
-                  <div className="w-2 h-2 bg-brand-500 rounded-full mt-1.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{fmt(sess.initial_amount)}</span>
-                      <span className="text-[10px] text-gray-400">{fmtTime(sess.opened_at)}</span>
-                    </div>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Abertura de Caixa · Dinheiro</p>
-                  </div>
-                </div>
-
-                {/* Vendas da sessão */}
-                {recentOrders.length === 0 ? (
-                  <div className="px-5 py-10 text-center">
-                    <p className="text-xs text-gray-400">Nenhuma venda nesta sessão</p>
-                    <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-1">As vendas aparecem aqui em tempo real</p>
-                  </div>
-                ) : (
-                  [...recentOrders].reverse().map(o => (
-                    <div key={o.id} className="flex items-start gap-3 px-5 py-3 border-b border-gray-50 dark:border-gray-800/60 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mt-1.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold text-gray-900 dark:text-white">{fmt(o.totalAmount)}</span>
-                          <span className="text-[10px] text-gray-400">{fmtTime(o.createdAt)}</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 truncate mt-0.5">
-                          {o.customerName || 'Cliente POS'} · {PAY_LABELS[o.paymentMethod || 'cash'] || o.paymentMethod}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Saldo Final + Fechar */}
-              <div className="border-t border-gray-100 dark:border-gray-800 p-5 space-y-3 shrink-0">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">Saldo Final</span>
-                  <span className="text-xl font-bold text-gray-900 dark:text-white font-mono">
+                <div className="flex justify-between items-center border-t border-border-default pt-3 mt-1">
+                  <span className="text-sm font-medium text-content-secondary">Saldo Final (est.)</span>
+                  <span className="text-base font-bold text-content-primary font-mono">
                     {fmt(Number(sess.initial_amount) + liveTotalSales)}
                   </span>
                 </div>
-                <button onClick={handleClose} disabled={closing}
-                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm">
-                  {closing ? 'A fechar...' : 'Fechar Caixa'}
-                </button>
+              </div>
+              <div className="text-xs text-content-muted bg-surface-base rounded-lg px-3 py-2">
+                Caixeiro: <span className="font-medium text-content-secondary">{sess.cashier_name}</span>
               </div>
             </div>
-
           </div>
-        )}
 
-        {/* ── Tab: Caixas Anteriores ────────────────────────────────────────────── */}
-        {tab === 'anteriores' && (
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-            {loadingSessions ? (
-              <div className="py-16 text-center text-sm text-gray-400">A carregar...</div>
-            ) : sessions.length === 0 ? (
-              <div className="py-16 text-center">
-                <p className="text-sm text-gray-500">Nenhuma sessão anterior encontrada</p>
+          {/* Col 2: Meios de Pagamento */}
+          <div className="bg-surface-raised border border-border-default rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border-default">
+              <h3 className="text-sm font-semibold text-content-primary">Meio de Pagamento</h3>
+            </div>
+            <div className="p-5 space-y-3">
+              {liveByMethod.map(m => {
+                const icon = m.method === 'cash'
+                  ? <Banknote className="w-5 h-5" />
+                  : m.method === 'mpesa'
+                  ? <Smartphone className="w-5 h-5" />
+                  : <CreditCard className="w-5 h-5" />;
+                const color = m.method === 'cash'
+                  ? 'text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400'
+                  : m.method === 'mpesa'
+                  ? 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400'
+                  : 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400';
+                return (
+                  <div key={m.method} className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
+                    m.total > 0 ? 'bg-surface-base border-border-default' : 'bg-surface-raised border-border-default/50'
+                  }`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
+                      {icon}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-content-primary">{PAY_LABELS[m.method]}</p>
+                      {m.count > 0 && (
+                        <p className="text-xs text-content-muted">{m.count} {m.count === 1 ? 'venda' : 'vendas'}</p>
+                      )}
+                    </div>
+                    <span className={`text-sm font-semibold font-mono ${m.total > 0 ? 'text-content-primary' : 'text-content-muted/50'}`}>
+                      {fmt(m.total)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Col 3: Movimentações + Fechar */}
+          <div className="bg-surface-raised border border-border-default rounded-xl shadow-sm overflow-hidden flex flex-col">
+            <div className="px-5 py-4 border-b border-border-default flex items-center justify-between shrink-0">
+              <h3 className="text-sm font-semibold text-content-primary">Movimentação</h3>
+              <span className="text-xs text-content-muted bg-surface-base px-2 py-0.5 rounded-full border border-border-default">
+                {recentOrders.length} {recentOrders.length === 1 ? 'venda' : 'vendas'}
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto" style={{ maxHeight: '360px' }}>
+              <div className="flex items-start gap-3 px-5 py-3.5 border-b border-border-default/30">
+                <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: 'var(--brand-600)' }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-content-primary">{fmt(sess.initial_amount)}</span>
+                    <span className="text-[10px] text-content-muted">{fmtTime(sess.opened_at)}</span>
+                  </div>
+                  <p className="text-[10px] text-content-muted mt-0.5">Abertura de Caixa · Dinheiro</p>
+                </div>
               </div>
-            ) : (
-              <table className="w-full">
+              {recentOrders.length === 0 ? (
+                <div className="px-5 py-10 text-center">
+                  <p className="text-xs text-content-muted">Nenhuma venda nesta sessão</p>
+                  <p className="text-[10px] text-content-muted/60 mt-1">As vendas aparecem aqui em tempo real</p>
+                </div>
+              ) : (
+                [...recentOrders].reverse().map(o => (
+                  <div key={o.id} className="flex items-start gap-3 px-5 py-3 border-b border-border-default/30 hover:bg-surface-base transition-colors">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-1.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-content-primary">{fmt(o.totalAmount)}</span>
+                        <span className="text-[10px] text-content-muted">{fmtTime(o.createdAt)}</span>
+                      </div>
+                      <p className="text-[10px] text-content-muted truncate mt-0.5">
+                        {o.customerName || 'Cliente POS'} · {PAY_LABELS[o.paymentMethod || 'cash'] || o.paymentMethod}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="border-t border-border-default p-5 space-y-3 shrink-0">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-content-muted font-medium">Saldo Final</span>
+                <span className="text-xl font-bold text-content-primary font-mono">
+                  {fmt(Number(sess.initial_amount) + liveTotalSales)}
+                </span>
+              </div>
+              <button onClick={handleClose} disabled={closing}
+                className="w-full py-3 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm"
+                style={{ background: 'var(--brand-600)' }}>
+                {closing ? 'A fechar...' : 'Fechar Caixa'}
+              </button>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* ── Tab: Caixas Anteriores ──────────────────────────────────────────── */}
+      {tab === 'anteriores' && (
+        <div className="bg-surface-raised border border-border-default rounded-xl shadow-sm overflow-hidden">
+          {loadingSessions ? (
+            <div className="py-16 text-center text-sm text-content-muted">A carregar...</div>
+          ) : sessions.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="text-sm text-content-muted">Nenhuma sessão anterior encontrada</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px]">
                 <thead>
-                  <tr className="border-b border-gray-100 dark:border-gray-800">
+                  <tr className="border-b border-border-default">
                     {['Caixeiro', 'Abertura', 'Fecho', 'Fundo Inicial', 'Vendas', 'Total', 'Estado', ''].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-content-muted uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                <tbody className="divide-y divide-border-default/30">
                   {sessions.map(s => (
-                    <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{s.cashierName}</td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
+                    <tr key={s.id} className="hover:bg-surface-base transition-colors">
+                      <td className="px-4 py-3 text-sm font-medium text-content-primary">{s.cashierName}</td>
+                      <td className="px-4 py-3 text-xs text-content-muted">
                         <div>{fmtDate(s.openedAt)}</div>
-                        <div className="text-gray-400">{fmtTime(s.openedAt)}</div>
+                        <div className="text-content-muted/70">{fmtTime(s.openedAt)}</div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
+                      <td className="px-4 py-3 text-xs text-content-muted">
                         {s.closedAt ? (
-                          <>
-                            <div>{fmtDate(s.closedAt)}</div>
-                            <div className="text-gray-400">{fmtTime(s.closedAt)}</div>
-                          </>
+                          <><div>{fmtDate(s.closedAt)}</div><div className="text-content-muted/70">{fmtTime(s.closedAt)}</div></>
                         ) : '—'}
                       </td>
-                      <td className="px-4 py-3 text-sm font-mono text-gray-700 dark:text-gray-300">{fmt(s.initialAmount)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{s.totalOrders}</td>
-                      <td className="px-4 py-3 text-sm font-semibold font-mono text-gray-900 dark:text-white">{fmt(s.totalSales)}</td>
+                      <td className="px-4 py-3 text-sm font-mono text-content-secondary">{fmt(s.initialAmount)}</td>
+                      <td className="px-4 py-3 text-sm text-content-muted">{s.totalOrders}</td>
+                      <td className="px-4 py-3 text-sm font-semibold font-mono text-content-primary">{fmt(s.totalSales)}</td>
                       <td className="px-4 py-3">
                         {s.isOpen
-                          ? <span className="inline-flex items-center gap-1 text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium"><span className="w-1.5 h-1.5 bg-green-500 rounded-full" />Aberta</span>
-                          : <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 px-2 py-0.5 rounded-full">Fechada</span>}
+                          ? <span className="inline-flex items-center gap-1 text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium border border-green-200 dark:border-green-800"><span className="w-1.5 h-1.5 bg-green-500 rounded-full" />Aberta</span>
+                          : <span className="text-xs bg-surface-base text-content-muted px-2 py-0.5 rounded-full border border-border-default">Fechada</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {!s.isOpen && s.summary && (
@@ -512,7 +485,7 @@ export const CaixaPage: React.FC<CaixaPageProps> = ({ showToast }) => {
                               const ps: PosSession = { id: s.id, cashier_name: s.cashierName, cashier_id: '', opened_at: s.openedAt, closed_at: s.closedAt, initial_amount: s.initialAmount, is_open: false };
                               printCloseReport(ps, s.summary!, taxConfig.companyName, logoUrl);
                             }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border-default text-content-secondary rounded-lg hover:bg-surface-base transition-colors">
                             <Printer className="w-3 h-3" />Imprimir
                           </button>
                         )}
@@ -521,11 +494,11 @@ export const CaixaPage: React.FC<CaixaPageProps> = ({ showToast }) => {
                   ))}
                 </tbody>
               </table>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+      )}
 
-      </div>
-    </div>
+    </PageShell>
   );
 };

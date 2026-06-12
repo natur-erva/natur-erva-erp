@@ -74,13 +74,11 @@ export const ProductLandingPage: React.FC = () => {
                 setLoading(false);
             }
         };
-
         loadProduct();
     }, [slug]);
 
     const handleAddToCart = useCallback(() => {
         if (!product) return;
-
         const variantToUse = selectedVariant || product.variants?.find(v => v.isDefault) || product.variants?.[0];
         const price = variantToUse?.price ?? product.price;
         const stock = variantToUse?.stock ?? product.stock ?? 0;
@@ -126,7 +124,6 @@ export const ProductLandingPage: React.FC = () => {
 
         localStorage.setItem('shop_cart', JSON.stringify(updatedCart));
         shopContext.setCartItemCount(updatedCart.reduce((s, i) => s + i.quantity, 0));
-
         setCartFeedback('success');
         setTimeout(() => setCartFeedback(null), 2000);
     }, [product, selectedVariant, quantity, shopContext]);
@@ -150,8 +147,8 @@ export const ProductLandingPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <Loader2 className="w-10 h-10 animate-spin text-green-600" />
+            <div className="min-h-screen flex items-center justify-center bg-surface-base">
+                <Loader2 className="w-10 h-10 animate-spin" style={{ color: 'var(--brand-600)' }} />
             </div>
         );
     }
@@ -159,12 +156,15 @@ export const ProductLandingPage: React.FC = () => {
     if (!product) return null;
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="min-h-screen bg-surface-base">
             {/* Breadcrumb / Voltar */}
             <div className="max-w-7xl mx-auto px-4 pt-5 pb-0">
                 <button
                     onClick={() => navigate(-1)}
-                    className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors group"
+                    className="inline-flex items-center gap-1.5 text-sm text-content-muted transition-colors group hover:opacity-80"
+                    style={{ color: undefined }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--brand-600)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = '')}
                 >
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                     Voltar à Loja
@@ -176,7 +176,7 @@ export const ProductLandingPage: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     {/* Gallery */}
                     <div>
-                        <div className="bg-white rounded-xl overflow-hidden shadow-md mb-4 aspect-square flex items-center justify-center">
+                        <div className="bg-white rounded-xl overflow-hidden shadow-md mb-4 aspect-square flex items-center justify-center border border-border-default">
                             <img
                                 src={selectedImage ? uploadService.getPublicUrl(selectedImage) : (galleryImages[0] ? uploadService.getPublicUrl(galleryImages[0]) : 'https://via.placeholder.com/600?text=Sem+Imagem')}
                                 alt={product.name}
@@ -189,8 +189,11 @@ export const ProductLandingPage: React.FC = () => {
                                     <button
                                         key={i}
                                         onClick={() => setSelectedImage(img)}
-                                        className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors flex-shrink-0 ${selectedImage === img ? 'border-green-500' : 'border-gray-200 hover:border-gray-300'
-                                            }`}
+                                        className="w-20 h-20 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 bg-white"
+                                        style={selectedImage === img
+                                            ? { borderColor: 'var(--brand-600)' }
+                                            : { borderColor: 'var(--border-default, #e5e7eb)' }
+                                        }
                                     >
                                         <img src={uploadService.getPublicUrl(img)} alt="" className="w-full h-full object-cover" />
                                     </button>
@@ -201,10 +204,18 @@ export const ProductLandingPage: React.FC = () => {
 
                     {/* Product Info */}
                     <div>
-                        <span className="inline-block bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm mb-3">
+                        {/* Category badge */}
+                        <span
+                            className="inline-block px-3 py-1 rounded-full text-sm mb-3 font-medium"
+                            style={{
+                                background: 'color-mix(in srgb, var(--brand-600) 12%, transparent)',
+                                color: 'var(--brand-600)',
+                            }}
+                        >
                             {product.category || 'Natural'}
                         </span>
-                        <h1 className="text-4xl text-gray-800 mb-3 leading-tight">{product.name}</h1>
+
+                        <h1 className="text-4xl text-content-primary mb-3 leading-tight font-bold">{product.name}</h1>
 
                         {/* Stars */}
                         <div className="flex items-center gap-3 mb-5">
@@ -216,7 +227,7 @@ export const ProductLandingPage: React.FC = () => {
                                     />
                                 ))}
                             </div>
-                            <span className="text-gray-500 text-sm">
+                            <span className="text-content-muted text-sm">
                                 {ratingStats && ratingStats.total > 0
                                     ? `${ratingStats.average.toFixed(1)} (${ratingStats.total} avaliações)`
                                     : 'Sem avaliações ainda'}
@@ -227,83 +238,79 @@ export const ProductLandingPage: React.FC = () => {
                         <div className="flex flex-wrap items-center gap-3 mb-5">
                             {promoPrice ? (
                                 <>
-                                    <span className="text-5xl text-green-600 font-semibold">{promoPrice.toFixed(2)}</span>
+                                    <span className="text-5xl font-bold" style={{ color: 'var(--brand-600)' }}>
+                                        {promoPrice.toFixed(2)}
+                                    </span>
                                     <div className="flex flex-col">
-                                        <span className="text-xl text-red-400 font-semibold line-through">{displayPrice} MT</span>
+                                        <span className="text-xl text-red-500 font-semibold line-through">{displayPrice} MT</span>
                                         <span className="text-sm font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full w-fit">-{promoPct}%</span>
                                     </div>
-                                    <span className="text-2xl text-gray-400">MT</span>
+                                    <span className="text-2xl text-content-muted">MT</span>
                                 </>
                             ) : (
                                 <>
-                                    <span className="text-5xl text-green-700 font-semibold">{displayPrice}</span>
-                                    <span className="text-2xl text-gray-400">MT</span>
+                                    <span className="text-5xl font-bold" style={{ color: 'var(--brand-600)' }}>{displayPrice}</span>
+                                    <span className="text-2xl text-content-muted">MT</span>
                                 </>
                             )}
                         </div>
 
-                        <p className="text-gray-600 leading-relaxed mb-6">{product.description}</p>
+                        <p className="text-content-secondary leading-relaxed mb-6">{product.description}</p>
 
                         {/* Variants */}
                         {product.variants && product.variants.length > 0 && (
                             <div className="mb-6">
-                                <p className="text-gray-700 mb-3 font-medium">Escolha a variação:</p>
+                                <p className="text-content-primary mb-3 font-medium">Escolha a variação:</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {product.variants.map(v => {
                                         const variantStock = v.stock ?? 0;
-                                        const hasStock = variantStock > 0;
+                                        const hasVStock = variantStock > 0;
                                         const variantImage = v.image || product.image;
                                         const variantImageUrl = variantImage ? uploadService.getPublicUrl(variantImage) : '';
+                                        const isSelected = selectedVariant?.id === v.id;
 
                                         return (
                                             <button
                                                 key={v.id}
                                                 onClick={() => {
-                                                    if (hasStock) {
+                                                    if (hasVStock) {
                                                         setSelectedVariant(v);
                                                         setSelectedImage(getVariantImage(v, product));
                                                     }
                                                 }}
-                                                disabled={!hasStock}
-                                                className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${selectedVariant?.id === v.id
-                                                        ? 'border-green-500 bg-green-50 shadow-md'
-                                                        : hasStock
-                                                            ? 'border-gray-200 hover:border-green-300 hover:shadow-sm'
-                                                            : 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
-                                                    }`}
+                                                disabled={!hasVStock}
+                                                className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                                                    !hasVStock ? 'border-border-default bg-surface-base opacity-60 cursor-not-allowed' : ''
+                                                }`}
+                                                style={isSelected
+                                                    ? { borderColor: 'var(--brand-600)', background: 'color-mix(in srgb, var(--brand-600) 8%, transparent)' }
+                                                    : hasVStock
+                                                        ? { borderColor: 'var(--border-default, #e5e7eb)' }
+                                                        : undefined
+                                                }
                                             >
-                                                {/* Thumbnail da variante */}
                                                 {variantImage && (
-                                                    <div className="w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                                                    <div className="w-16 h-16 rounded-md overflow-hidden bg-surface-base flex-shrink-0">
                                                         <img
                                                             src={variantImageUrl}
                                                             alt={v.name}
                                                             className="w-full h-full object-cover"
-                                                            onError={(e) => {
-                                                                const target = e.target as HTMLImageElement;
-                                                                target.style.display = 'none';
-                                                            }}
+                                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                                         />
                                                     </div>
                                                 )}
-
-                                                {/* Info da variante */}
                                                 <div className="flex-1 text-left">
-                                                    <p className={`font-medium ${selectedVariant?.id === v.id ? 'text-green-700' : 'text-gray-800'}`}>
-                                                        {v.name}
-                                                    </p>
-                                                    <p className={`text-sm ${selectedVariant?.id === v.id ? 'text-green-600' : 'text-gray-600'}`}>
+                                                    <p className="font-medium text-content-primary">{v.name}</p>
+                                                    <p className="text-sm font-semibold" style={{ color: 'var(--brand-600)' }}>
                                                         {v.price ? `${v.price.toFixed(2)} MT` : `${product.price.toFixed(2)} MT`}
                                                         {v.unit && ` / ${v.unit}`}
                                                     </p>
-                                                    <p className={`text-xs mt-0.5 ${hasStock ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
-                                                        {hasStock ? `Stock: ${variantStock}` : 'Sem stock'}
+                                                    <p className={`text-xs mt-0.5 ${hasVStock ? 'text-content-muted' : 'text-red-500 font-medium'}`}>
+                                                        {hasVStock ? `Stock: ${variantStock}` : 'Sem stock'}
                                                     </p>
                                                 </div>
-
-                                                {/* Check icon quando selecionado */}
-                                                {selectedVariant?.id === v.id && (
-                                                    <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                                {isSelected && (
+                                                    <Check className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--brand-600)' }} />
                                                 )}
                                             </button>
                                         );
@@ -313,20 +320,20 @@ export const ProductLandingPage: React.FC = () => {
                         )}
 
                         {/* Quantity + Add to Cart */}
-                        <div className="border-t border-b border-gray-200 py-6 mb-6">
+                        <div className="border-t border-b border-border-default py-6 mb-6">
                             <div className="flex items-center gap-4 mb-4">
-                                <span className="text-gray-700 font-medium">Quantidade:</span>
-                                <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                                <span className="text-content-primary font-medium">Quantidade:</span>
+                                <div className="flex items-center border border-border-default rounded-lg overflow-hidden">
                                     <button
                                         onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                                        className="px-4 py-2 hover:bg-gray-100 transition-colors text-gray-700 font-bold"
+                                        className="px-4 py-2 hover:bg-surface-base transition-colors text-content-primary font-bold"
                                     >
                                         -
                                     </button>
-                                    <span className="px-6 py-2 border-x border-gray-300 text-gray-800">{quantity}</span>
+                                    <span className="px-6 py-2 border-x border-border-default text-content-primary">{quantity}</span>
                                     <button
                                         onClick={() => setQuantity(q => q + 1)}
-                                        className="px-4 py-2 hover:bg-gray-100 transition-colors text-gray-700 font-bold"
+                                        className="px-4 py-2 hover:bg-surface-base transition-colors text-content-primary font-bold"
                                     >
                                         +
                                     </button>
@@ -336,18 +343,15 @@ export const ProductLandingPage: React.FC = () => {
                                 {(() => {
                                     const currentStock = selectedVariant?.stock ?? product.stock ?? 0;
                                     const hasStock = currentStock > 0;
-
                                     return hasStock ? (
                                         <button
                                             onClick={handleAddToCart}
                                             disabled={cartFeedback !== null}
-                                            className={`flex-1 py-4 rounded-lg flex items-center justify-center gap-2 font-medium shadow-md transition-all ${
-                                                cartFeedback === 'success'
-                                                    ? 'bg-green-700 text-white'
-                                                    : cartFeedback === 'error'
-                                                    ? 'bg-red-500 text-white'
-                                                    : 'bg-green-600 hover:bg-green-700 text-white'
-                                            }`}
+                                            className="flex-1 py-4 rounded-lg flex items-center justify-center gap-2 font-semibold shadow-md transition-all text-white"
+                                            style={{
+                                                background: cartFeedback === 'error' ? '#ef4444' : 'var(--brand-600)',
+                                                opacity: cartFeedback !== null ? 0.9 : 1,
+                                            }}
                                         >
                                             {cartFeedback === 'success' ? (
                                                 <><Check className="w-5 h-5" /> Adicionado!</>
@@ -360,7 +364,7 @@ export const ProductLandingPage: React.FC = () => {
                                     ) : (
                                         <button
                                             disabled
-                                            className="flex-1 bg-gray-400 text-white py-4 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed font-medium"
+                                            className="flex-1 bg-surface-base text-content-muted py-4 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed font-medium border border-border-default"
                                         >
                                             <Package className="w-5 h-5" />
                                             Sem Stock
@@ -369,10 +373,11 @@ export const ProductLandingPage: React.FC = () => {
                                 })()}
                                 <button
                                     onClick={() => setWishlist(w => !w)}
-                                    className={`border-2 p-4 rounded-lg transition-colors ${wishlist
-                                            ? 'border-red-400 bg-red-50 text-red-500'
-                                            : 'border-green-600 text-green-600 hover:bg-green-50'
-                                        }`}
+                                    className="border-2 p-4 rounded-lg transition-colors"
+                                    style={wishlist
+                                        ? { borderColor: '#f87171', background: '#fef2f2', color: '#ef4444' }
+                                        : { borderColor: 'var(--brand-600)', color: 'var(--brand-600)' }
+                                    }
                                 >
                                     <Heart className={`w-5 h-5 ${wishlist ? 'fill-current' : ''}`} />
                                 </button>
@@ -381,26 +386,26 @@ export const ProductLandingPage: React.FC = () => {
 
                         {/* Benefit boxes */}
                         <div className="grid grid-cols-3 gap-3 mb-6">
-                            <div className="text-center p-4 bg-green-50 rounded-lg">
-                                <Truck className="w-6 h-6 text-green-600 mx-auto mb-1" />
-                                <p className="text-xs font-medium text-gray-700">Entrega Rápida</p>
-                                <p className="text-xs text-gray-500">Todo o país</p>
-                            </div>
-                            <div className="text-center p-4 bg-green-50 rounded-lg">
-                                <Shield className="w-6 h-6 text-green-600 mx-auto mb-1" />
-                                <p className="text-xs font-medium text-gray-700">100% Natural</p>
-                                <p className="text-xs text-gray-500">Certificado</p>
-                            </div>
-                            <div className="text-center p-4 bg-green-50 rounded-lg">
-                                <RotateCcw className="w-6 h-6 text-green-600 mx-auto mb-1" />
-                                <p className="text-xs font-medium text-gray-700">Garantia</p>
-                                <p className="text-xs text-gray-500">30 dias</p>
-                            </div>
+                            {[
+                                { icon: Truck, title: 'Entrega Rápida', sub: 'Todo o país' },
+                                { icon: Shield, title: '100% Natural', sub: 'Certificado' },
+                                { icon: RotateCcw, title: 'Garantia', sub: '30 dias' },
+                            ].map(({ icon: Icon, title, sub }) => (
+                                <div
+                                    key={title}
+                                    className="text-center p-4 rounded-lg"
+                                    style={{ background: 'color-mix(in srgb, var(--brand-600) 8%, transparent)' }}
+                                >
+                                    <Icon className="w-6 h-6 mx-auto mb-1" style={{ color: 'var(--brand-600)' }} />
+                                    <p className="text-xs font-medium text-content-primary">{title}</p>
+                                    <p className="text-xs text-content-muted">{sub}</p>
+                                </div>
+                            ))}
                         </div>
 
                         {/* Product info checklist */}
-                        <div className="bg-gray-50 rounded-lg p-5">
-                            <h3 className="text-base font-semibold text-gray-800 mb-3">Informações do Produto</h3>
+                        <div className="bg-surface-raised rounded-lg p-5 border border-border-default">
+                            <h3 className="text-base font-semibold text-content-primary mb-3">Informações do Produto</h3>
                             <ul className="space-y-2">
                                 {([
                                     '100% natural e sem aditivos artificiais',
@@ -414,8 +419,8 @@ export const ProductLandingPage: React.FC = () => {
                                     .filter((item): item is string => item !== null)
                                     .map((item, i) => (
                                         <li key={i} className="flex items-start gap-2">
-                                            <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                                            <span className="text-gray-600 text-sm">{item}</span>
+                                            <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--brand-600)' }} />
+                                            <span className="text-content-secondary text-sm">{item}</span>
                                         </li>
                                     ))}
                             </ul>
@@ -426,8 +431,8 @@ export const ProductLandingPage: React.FC = () => {
 
             {/* Tabs Section */}
             <section className="max-w-7xl mx-auto px-4 py-10">
-                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-                    <div className="border-b border-gray-200 flex flex-wrap">
+                <div className="bg-surface-raised rounded-lg shadow-sm overflow-hidden border border-border-default">
+                    <div className="border-b border-border-default flex flex-wrap">
                         {(
                             [
                                 { key: 'description', label: 'Descrição Completa' },
@@ -439,10 +444,11 @@ export const ProductLandingPage: React.FC = () => {
                             <button
                                 key={key}
                                 onClick={() => setSelectedTab(key)}
-                                className={`px-7 py-4 text-sm transition-colors ${selectedTab === key
-                                        ? 'border-b-2 border-green-600 text-green-600 font-medium'
-                                        : 'text-gray-600 hover:text-gray-800'
-                                    }`}
+                                className="px-7 py-4 text-sm transition-colors font-medium"
+                                style={selectedTab === key
+                                    ? { borderBottom: '2px solid var(--brand-600)', color: 'var(--brand-600)', marginBottom: '-1px' }
+                                    : { color: 'var(--text-secondary, #4b5563)' }
+                                }
                             >
                                 {label}
                             </button>
@@ -450,7 +456,7 @@ export const ProductLandingPage: React.FC = () => {
                     </div>
                     <div className="p-8">
                         {selectedTab === 'description' && (
-                            <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+                            <p className="text-content-secondary leading-relaxed whitespace-pre-line">
                                 {(product as any).descriptionLong || (product as any).description || 'Sem descrição disponível.'}
                             </p>
                         )}
@@ -459,13 +465,13 @@ export const ProductLandingPage: React.FC = () => {
                                 <div className="space-y-3">
                                     {((product as any).benefits as string).split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => (
                                         <div key={i} className="flex items-start gap-2">
-                                            <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                            <span className="text-gray-600 text-sm">{line.trim()}</span>
+                                            <Check className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--brand-600)' }} />
+                                            <span className="text-content-secondary text-sm">{line.trim()}</span>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-gray-500 text-sm">Sem informação de benefícios disponível.</p>
+                                <p className="text-content-muted text-sm">Sem informação de benefícios disponível.</p>
                             )
                         )}
                         {selectedTab === 'usage' && (
@@ -473,24 +479,27 @@ export const ProductLandingPage: React.FC = () => {
                                 <ol className="space-y-4">
                                     {((product as any).howToUse as string).split('\n').filter((l: string) => l.trim()).map((step: string, i: number) => (
                                         <li key={i} className="flex gap-4 items-start">
-                                            <span className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                                            <span
+                                                className="flex-shrink-0 w-8 h-8 text-white rounded-full flex items-center justify-center text-sm font-bold"
+                                                style={{ background: 'var(--brand-600)' }}
+                                            >
                                                 {i + 1}
                                             </span>
-                                            <p className="text-gray-600 pt-1 text-sm leading-relaxed">{step.trim()}</p>
+                                            <p className="text-content-secondary pt-1 text-sm leading-relaxed">{step.trim()}</p>
                                         </li>
                                     ))}
                                 </ol>
                             ) : (
-                                <p className="text-gray-500 text-sm">Sem instruções de uso disponíveis.</p>
+                                <p className="text-content-muted text-sm">Sem instruções de uso disponíveis.</p>
                             )
                         )}
                         {selectedTab === 'ingredients' && (
                             (product as any).ingredients ? (
-                                <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+                                <p className="text-content-secondary leading-relaxed whitespace-pre-line">
                                     {(product as any).ingredients}
                                 </p>
                             ) : (
-                                <p className="text-gray-500 text-sm">Sem lista de ingredientes disponível.</p>
+                                <p className="text-content-muted text-sm">Sem lista de ingredientes disponível.</p>
                             )
                         )}
                     </div>
@@ -499,19 +508,19 @@ export const ProductLandingPage: React.FC = () => {
 
             {/* Reviews Section */}
             <section className="max-w-7xl mx-auto px-4 py-10">
-                <div className="bg-white rounded-lg shadow-sm p-8">
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-6">Avaliações de Clientes</h2>
+                <div className="bg-surface-raised rounded-lg shadow-sm p-8 border border-border-default">
+                    <h2 className="text-2xl font-semibold text-content-primary mb-6">Avaliações de Clientes</h2>
                     {ratingStats && ratingStats.total > 0 ? (
                         <>
-                            <div className="flex flex-col sm:flex-row items-start gap-8 mb-8 pb-8 border-b border-gray-100">
+                            <div className="flex flex-col sm:flex-row items-start gap-8 mb-8 pb-8 border-b border-border-default">
                                 <div className="text-center flex-shrink-0">
-                                    <div className="text-5xl font-bold text-gray-800 mb-1">{ratingStats.average.toFixed(1)}</div>
+                                    <div className="text-5xl font-bold text-content-primary mb-1">{ratingStats.average.toFixed(1)}</div>
                                     <div className="flex justify-center mb-1">
                                         {[1, 2, 3, 4, 5].map(star => (
                                             <Star key={star} className={`w-4 h-4 ${star <= Math.round(ratingStats.average) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
                                         ))}
                                     </div>
-                                    <p className="text-gray-500 text-xs">{ratingStats.total} avaliações</p>
+                                    <p className="text-content-muted text-xs">{ratingStats.total} avaliações</p>
                                 </div>
                                 <div className="flex-1 w-full">
                                     {[5, 4, 3, 2, 1].map(star => {
@@ -519,11 +528,11 @@ export const ProductLandingPage: React.FC = () => {
                                         const pct = ratingStats.total > 0 ? Math.round((count / ratingStats.total) * 100) : 0;
                                         return (
                                             <div key={star} className="flex items-center gap-3 mb-1.5">
-                                                <span className="text-xs text-gray-500 w-6">{star}★</span>
-                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                <span className="text-xs text-content-muted w-6">{star}★</span>
+                                                <div className="flex-1 h-2 bg-surface-base rounded-full overflow-hidden">
                                                     <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${pct}%` }} />
                                                 </div>
-                                                <span className="text-xs text-gray-400 w-5">{count}</span>
+                                                <span className="text-xs text-content-muted w-5">{count}</span>
                                             </div>
                                         );
                                     })}
@@ -531,14 +540,17 @@ export const ProductLandingPage: React.FC = () => {
                             </div>
                             <div className="space-y-6">
                                 {reviews.map((review, i) => (
-                                    <div key={review.id || i} className="border-b border-gray-100 pb-5 last:border-0">
+                                    <div key={review.id || i} className="border-b border-border-default pb-5 last:border-0">
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm">
+                                                <div
+                                                    className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white"
+                                                    style={{ background: 'var(--brand-600)' }}
+                                                >
                                                     {(review.user_name?.[0] ?? '?').toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-gray-800 text-sm">{review.user_name}</p>
+                                                    <p className="font-medium text-content-primary text-sm">{review.user_name}</p>
                                                     <div className="flex">
                                                         {[1, 2, 3, 4, 5].map(star => (
                                                             <Star key={star} className={`w-3.5 h-3.5 ${star <= review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
@@ -546,17 +558,17 @@ export const ProductLandingPage: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <span className="text-xs text-gray-400">{new Date(review.created_at).toLocaleDateString('pt-PT')}</span>
+                                            <span className="text-xs text-content-muted">{new Date(review.created_at).toLocaleDateString('pt-PT')}</span>
                                         </div>
-                                        <p className="text-gray-600 text-sm leading-relaxed pl-13">{review.comment}</p>
+                                        <p className="text-content-secondary text-sm leading-relaxed pl-13">{review.comment}</p>
                                     </div>
                                 ))}
                             </div>
                         </>
                     ) : (
                         <div className="text-center py-10">
-                            <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                            <p className="text-gray-400">Ainda não há avaliações para este produto.</p>
+                            <Package className="w-12 h-12 text-content-muted mx-auto mb-3 opacity-40" />
+                            <p className="text-content-muted">Ainda não há avaliações para este produto.</p>
                         </div>
                     )}
                 </div>

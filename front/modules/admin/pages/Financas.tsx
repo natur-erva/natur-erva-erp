@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Loader2, FileText, TrendingUp, Receipt, Printer, Store, CheckCircle, XCircle, Clock, Upload, Image } from 'lucide-react';
+import { Save, Loader2, FileText, TrendingUp, Receipt, Printer, Store, CheckCircle, XCircle, Clock, Upload, Image, Palette, RotateCcw } from 'lucide-react';
 import api from '../../core/services/apiClient';
 import { uploadService } from '../../../services/uploadService';
 import { invalidateLogoCache } from '../../core/services/systemSettingsService';
+import { applyTheme, applyFontFamily, applyBorderRadius, FONT_OPTIONS, RADIUS_OPTIONS, COLOR_PRESETS } from '../../core/utils/theme';
 import type { Toast } from '../../core/components/ui/Toast';
 
 interface FinancasProps {
@@ -23,7 +24,9 @@ type TaxReport = {
 };
 
 const fmt = (n: number) => `MT ${Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-const TAB = { CONFIG: 'config', REPORT: 'report', SESSIONS: 'sessions' } as const;
+const TAB = { CONFIG: 'config', REPORT: 'report', SESSIONS: 'sessions', APARENCIA: 'aparencia' } as const;
+
+const DEFAULT_COLOR = '#059669';
 
 const thisMonth = () => {
   const d = new Date();
@@ -32,7 +35,13 @@ const thisMonth = () => {
 };
 
 export const Financas: React.FC<FinancasProps> = ({ showToast }) => {
-  const [tab, setTab] = useState<'config' | 'report' | 'sessions'>(TAB.CONFIG);
+  const [tab, setTab] = useState<'config' | 'report' | 'sessions' | 'aparencia'>(TAB.CONFIG);
+
+  // Theme state
+  const [themeColor, setThemeColor]   = useState(DEFAULT_COLOR);
+  const [themeFont, setThemeFont]     = useState('Inter');
+  const [themeRadius, setThemeRadius] = useState('default');
+  const [savingTheme, setSavingTheme] = useState(false);
   type Session = { id: string; cashierName: string; openedAt: string; closedAt?: string; initialAmount: number; isOpen: boolean; totalSales: number; totalOrders: number; summary?: any };
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -52,8 +61,11 @@ export const Financas: React.FC<FinancasProps> = ({ showToast }) => {
   const [loadingReport, setLoadingReport] = useState(false);
 
   useEffect(() => {
-    api.get<TaxConfig>('/tax/config').then(c => {
+    api.get<any>('/tax/config').then(c => {
       if (c && c.companyName !== undefined) setConfig(c);
+      if (c?.themePrimaryColor) setThemeColor(c.themePrimaryColor);
+      if (c?.themeFont) setThemeFont(c.themeFont);
+      if (c?.themeRadius) setThemeRadius(c.themeRadius);
     }).catch(() => {});
   }, []);
 
@@ -188,6 +200,26 @@ ${s.summary?.expectedCash !== undefined ? `<p class="bold">Fundo esperado em cai
   const inputCls = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm';
   const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
+  const handleSaveTheme = async () => {
+    setSavingTheme(true);
+    try {
+      await api.put('/tax/config', { themePrimaryColor: themeColor, themeFont, themeRadius });
+      applyTheme(themeColor);
+      applyFontFamily(themeFont);
+      applyBorderRadius(themeRadius);
+      invalidateLogoCache();
+      showToast?.('Tema guardado com sucesso', 'success');
+    } catch (e: any) {
+      showToast?.(e.message || 'Erro ao guardar tema', 'error');
+    } finally { setSavingTheme(false); }
+  };
+
+  const handleResetTheme = () => {
+    setThemeColor(DEFAULT_COLOR);
+    setThemeFont('Inter');
+    setThemeRadius('default');
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
@@ -198,9 +230,10 @@ ${s.summary?.expectedCash !== undefined ? `<p class="bold">Fundo esperado em cai
       {/* Tabs */}
       <div className="flex border-b border-gray-200 dark:border-gray-700">
         {[
-          { id: TAB.CONFIG,   label: 'Configuração Fiscal', icon: FileText },
-          { id: TAB.REPORT,   label: 'Relatório IVA',       icon: TrendingUp },
-          { id: TAB.SESSIONS, label: 'Sessões de Caixa',    icon: Store },
+          { id: TAB.CONFIG,    label: 'Config. Fiscal',  icon: FileText },
+          { id: TAB.REPORT,    label: 'Relatório IVA',   icon: TrendingUp },
+          { id: TAB.SESSIONS,  label: 'Sessões Caixa',   icon: Store },
+          { id: TAB.APARENCIA, label: 'Aparência',       icon: Palette },
         ].map(t => (
           <button key={t.id} onClick={() => { setTab(t.id as any); if (t.id === TAB.SESSIONS) loadSessions(); }}
             className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -526,6 +559,136 @@ ${s.summary?.expectedCash !== undefined ? `<p class="bold">Fundo esperado em cai
           </div>
         </div>
       )}
+      {/* ── Aparência ── */}
+      {tab === TAB.APARENCIA && (
+        <div className="space-y-6">
+
+          {/* Cor principal */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">Cor Principal da Marca</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Aplica-se a botões, destaques, PDFs e toda a interface</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl border-2 border-white shadow-md" style={{ background: themeColor }} />
+            </div>
+
+            {/* Presets */}
+            <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3">Cores predefinidas</p>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_PRESETS.map(p => (
+                  <button
+                    key={p.value}
+                    onClick={() => setThemeColor(p.value)}
+                    title={p.label}
+                    className={`w-9 h-9 rounded-lg border-2 transition-all hover:scale-110 ${themeColor === p.value ? 'border-gray-800 dark:border-white scale-110' : 'border-transparent'}`}
+                    style={{ background: p.value }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Custom picker */}
+            <div className="flex items-center gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Cor personalizada</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={themeColor}
+                    onChange={e => setThemeColor(e.target.value)}
+                    className="w-12 h-10 rounded-lg cursor-pointer border border-gray-200 dark:border-gray-600 p-0.5 bg-white dark:bg-gray-700"
+                  />
+                  <input
+                    type="text"
+                    value={themeColor}
+                    onChange={e => /^#[0-9a-fA-F]{0,6}$/.test(e.target.value) && setThemeColor(e.target.value)}
+                    className="w-28 px-3 py-2 text-sm font-mono border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Live preview badges */}
+            <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Pré-visualização</p>
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ background: themeColor }}>Botão Principal</span>
+                <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: themeColor }}>Etiqueta</span>
+                <span className="w-4 h-4 rounded-full" style={{ background: themeColor }} />
+                <span className="text-sm font-semibold" style={{ color: themeColor }}>Texto colorido</span>
+                <span className="px-3 py-1 rounded-lg text-sm border-2 font-medium" style={{ borderColor: themeColor, color: themeColor }}>Botão Outline</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Fonte */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Tipografia</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Fonte usada em toda a interface da dashboard</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {FONT_OPTIONS.map(f => (
+                <button
+                  key={f.value}
+                  onClick={() => setThemeFont(f.value)}
+                  className={`p-3 rounded-xl border-2 text-left transition-all ${themeFont === f.value ? 'border-brand-600 bg-brand-50 dark:bg-brand-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}
+                >
+                  <p className="text-base font-medium text-gray-900 dark:text-white" style={{ fontFamily: f.stack }}>{f.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5" style={{ fontFamily: f.stack }}>Aa Bb Cc 123</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Border radius */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Estilo de Cantos</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Arredondamento dos elementos da interface</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {RADIUS_OPTIONS.map(r => {
+                const rStyle: Record<string, string> = {
+                  sharp: '2px', default: '10px', rounded: '20px', pill: '999px',
+                };
+                return (
+                  <button
+                    key={r.value}
+                    onClick={() => setThemeRadius(r.value)}
+                    className={`p-3 border-2 transition-all flex flex-col items-center gap-2 ${themeRadius === r.value ? 'border-brand-600 bg-brand-50 dark:bg-brand-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}
+                    style={{ borderRadius: rStyle[r.value] }}
+                  >
+                    <div className="w-10 h-7 bg-gray-200 dark:bg-gray-600" style={{ borderRadius: rStyle[r.value] }} />
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{r.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handleResetTheme}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" /> Repor padrão
+            </button>
+            <button
+              onClick={handleSaveTheme}
+              disabled={savingTheme}
+              className="flex items-center gap-2 px-6 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {savingTheme ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Guardar Tema
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

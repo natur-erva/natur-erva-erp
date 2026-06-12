@@ -72,7 +72,7 @@ export const ProductCarousel: React.FC<{
     <div>
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h2>
+        <h2 className="text-xl font-bold text-content-primary">{title}</h2>
         {badge}
       </div>
 
@@ -130,9 +130,10 @@ export const ProductCarousel: React.FC<{
               onClick={() => goTo(i)}
               className={`rounded-full transition-all duration-300 ${
                 i === current
-                  ? 'w-5 h-2 bg-green-600'
+                  ? 'w-5 h-2'
                   : 'w-2 h-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
               }`}
+              style={i === current ? { background: 'var(--brand-600)' } : undefined}
             />
           ))}
         </div>

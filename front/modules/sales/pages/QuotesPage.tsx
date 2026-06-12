@@ -3,6 +3,8 @@ import api from '../../core/services/apiClient';
 import { Product } from '../../core/types/types';
 import { getEffectivePrice } from '../../core/utils/pricing';
 import { Settings, Plus, Trash2, Edit2, X as XIcon, Eye, Download, Printer } from 'lucide-react';
+import { useAppAuth } from '../../auth/hooks/useAppAuth';
+import { PageShell } from '../../core/components/layout/PageShell';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface QuoteItem {
@@ -75,7 +77,7 @@ const STATUS_STYLE: Record<QuoteStatus, string> = {
 };
 
 // ── Quote document builder ─────────────────────────────────────────────────────
-function printQuoteDoc(q: Quote, tax: { companyName: string; companyNuit: string; companyAddress: string; companyPhone: string; companyEmail: string; vatRate: number; bankName?: string; bankAccount?: string; bankIban?: string; bankAccountHolder?: string; bankSwift?: string; bankAccounts?: BankAccount[] }, logoUrl = `${window.location.origin}/logo.png`, mode: 'print' | 'preview' | 'download' = 'print') {
+function printQuoteDoc(q: Quote, tax: { companyName: string; companyNuit: string; companyAddress: string; companyPhone: string; companyEmail: string; vatRate: number; bankName?: string; bankAccount?: string; bankIban?: string; bankAccountHolder?: string; bankSwift?: string; bankAccounts?: BankAccount[] }, logoUrl = `${window.location.origin}/logo.png`, mode: 'print' | 'preview' | 'download' = 'print', issuer?: { name: string; role?: string }) {
   const vatMult  = 1 + tax.vatRate / 100;
   const baseIva  = q.total / vatMult;
   const ivaAmt   = q.total - baseIva;
@@ -154,8 +156,10 @@ function printQuoteDoc(q: Quote, tax: { companyName: string; companyNuit: string
   .bold td{font-weight:700;font-size:14px;color:#059669;border-top:2px solid #059669}
   .footer{margin-top:24px;font-size:10px;color:#888;text-align:center;border-top:1px solid #e5e7eb;padding-top:10px}
   .warning{background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:11px;color:#92400e;margin-top:16px;text-align:center;font-weight:600}
-  .sig{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:32px}
-  .sig-box{border-top:2px solid #059669;padding-top:6px;font-size:11px;color:#555;text-align:center}
+  .sig{margin-top:32px;display:flex;justify-content:flex-end}
+  .sig-box{width:260px;text-align:center}
+  .sig-name{font-family:Georgia,"Times New Roman",serif;font-size:20px;font-style:italic;font-weight:600;color:#059669;letter-spacing:0.5px;margin-bottom:6px;text-shadow:0 1px 1px rgba(5,150,105,0.15)}
+  .sig-line{border-top:2px solid #059669;padding-top:5px;font-size:10px;color:#555}
   ${q.notes ? '.notes{background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-bottom:14px;font-size:11px;color:#555}' : ''}
   @media print{#toolbar{display:none!important}}
 </style></head><body>
@@ -195,7 +199,16 @@ ${q.notes ? `<div class="notes"><strong>Notas:</strong> ${q.notes}</div>` : ''}
 </table>
 ${bankSection}
 <div class="warning">Este documento é uma cotação e NÃO constitui um documento fiscal. Não serve como comprovativo de pagamento.</div>
-<div class="sig"><div class="sig-box">Emitido por: ${tax.companyName}</div><div class="sig-box">Aceite pelo Cliente</div></div>
+<div class="sig">
+  <div class="sig-box">
+    <div class="sig-name">${issuer?.name || tax.companyName}</div>
+    <div class="sig-line">
+      <strong>${issuer?.name || tax.companyName}</strong>${issuer?.role ? ` &middot; ${issuer.role}` : ''}<br>
+      ${tax.companyName}<br>
+      Emitido em ${today}
+    </div>
+  </div>
+</div>
 <div class="footer">Cotação ${q.quoteNumber} | ${today} | ${tax.companyName} | NUIT ${tax.companyNuit || '—'}</div>
 </div>
 ${modeScript}
@@ -213,6 +226,8 @@ const emptyForm = (): Omit<Quote, 'id' | 'quoteNumber' | 'subtotal' | 'total' | 
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export const QuotesPage: React.FC = () => {
+  const { currentUser } = useAppAuth();
+
   const [quotes, setQuotes]   = useState<Quote[]>([]);
   const [stats, setStats]     = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -369,8 +384,10 @@ export const QuotesPage: React.FC = () => {
   };
 
   // ── Quote actions ─────────────────────────────────────────────────────────────
+  const issuer = currentUser ? { name: currentUser.name, role: currentUser.role } : undefined;
+
   const openQuote = (q: Quote, mode: 'print' | 'preview' | 'download') =>
-    printQuoteDoc(q, taxConfig, taxConfig.logoUrl || `${window.location.origin}/logo.png`, mode);
+    printQuoteDoc(q, taxConfig, taxConfig.logoUrl || `${window.location.origin}/logo.png`, mode, issuer);
   const handlePrint = (q: Quote) => openQuote(q, 'print');
 
   // ── Filtered products for search ─────────────────────────────────────────────
@@ -382,102 +399,97 @@ export const QuotesPage: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <PageShell
+      title="Cotações"
+      description="Gere propostas de preço para os seus clientes"
+      compactHeaderMobile
+      actions={
+        <div className="flex items-center gap-2">
+          <button onClick={() => setSettingsOpen(true)}
+            title="Configurar dados bancários"
+            className="p-2 text-content-muted border border-border-default rounded-lg hover:bg-surface-base transition-colors">
+            <Settings className="w-4 h-4" />
+          </button>
+          <button onClick={openNew}
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nova </span>Cotação
+          </button>
+        </div>
+      }
+    >
 
-      {/* ── Header ── */}
-      <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-6 py-5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Cotações</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Gere propostas de preço para os seus clientes</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setSettingsOpen(true)}
-              title="Configurar dados bancários"
-              className="p-2 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-              <Settings className="w-4 h-4" />
+      {/* ── Stats ── */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { label: 'Total', value: stats.total, sub: 'cotações' },
+            { label: 'Rascunho', value: stats.rascunho, sub: 'por enviar' },
+            { label: 'Enviadas', value: stats.enviada, sub: 'aguardando' },
+            { label: 'Aceites', value: stats.aceite, sub: 'este mês' },
+            { label: 'Convertidas', value: stats.convertida, sub: 'em vendas' },
+            { label: 'Valor Mês', value: fmt(stats.total_mes), sub: 'total c/IVA', isMoney: true },
+          ].map(s => (
+            <div key={s.label} className="bg-surface-raised border border-border-default rounded-xl p-4">
+              <p className="text-xs text-content-muted font-medium uppercase tracking-wider">{s.label}</p>
+              <p className={`mt-1 font-semibold ${s.isMoney ? 'text-content-secondary text-base' : 'text-content-primary text-xl'}`}>{s.value}</p>
+              <p className="text-xs text-content-muted mt-0.5">{s.sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Filters ── */}
+      <div className="flex flex-col gap-2.5">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Pesquisar cliente ou número..."
+          className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-raised text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none"
+        />
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          {(['todos', 'rascunho', 'enviada', 'aceite', 'rejeitada', 'convertida', 'expirada'] as const).map(s => (
+            <button key={s} onClick={() => setStatus(s)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors flex-shrink-0 ${statusFilter === s ? 'bg-brand-600 text-white border-brand-600' : 'border-border-default text-content-secondary hover:border-brand-400'}`}>
+              {s === 'todos' ? 'Todos' : STATUS_LABELS[s as QuoteStatus]}
             </button>
-            <button onClick={openNew}
-              className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
-              <Plus className="w-4 h-4" /> Nova Cotação
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-
-        {/* ── Stats ── */}
-        {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {[
-              { label: 'Total', value: stats.total, sub: 'cotações' },
-              { label: 'Rascunho', value: stats.rascunho, sub: 'por enviar' },
-              { label: 'Enviadas', value: stats.enviada, sub: 'aguardando' },
-              { label: 'Aceites', value: stats.aceite, sub: 'este mês' },
-              { label: 'Convertidas', value: stats.convertida, sub: 'em vendas' },
-              { label: 'Valor Mês', value: fmt(stats.total_mes), sub: 'total c/IVA', isMoney: true },
-            ].map(s => (
-              <div key={s.label} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4">
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{s.label}</p>
-                <p className={`text-xl font-semibold mt-1 ${s.isMoney ? 'text-gray-700 dark:text-gray-300 text-base' : 'text-gray-900 dark:text-white'}`}>{s.value}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
-              </div>
-            ))}
+      {/* ── Table ── */}
+      <div className="bg-surface-raised border border-border-default rounded-xl shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center text-sm text-content-muted">A carregar...</div>
+        ) : quotes.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-sm text-content-muted font-medium">Nenhuma cotação encontrada</p>
+            <p className="text-xs text-content-muted/70 mt-1">Cria a primeira cotação com o botão acima</p>
           </div>
-        )}
-
-        {/* ── Filters ── */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Pesquisar cliente ou número..."
-            className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:outline-none"
-          />
-          <div className="flex gap-1.5 flex-wrap">
-            {(['todos', 'rascunho', 'enviada', 'aceite', 'rejeitada', 'convertida', 'expirada'] as const).map(s => (
-              <button key={s} onClick={() => setStatus(s)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${statusFilter === s ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-400'}`}>
-                {s === 'todos' ? 'Todos' : STATUS_LABELS[s as QuoteStatus]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Table ── */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-          {loading ? (
-            <div className="py-16 text-center text-sm text-gray-400">A carregar...</div>
-          ) : quotes.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="text-sm text-gray-500 font-medium">Nenhuma cotação encontrada</p>
-              <p className="text-xs text-gray-400 mt-1">Cria a primeira cotação com o botão acima</p>
-            </div>
-          ) : (
-            <table className="w-full">
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px]">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-border-default">
                   {['Número', 'Cliente', 'Itens', 'Total', 'Estado', 'Válida até', 'Data', ''].map(h => (
-                    <th key={h} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider ${h === '' ? 'text-right' : ''}`}>{h}</th>
+                    <th key={h} className={`px-4 py-3 text-left text-xs font-semibold text-content-muted uppercase tracking-wider ${h === '' ? 'text-right' : ''}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+              <tbody className="divide-y divide-border-default/30">
                 {quotes.map(q => (
-                  <tr key={q.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+                  <tr key={q.id} className="hover:bg-surface-base transition-colors group">
                     <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-gray-700 dark:text-gray-300 font-medium">{q.quoteNumber}</span>
+                      <span className="font-mono text-xs text-content-secondary font-medium">{q.quoteNumber}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{q.customerName || <span className="text-gray-400 italic text-xs">Sem nome</span>}</p>
-                      {q.customerPhone && <p className="text-xs text-gray-400">{q.customerPhone}</p>}
+                      <p className="text-sm font-medium text-content-primary">{q.customerName || <span className="text-content-muted italic text-xs">Sem nome</span>}</p>
+                      {q.customerPhone && <p className="text-xs text-content-muted">{q.customerPhone}</p>}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                    <td className="px-4 py-3 text-sm text-content-muted">
                       {q.items.length} {q.items.length === 1 ? 'item' : 'itens'}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white font-mono">{fmt(q.total)}</span>
+                      <span className="text-sm font-semibold text-content-primary font-mono">{fmt(q.total)}</span>
                     </td>
                     <td className="px-4 py-3">
                       <select
@@ -490,14 +502,14 @@ export const QuotesPage: React.FC = () => {
                         ))}
                       </select>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-content-muted">
                       {q.validUntil ? (
                         <span className={new Date(q.validUntil) < new Date() ? 'text-red-500' : ''}>
                           {fmtDate(q.validUntil)}
                         </span>
                       ) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{fmtDate(q.createdAt)}</td>
+                    <td className="px-4 py-3 text-xs text-content-muted">{fmtDate(q.createdAt)}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => openQuote(q, 'preview')} title="Pré-visualizar"
@@ -512,7 +524,7 @@ export const QuotesPage: React.FC = () => {
                           className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded font-medium transition-colors">
                           <Printer className="w-3 h-3" />
                         </button>
-                        <button onClick={() => openEdit(q)} className="px-2 py-1 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded font-medium transition-colors">Editar</button>
+                        <button onClick={() => openEdit(q)} className="px-2 py-1 text-xs text-content-muted hover:text-content-primary hover:bg-surface-base rounded font-medium transition-colors">Editar</button>
                         <button onClick={() => deleteQuote(q.id)} disabled={deleting === q.id}
                           className="px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded font-medium transition-colors disabled:opacity-40">
                           {deleting === q.id ? '...' : 'Eliminar'}
@@ -523,22 +535,22 @@ export const QuotesPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── Bank Settings Panel ── */}
       {settingsOpen && (
         <>
           <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setSettingsOpen(false)} />
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-surface-raised shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-default shrink-0">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Configurações de Cotações</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Dados bancários que aparecem na cotação impressa</p>
+                <h2 className="text-lg font-semibold text-content-primary">Configurações de Cotações</h2>
+                <p className="text-xs text-content-muted mt-0.5">Dados bancários que aparecem na cotação impressa</p>
               </div>
               <button onClick={() => setSettingsOpen(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-light leading-none">&times;</button>
+                className="text-content-muted hover:text-content-primary text-2xl font-light leading-none">&times;</button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
@@ -546,66 +558,63 @@ export const QuotesPage: React.FC = () => {
                 <p className="text-xs text-blue-700 dark:text-blue-300">Adicione uma ou mais contas bancárias. Todas aparecem nas cotações impressas.</p>
               </div>
 
-              {/* Account list */}
               {bankAccounts.map(acc => (
-                <div key={acc.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-1 relative">
+                <div key={acc.id} className="border border-border-default rounded-xl p-4 space-y-1 relative">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="font-semibold text-sm text-gray-900 dark:text-white">{acc.name || '—'}</div>
+                    <div className="font-semibold text-sm text-content-primary">{acc.name || '—'}</div>
                     <div className="flex gap-1 shrink-0">
-                      <button onClick={() => setAccountForm({ ...acc })} className="p-1 rounded text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setBankAccounts(p => p.filter(a => a.id !== acc.id))} className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setAccountForm({ ...acc })} className="p-1 rounded text-content-muted hover:text-blue-600 transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setBankAccounts(p => p.filter(a => a.id !== acc.id))} className="p-1 rounded text-content-muted hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">Titular: <strong>{acc.holder || taxConfig.companyName || '—'}</strong></p>
-                  {acc.account && <p className="text-xs text-gray-500">Nº Conta: <strong className="font-mono">{acc.account}</strong></p>}
-                  {acc.nib && <p className="text-xs text-gray-500">NIB: <strong className="font-mono">{acc.nib}</strong></p>}
-                  {acc.iban && <p className="text-xs text-gray-500">IBAN: <strong className="font-mono">{acc.iban}</strong></p>}
-                  {acc.swift && <p className="text-xs text-gray-500">SWIFT/BIC: <strong>{acc.swift}</strong></p>}
+                  <p className="text-xs text-content-muted">Titular: <strong>{acc.holder || taxConfig.companyName || '—'}</strong></p>
+                  {acc.account && <p className="text-xs text-content-muted">Nº Conta: <strong className="font-mono">{acc.account}</strong></p>}
+                  {acc.nib && <p className="text-xs text-content-muted">NIB: <strong className="font-mono">{acc.nib}</strong></p>}
+                  {acc.iban && <p className="text-xs text-content-muted">IBAN: <strong className="font-mono">{acc.iban}</strong></p>}
+                  {acc.swift && <p className="text-xs text-content-muted">SWIFT/BIC: <strong>{acc.swift}</strong></p>}
                 </div>
               ))}
 
-              {/* Add account button */}
               {!accountForm && (
                 <button onClick={() => setAccountForm(emptyAccount())}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:border-brand-400 hover:text-brand-600 transition-colors">
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-border-default rounded-xl text-sm text-content-muted hover:border-brand-400 hover:text-brand-600 transition-colors">
                   <Plus className="w-4 h-4" /> Adicionar Conta Bancária
                 </button>
               )}
 
-              {/* Add / Edit form */}
               {accountForm && (
                 <div className="border-2 border-brand-300 dark:border-brand-700 rounded-xl p-4 space-y-3 bg-brand-50/40 dark:bg-brand-900/10">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-white">{bankAccounts.find(a => a.id === accountForm.id) ? 'Editar Conta' : 'Nova Conta'}</p>
-                    <button onClick={() => setAccountForm(null)}><XIcon className="w-4 h-4 text-gray-400" /></button>
+                    <p className="text-sm font-semibold text-content-primary">{bankAccounts.find(a => a.id === accountForm.id) ? 'Editar Conta' : 'Nova Conta'}</p>
+                    <button onClick={() => setAccountForm(null)}><XIcon className="w-4 h-4 text-content-muted" /></button>
                   </div>
                   {[
-                    { key: 'name',    label: 'Nome do Banco',   placeholder: 'BCI, BIM, Millennium BIM…', mono: false },
-                    { key: 'holder',  label: 'Titular da Conta',placeholder: 'Deixe vazio para usar nome da empresa', mono: false },
-                    { key: 'account', label: 'Número de Conta', placeholder: '1234 5678 9012 3', mono: true },
-                    { key: 'nib',     label: 'NIB',             placeholder: '000300001000000000101', mono: true },
-                    { key: 'iban',    label: 'IBAN (opcional)',  placeholder: 'MZ59 0003 0000 1000 0000 1010 1', mono: true },
+                    { key: 'name',    label: 'Nome do Banco',        placeholder: 'BCI, BIM, Millennium BIM…', mono: false },
+                    { key: 'holder',  label: 'Titular da Conta',     placeholder: 'Deixe vazio para usar nome da empresa', mono: false },
+                    { key: 'account', label: 'Número de Conta',      placeholder: '1234 5678 9012 3', mono: true },
+                    { key: 'nib',     label: 'NIB',                  placeholder: '000300001000000000101', mono: true },
+                    { key: 'iban',    label: 'IBAN (opcional)',       placeholder: 'MZ59 0003 0000 1000 0000 1010 1', mono: true },
                     { key: 'swift',   label: 'SWIFT/BIC (opcional)', placeholder: 'BCIOMZMA', mono: true },
                   ].map(f => (
                     <div key={f.key}>
-                      <label className="text-xs font-medium text-gray-500 mb-1 block">{f.label}</label>
+                      <label className="text-xs font-medium text-content-muted mb-1 block">{f.label}</label>
                       <input value={(accountForm as any)[f.key]}
                         onChange={e => setAccountForm(p => p ? { ...p, [f.key]: e.target.value } : p)}
                         placeholder={f.placeholder}
-                        className={`w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:outline-none ${f.mono ? 'font-mono' : ''}`} />
+                        className={`w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none ${f.mono ? 'font-mono' : ''}`} />
                     </div>
                   ))}
                   <div className="flex gap-2 pt-1">
-                    <button onClick={() => setAccountForm(null)} className="flex-1 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancelar</button>
+                    <button onClick={() => setAccountForm(null)} className="flex-1 py-2 text-sm border border-border-default rounded-lg text-content-secondary hover:bg-surface-base transition-colors">Cancelar</button>
                     <button onClick={saveAccountForm} className="flex-1 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium transition-colors">Guardar Conta</button>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between gap-3 shrink-0 bg-white dark:bg-gray-900">
+            <div className="border-t border-border-default px-6 py-4 flex items-center justify-between gap-3 shrink-0 bg-surface-raised">
               <button onClick={() => setSettingsOpen(false)}
-                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                className="px-4 py-2 text-sm text-content-secondary border border-border-default rounded-lg hover:bg-surface-base transition-colors">
                 Cancelar
               </button>
               <button onClick={saveBank} disabled={savingBank}
@@ -620,78 +629,69 @@ export const QuotesPage: React.FC = () => {
       {/* ── Slide-over Panel ── */}
       {panelOpen && (
         <>
-          {/* Backdrop */}
           <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setPanelOpen(false)} />
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-surface-raised shadow-2xl flex flex-col overflow-hidden">
 
-          {/* Panel */}
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-hidden">
-
-            {/* Panel header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-default shrink-0">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-lg font-semibold text-content-primary">
                   {editing ? `Editar ${editing.quoteNumber}` : 'Nova Cotação'}
                 </h2>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-content-muted mt-0.5">
                   {editing ? `Criada em ${fmtDate(editing.createdAt)}` : 'O número é gerado automaticamente ao guardar'}
                 </p>
               </div>
               <button onClick={() => setPanelOpen(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-light leading-none">&times;</button>
+                className="text-content-muted hover:text-content-primary text-2xl font-light leading-none">&times;</button>
             </div>
 
-            {/* Panel body */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
-              {/* Customer */}
               <section>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Cliente</h3>
+                <h3 className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-3">Cliente</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 mb-1 block">Nome</label>
+                    <label className="text-xs text-content-muted mb-1 block">Nome</label>
                     <input value={form.customerName} onChange={e => setForm(p => ({ ...p, customerName: e.target.value }))}
                       placeholder="Nome do cliente"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:outline-none" />
+                      className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Telefone</label>
+                    <label className="text-xs text-content-muted mb-1 block">Telefone</label>
                     <input value={form.customerPhone} onChange={e => setForm(p => ({ ...p, customerPhone: e.target.value }))}
                       placeholder="84 000 0000"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:outline-none" />
+                      className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">NUIT (opcional)</label>
+                    <label className="text-xs text-content-muted mb-1 block">NUIT (opcional)</label>
                     <input value={form.customerNuit} onChange={e => setForm(p => ({ ...p, customerNuit: e.target.value }))}
                       placeholder="000000000"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:outline-none" />
+                      className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 mb-1 block">Email (opcional)</label>
+                    <label className="text-xs text-content-muted mb-1 block">Email (opcional)</label>
                     <input value={form.customerEmail} onChange={e => setForm(p => ({ ...p, customerEmail: e.target.value }))}
                       placeholder="cliente@email.com" type="email"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:outline-none" />
+                      className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none" />
                   </div>
                 </div>
               </section>
 
-              {/* Items */}
               <section>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Produtos</h3>
-
-                {/* Product search */}
+                <h3 className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-3">Produtos</h3>
                 <div className="relative mb-3">
                   <input value={prodSearch} onChange={e => setProdSearch(e.target.value)}
                     placeholder="Pesquisar e adicionar produto..."
-                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:outline-none" />
+                    className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none" />
                   {filteredProds.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 max-h-52 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-surface-raised border border-border-default rounded-lg shadow-lg z-10 max-h-52 overflow-y-auto">
                       {filteredProds.map(p => {
                         const ep = getEffectivePrice(p);
                         return (
                           <button key={p.id} onClick={() => addProduct(p)}
-                            className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                            <span className="text-sm text-gray-900 dark:text-white">{p.name}</span>
-                            <span className={`text-xs font-mono font-semibold ${ep.isPromo ? 'text-orange-600' : 'text-gray-600 dark:text-gray-400'}`}>{fmt(ep.price)}</span>
+                            className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-surface-base transition-colors">
+                            <span className="text-sm text-content-primary">{p.name}</span>
+                            <span className={`text-xs font-mono font-semibold ${ep.isPromo ? 'text-orange-600' : 'text-content-muted'}`}>{fmt(ep.price)}</span>
                           </button>
                         );
                       })}
@@ -699,41 +699,40 @@ export const QuotesPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Items list */}
                 {form.items.length === 0 ? (
-                  <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg py-8 text-center">
-                    <p className="text-sm text-gray-400">Pesquisa acima para adicionar produtos</p>
+                  <div className="border-2 border-dashed border-border-default rounded-lg py-8 text-center">
+                    <p className="text-sm text-content-muted">Pesquisa acima para adicionar produtos</p>
                   </div>
                 ) : (
-                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <div className="border border-border-default rounded-lg overflow-hidden">
                     <table className="w-full">
                       <thead>
-                        <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                          <th className="px-3 py-2 text-left text-xs text-gray-500">Produto</th>
-                          <th className="px-3 py-2 text-right text-xs text-gray-500 w-20">Qtd</th>
-                          <th className="px-3 py-2 text-right text-xs text-gray-500 w-28">Preço Unit.</th>
-                          <th className="px-3 py-2 text-right text-xs text-gray-500 w-24">Total</th>
+                        <tr className="bg-surface-base border-b border-border-default">
+                          <th className="px-3 py-2 text-left text-xs text-content-muted">Produto</th>
+                          <th className="px-3 py-2 text-right text-xs text-content-muted w-20">Qtd</th>
+                          <th className="px-3 py-2 text-right text-xs text-content-muted w-28">Preço Unit.</th>
+                          <th className="px-3 py-2 text-right text-xs text-content-muted w-24">Total</th>
                           <th className="px-3 py-2 w-8"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      <tbody className="divide-y divide-border-default/30">
                         {form.items.map((item, idx) => (
                           <tr key={idx}>
-                            <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">
+                            <td className="px-3 py-2 text-sm text-content-primary">
                               {item.productName}
                               {item.isPromo && <span className="ml-1 text-[9px] bg-orange-100 text-orange-600 px-1 rounded font-bold">PROMO</span>}
                             </td>
                             <td className="px-3 py-2 text-right">
                               <input type="number" min="1" value={item.quantity}
                                 onChange={e => updateItemQty(idx, parseInt(e.target.value) || 1)}
-                                className="w-16 px-2 py-1 text-sm text-right border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-1 focus:ring-gray-900 focus:outline-none" />
+                                className="w-16 px-2 py-1 text-sm text-right border border-border-default rounded bg-surface-raised text-content-primary focus:ring-1 focus:ring-brand-500 focus:outline-none" />
                             </td>
                             <td className="px-3 py-2 text-right">
                               <input type="number" min="0" step="0.01" value={item.price}
                                 onChange={e => updateItemPrice(idx, parseFloat(e.target.value) || 0)}
-                                className="w-24 px-2 py-1 text-sm text-right border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-1 focus:ring-gray-900 focus:outline-none" />
+                                className="w-24 px-2 py-1 text-sm text-right border border-border-default rounded bg-surface-raised text-content-primary focus:ring-1 focus:ring-brand-500 focus:outline-none" />
                             </td>
-                            <td className="px-3 py-2 text-right text-sm font-mono text-gray-700 dark:text-gray-300">
+                            <td className="px-3 py-2 text-right text-sm font-mono text-content-secondary">
                               {fmt(item.price * item.quantity)}
                             </td>
                             <td className="px-3 py-2 text-right">
@@ -748,62 +747,57 @@ export const QuotesPage: React.FC = () => {
                 )}
               </section>
 
-              {/* Totals + settings */}
               <section className="grid grid-cols-2 gap-4">
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Desconto (MT)</label>
+                    <label className="text-xs text-content-muted mb-1 block">Desconto (MT)</label>
                     <input type="number" min="0" value={form.discount}
                       onChange={e => setForm(p => ({ ...p, discount: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 focus:outline-none" />
+                      className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Validade (dias)</label>
+                    <label className="text-xs text-content-muted mb-1 block">Validade (dias)</label>
                     <input type="number" min="1" value={form.validityDays}
                       onChange={e => setForm(p => ({ ...p, validityDays: parseInt(e.target.value) || 15 }))}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 focus:outline-none" />
+                      className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Data limite (opcional)</label>
+                    <label className="text-xs text-content-muted mb-1 block">Data limite (opcional)</label>
                     <input type="date" value={form.validUntil ?? ''}
                       onChange={e => setForm(p => ({ ...p, validUntil: e.target.value || null }))}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 focus:outline-none" />
+                      className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none" />
                   </div>
                 </div>
-
-                {/* Summary */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 space-y-2">
+                <div className="bg-surface-base rounded-xl p-4 space-y-2">
                   {discAmt > 0 && (
                     <>
-                      <div className="flex justify-between text-xs text-gray-500"><span>Subtotal</span><span className="font-mono">{fmt(subtotal)}</span></div>
+                      <div className="flex justify-between text-xs text-content-muted"><span>Subtotal</span><span className="font-mono">{fmt(subtotal)}</span></div>
                       <div className="flex justify-between text-xs text-red-500"><span>Desconto</span><span className="font-mono">- {fmt(discAmt)}</span></div>
                     </>
                   )}
-                  <div className="flex justify-between text-sm font-bold text-gray-900 dark:text-white pt-1 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between text-sm font-bold text-content-primary pt-1 border-t border-border-default">
                     <span>Total c/IVA</span>
                     <span className="font-mono">{fmt(total)}</span>
                   </div>
                 </div>
               </section>
 
-              {/* Notes */}
               <section>
-                <label className="text-xs text-gray-500 mb-1 block">Notas internas (opcional)</label>
+                <label className="text-xs text-content-muted mb-1 block">Notas internas (opcional)</label>
                 <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
                   rows={2} placeholder="Condições especiais, prazo de entrega, etc."
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-900 focus:outline-none resize-none" />
+                  className="w-full px-3 py-2 text-sm border border-border-default rounded-lg bg-surface-base text-content-primary focus:ring-2 focus:ring-brand-500 focus:outline-none resize-none" />
               </section>
             </div>
 
-            {/* Panel footer */}
-            <div className="border-t border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between gap-3 shrink-0 bg-white dark:bg-gray-900">
+            <div className="border-t border-border-default px-6 py-4 flex items-center justify-between gap-3 shrink-0 bg-surface-raised">
               <button onClick={() => setPanelOpen(false)}
-                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                className="px-4 py-2 text-sm text-content-secondary border border-border-default rounded-lg hover:bg-surface-base transition-colors">
                 Cancelar
               </button>
               <div className="flex gap-2">
                 <button onClick={() => save('rascunho')} disabled={saving || !form.items.length}
-                  className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-40">
+                  className="px-4 py-2 text-sm border border-border-default text-content-secondary rounded-lg hover:bg-surface-base transition-colors disabled:opacity-40">
                   Guardar Rascunho
                 </button>
                 <button onClick={() => save('enviada')} disabled={saving || !form.items.length}
@@ -815,6 +809,6 @@ export const QuotesPage: React.FC = () => {
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   );
 };

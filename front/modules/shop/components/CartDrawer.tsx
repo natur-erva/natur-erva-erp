@@ -103,7 +103,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ open, onClose, onCartCou
 
       {/* Drawer */}
       <div
-        className={`relative flex flex-col bg-white dark:bg-gray-900 shadow-2xl
+        className={`relative flex flex-col bg-surface-raised shadow-2xl
           ${isMobile
             ? 'w-full max-h-[90vh] rounded-t-2xl animate-slide-in-up'
             : 'w-full max-w-md h-full animate-slide-in-right'
@@ -111,10 +111,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ open, onClose, onCartCou
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+        <div className="flex items-center justify-between p-5 border-b border-border-default flex-shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Carrinho</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            <h2 className="text-xl font-bold text-content-primary">Carrinho</h2>
+            <p className="text-sm text-content-muted mt-0.5">
               {cart.length} {cart.length === 1 ? 'item' : 'itens'}
             </p>
           </div>
@@ -144,7 +144,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ open, onClose, onCartCou
               {cart.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex gap-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl p-4 border border-gray-100 dark:border-gray-700/30"
+                  className="flex gap-4 bg-surface-base rounded-xl p-4 border border-border-default"
                 >
                   {/* Imagem */}
                   <div className="flex-shrink-0">
@@ -163,13 +163,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ open, onClose, onCartCou
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2 mb-0.5">
+                    <h3 className="font-semibold text-content-primary text-sm line-clamp-2 mb-0.5">
                       {item.productName}
                     </h3>
                     {item.variantName && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{item.variantName}</p>
+                      <p className="text-xs text-content-muted mb-1">{item.variantName}</p>
                     )}
-                    <p className="text-sm font-semibold text-green-600 dark:text-green-400 mb-2">
+                    <p className="text-sm font-semibold mb-2" style={{ color: 'var(--brand-600)' }}>
                       {item.price.toFixed(2)} MT
                     </p>
 
@@ -209,16 +209,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ open, onClose, onCartCou
         {/* Footer */}
         {cart.length > 0 && (
           <div
-            className="border-t border-gray-100 dark:border-gray-800 p-5 space-y-4 flex-shrink-0 bg-white dark:bg-gray-900"
+            className="border-t border-border-default p-5 space-y-4 flex-shrink-0 bg-surface-raised"
             style={isMobile ? { paddingBottom: `max(1.25rem, calc(env(safe-area-inset-bottom) + 1.25rem))` } : {}}
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold text-gray-900 dark:text-white">Total</span>
-              <span className="text-2xl font-bold text-green-600 dark:text-green-400">{total.toFixed(2)} MT</span>
+              <span className="text-lg font-semibold text-content-primary">Total</span>
+              <span className="text-2xl font-bold" style={{ color: 'var(--brand-600)' }}>{total.toFixed(2)} MT</span>
             </div>
             <button
               onClick={handleCheckout}
-              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3.5 rounded-xl font-semibold text-base shadow-lg shadow-green-500/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+              className="w-full text-white py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 transition-all hover:opacity-90 hover:scale-[1.02] shadow-md"
+              style={{ background: 'var(--brand-600)' }}
             >
               <ShoppingCart className="h-5 w-5" />
               Finalizar Pedido

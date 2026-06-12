@@ -124,6 +124,12 @@ export const stockService = {
     return new Map();
   },
 
+  // Copies products.stock → default variant stock for rows where variant.stock = 0 but products.stock > 0.
+  // Safe to call repeatedly (only updates variants where stock is already 0).
+  async syncProductStockToVariants(): Promise<void> {
+    try { await api.post('/stock/sync-product-stock', {}); } catch { /* ignore */ }
+  },
+
   // ── Validation ───────────────────────────────────────────────────────────────
 
   async validateStockIntegrity(): Promise<any> {

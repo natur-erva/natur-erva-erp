@@ -1108,6 +1108,8 @@ export const StockManagement: React.FC<StockManagementProps> = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
+    // Silently sync products.stock → default variant stock for existing data
+    stockService.syncProductStockToVariants().catch(() => {});
     loadStockMovements();
   }, []);
 
