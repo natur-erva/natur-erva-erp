@@ -255,6 +255,29 @@ export const ProductLandingPage: React.FC = () => {
                             )}
                         </div>
 
+                        {/* Stock status indicator */}
+                        {(() => {
+                            const stock = selectedVariant?.stock ?? product.stock ?? 0;
+                            if (stock <= 0) return (
+                                <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800">
+                                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                                    <span className="text-sm font-semibold text-red-700 dark:text-red-400">Produto Esgotado</span>
+                                </div>
+                            );
+                            if (stock <= 5) return (
+                                <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800">
+                                    <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+                                    <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">Últimas {stock} unidade{stock !== 1 ? 's' : ''} disponíveis</span>
+                                </div>
+                            );
+                            return (
+                                <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800">
+                                    <span className="w-2 h-2 rounded-full bg-green-500 shrink-0 animate-pulse" />
+                                    <span className="text-sm font-semibold text-green-700 dark:text-green-400">Em stock ({stock} disponíveis)</span>
+                                </div>
+                            );
+                        })()}
+
                         <p className="text-content-secondary leading-relaxed mb-6">{product.description}</p>
 
                         {/* Variants */}
@@ -305,8 +328,8 @@ export const ProductLandingPage: React.FC = () => {
                                                         {v.price ? `${v.price.toFixed(2)} MT` : `${product.price.toFixed(2)} MT`}
                                                         {v.unit && ` / ${v.unit}`}
                                                     </p>
-                                                    <p className={`text-xs mt-0.5 ${hasVStock ? 'text-content-muted' : 'text-red-500 font-medium'}`}>
-                                                        {hasVStock ? `Stock: ${variantStock}` : 'Sem stock'}
+                                                    <p className={`text-xs mt-0.5 font-medium ${!hasVStock ? 'text-red-500' : variantStock <= 5 ? 'text-orange-500' : 'text-green-600 dark:text-green-400'}`}>
+                                                        {!hasVStock ? 'Esgotado' : variantStock <= 5 ? `Últimas ${variantStock}` : `${variantStock} disponíveis`}
                                                     </p>
                                                 </div>
                                                 {isSelected && (
@@ -364,10 +387,10 @@ export const ProductLandingPage: React.FC = () => {
                                     ) : (
                                         <button
                                             disabled
-                                            className="flex-1 bg-surface-base text-content-muted py-4 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed font-medium border border-border-default"
+                                            className="flex-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 py-4 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed font-semibold border border-red-200 dark:border-red-800"
                                         >
                                             <Package className="w-5 h-5" />
-                                            Sem Stock
+                                            Produto Esgotado
                                         </button>
                                     );
                                 })()}

@@ -3,6 +3,7 @@ import { useLocation, useParams, useNavigate, useSearchParams, Link } from 'reac
 import { Product, ProductVariant, OrderItem, Customer, UserRole, OrderStatus, DeliveryZone } from '../../core/types/types';
 import { authService } from '../../auth/services/authService';
 import { deliveryService } from '../../sales/services/deliveryService';
+import { applyDarkModeVars, removeDarkModeVars } from '../../core/utils/theme';
 import { productService } from '../../products/services/productService';
 import api from '../../core/services/apiClient';
 import { orderService } from '../../sales/services/orderService';
@@ -188,15 +189,15 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   // Inicializar dark mode - apenas uma vez
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    const isDark = savedTheme === 'dark' || (!savedTheme && false); // Default light para loja
+    const isDark = savedTheme === 'dark'; // Default light para loja
     setDarkMode(isDark);
     if (shopContextRef.current) {
       shopContextRef.current.setDarkMode(isDark);
     }
     if (isDark) {
-      document.documentElement.classList.add('dark');
+      applyDarkModeVars();
     } else {
-      document.documentElement.classList.remove('dark');
+      removeDarkModeVars();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Executar apenas uma vez na montagem
@@ -204,12 +205,11 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   const toggleTheme = useCallback(() => {
     setDarkMode(prev => {
       const newMode = !prev;
-      // Não atualizar contexto aqui - será feito no useEffect abaixo
       localStorage.setItem('theme', newMode ? 'dark' : 'light');
       if (newMode) {
-        document.documentElement.classList.add('dark');
+        applyDarkModeVars();
       } else {
-        document.documentElement.classList.remove('dark');
+        removeDarkModeVars();
       }
       return newMode;
     });
@@ -362,16 +362,8 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
       // Usar getProducts() normal - stock já está atualizado automaticamente nas ações (pedidos/compras)
       const allProducts = await productService.getProducts();
 
-      // Filtrar apenas produtos visíveis na loja (showInShop !== false) e com stock (fonte: product.variants[].stock)
-      const visibleProducts = allProducts.filter(p => {
-        if (p.showInShop === false) return false;
-        // Se tem variações, verifica se alguma tem stock
-        if (p.variants && p.variants.length > 0) {
-          return p.variants.some(v => (v.stock ?? 0) > 0);
-        }
-        // Se não tem variações, verifica o stock do produto base
-        return (p.stock ?? 0) > 0;
-      });
+      // Mostrar todos os produtos visíveis na loja, incluindo esgotados (com badge Esgotado)
+      const visibleProducts = allProducts.filter(p => p.showInShop !== false);
       setProducts(visibleProducts);
 
       // Inicializar filteredProducts
@@ -1014,8 +1006,8 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-green-50/30 to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex flex-col items-center justify-center p-8 relative z-10">
         <div className="max-w-md text-center space-y-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Natur Erva</h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <h1 className="text-2xl sm:text-3xl font-bold text-content-primary">Natur Erva</h1>
+          <p className="text-content-muted">
             Inicie sessão para aceder à loja. Pode fazer login com Google ou criar uma conta.
           </p>
           <button
@@ -1042,7 +1034,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
+    <div className="min-h-screen bg-surface-base transition-colors duration-300">
 
       {/* Renderizar Perfil do Cliente se showProfile for true */}
       {showProfile && currentUser ? (
@@ -1111,7 +1103,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.name === selectedCategory ? 'all' : cat.name)}
-                      className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 w-full ${selectedCategory === cat.name ? 'ring-2 ring-green-500' : ''}`}
+                      className={`bg-surface-raised rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 w-full ${selectedCategory === cat.name ? 'ring-2 ring-green-500' : ''}`}
                     >
                       <div
                         className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center mx-auto mb-4"
@@ -1124,7 +1116,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                         )}
                       </div>
                       <h3 className="text-base font-semibold mb-1 text-gray-800 dark:text-white">{cat.name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{count} produtos</p>
+                      <p className="text-sm text-content-muted">{count} produtos</p>
                     </button>
                   );
                 })}
@@ -1195,16 +1187,16 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             {/* Barra de pesquisa + ordenação */}
             <div className="mb-8 flex items-center justify-between gap-3">
               <div className="relative w-64 sm:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   placeholder="Pesquisar produtos..."
-                  className="w-full pl-9 pr-8 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition"
+                  className="w-full pl-9 pr-8 py-2 rounded-xl border border-border-default bg-surface-raised text-content-primary placeholder-content-muted text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition"
                 />
                 {searchTerm && (
-                  <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                  <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-content-muted hover:text-gray-600 transition-colors">
                     <XCircle className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -1212,7 +1204,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
               <select
                 value={sortOrder}
                 onChange={e => setSortOrder(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500"
+                className="px-3 py-2 rounded-xl border border-border-default bg-surface-raised text-content-secondary text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500"
               >
                 <option value="popular">Mais Populares</option>
                 <option value="newest">Mais Recentes</option>
@@ -1230,10 +1222,10 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
               </div>
             ) : filteredProductsMemo.length === 0 ? (
               <div className="text-center py-16">
-                <div className="inline-block p-5 rounded-full bg-white dark:bg-gray-800 shadow-md mb-4">
-                  <Package className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                <div className="inline-block p-5 rounded-full bg-surface-raised shadow-md mb-4">
+                  <Package className="h-12 w-12 text-content-muted" />
                 </div>
-                <p className="mt-2 text-gray-600 dark:text-gray-400">Nenhum produto encontrado</p>
+                <p className="mt-2 text-content-muted">Nenhum produto encontrado</p>
                 {selectedCategory !== 'all' && (
                   <button onClick={() => setSelectedCategory('all')} className="mt-3 text-green-600 dark:text-green-400 text-sm hover:underline">Limpar filtro</button>
                 )}
@@ -1315,8 +1307,8 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
             <section className="max-w-7xl mx-auto px-4 py-14">
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h2 className={`font-bold text-gray-900 dark:text-white ${isMobile ? 'text-xl' : 'text-2xl'}`}>Nossos Artigos</h2>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Dicas de saúde e bem-estar natural</p>
+                  <h2 className={`font-bold text-content-primary ${isMobile ? 'text-xl' : 'text-2xl'}`}>Nossos Artigos</h2>
+                  <p className="text-content-muted text-sm mt-1">Dicas de saúde e bem-estar natural</p>
                 </div>
                 <Link to="/blog" className="flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400 hover:underline">
                   Ver todos <ChevronRight className="w-4 h-4" />
@@ -1325,7 +1317,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
               <div className={`grid gap-5 ${isMobile ? 'grid-cols-1' : 'grid-cols-3'}`}>
                 {blogPosts.map(post => (
                   <Link key={post.id} to={`/blog/${post.slug}`}
-                    className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col">
+                    className="group bg-surface-raised rounded-2xl overflow-hidden border border-border-default shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col">
                     {post.coverImage ? (
                       <img src={post.coverImage} alt={post.title} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
@@ -1341,9 +1333,9 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                           ))}
                         </div>
                       )}
-                      <h3 className="font-bold text-gray-900 dark:text-white text-base leading-snug line-clamp-2 mb-2 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">{post.title}</h3>
-                      {post.summary && <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2 flex-1">{post.summary}</p>}
-                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400">
+                      <h3 className="font-bold text-content-primary text-base leading-snug line-clamp-2 mb-2 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">{post.title}</h3>
+                      {post.summary && <p className="text-content-muted text-sm line-clamp-2 flex-1">{post.summary}</p>}
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border-default text-xs text-content-muted">
                         <span>{new Date(post.publishedAt || post.createdAt).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                         <span className="text-green-600 dark:text-green-400 font-medium group-hover:underline">Ler artigo →</span>
                       </div>
@@ -1357,14 +1349,14 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
           {/* ── RASTREAR ENCOMENDA ── */}
           <section className="py-12 px-4">
             <div className="max-w-2xl mx-auto">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
+              <div className="bg-surface-raised rounded-2xl shadow-sm border border-border-default p-6 sm:p-8">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                     <Package className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Rastrear Encomenda</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Insere o teu código de rastreio</p>
+                    <h2 className="text-lg font-bold text-content-primary">Rastrear Encomenda</h2>
+                    <p className="text-sm text-content-muted">Insere o teu código de rastreio</p>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
@@ -1374,7 +1366,7 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                     onChange={e => setTrackingInput(e.target.value.toUpperCase())}
                     onKeyDown={e => e.key === 'Enter' && handleTrackOrder()}
                     placeholder="Ex: NE-20260522-ABC123"
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500/40"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-border-strong bg-surface-base text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500/40"
                   />
                   <button
                     onClick={handleTrackOrder}
@@ -1400,15 +1392,15 @@ export const Shop: React.FC<ShopProps> = ({ currentUser: propCurrentUser, onLogi
                     completed:        { label: 'Concluído',         bg: 'bg-green-50 dark:bg-green-900/20',  text: 'text-green-700',   icon: <CheckCircle className="w-4 h-4" /> },
                     cancelled:        { label: 'Cancelado',         bg: 'bg-red-50 dark:bg-red-900/20',      text: 'text-red-700',     icon: <XCircle className="w-4 h-4" /> },
                   };
-                  const s = STATUS[trackingResult.status] ?? { label: trackingResult.status, bg: 'bg-gray-50', text: 'text-gray-700', icon: <Package className="w-4 h-4" /> };
+                  const s = STATUS[trackingResult.status] ?? { label: trackingResult.status, bg: 'bg-surface-base', text: 'text-gray-700', icon: <Package className="w-4 h-4" /> };
                   return (
-                    <div className="mt-4 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div className="mt-4 rounded-xl border border-border-default overflow-hidden">
                       <div className={`flex items-center gap-2 px-4 py-3 font-semibold text-sm ${s.bg} ${s.text}`}>{s.icon} {s.label}</div>
                       <div className="px-4 py-3 space-y-1.5 text-sm">
-                        <div className="flex justify-between"><span className="text-gray-500">Pedido nº</span><span className="font-mono font-semibold text-gray-900 dark:text-white">{trackingResult.orderNumber}</span></div>
-                        <div className="flex justify-between"><span className="text-gray-500">Código</span><span className="font-mono text-gray-700 dark:text-gray-300">{trackingResult.trackingCode}</span></div>
-                        {trackingResult.deliveryZoneName && <div className="flex justify-between"><span className="text-gray-500">Zona</span><span className="text-gray-700 dark:text-gray-300">{trackingResult.deliveryZoneName}</span></div>}
-                        <div className="flex justify-between"><span className="text-gray-500">Data do pedido</span><span className="text-gray-700 dark:text-gray-300">{new Date(trackingResult.createdAt).toLocaleDateString('pt-MZ')}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Pedido nº</span><span className="font-mono font-semibold text-content-primary">{trackingResult.orderNumber}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Código</span><span className="font-mono text-content-secondary">{trackingResult.trackingCode}</span></div>
+                        {trackingResult.deliveryZoneName && <div className="flex justify-between"><span className="text-gray-500">Zona</span><span className="text-content-secondary">{trackingResult.deliveryZoneName}</span></div>}
+                        <div className="flex justify-between"><span className="text-gray-500">Data do pedido</span><span className="text-content-secondary">{new Date(trackingResult.createdAt).toLocaleDateString('pt-MZ')}</span></div>
                       </div>
                     </div>
                   );
@@ -1607,7 +1599,7 @@ const CartSidebar: React.FC<{
 
       {/* Carrinho - Sidebar no desktop, Bottom Sheet no mobile */}
       <div
-        className={`relative ${isMobile ? 'ml-0 mt-auto w-full max-h-[90vh] rounded-t-2xl border-t border-b-0 animate-slide-in-up' : 'ml-auto w-full max-w-md h-full border-l border-t-0 animate-slide-in-right'} backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 shadow-2xl flex flex-col ${isMobile ? '' : 'border-l'} border-white/20 dark:border-gray-700/50`}
+        className={`relative ${isMobile ? 'ml-0 mt-auto w-full max-h-[90vh] rounded-t-2xl border-t border-b-0 animate-slide-in-up' : 'ml-auto w-full max-w-md h-full border-l border-t-0 animate-slide-in-right'} backdrop-blur-xl bg-surface-raised/[0.97] dark:bg-surface-raised/[0.96] shadow-2xl flex flex-col ${isMobile ? '' : 'border-l'} border-border-default/30 dark:border-white/[0.07]`}
         onClick={(e) => e.stopPropagation()}
         style={isMobile ? {
           maxHeight: '90vh',
@@ -1617,18 +1609,18 @@ const CartSidebar: React.FC<{
         }}
       >
         {/* Header - Fixo no topo */}
-        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-white/20 dark:border-gray-700/50 flex-shrink-0">
+        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-border-default/30 dark:border-white/[0.07] flex-shrink-0">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-xl sm:text-2xl font-bold text-content-primary">
               Carrinho
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            <p className="text-sm text-content-muted mt-0.5">
               {cart.length} {cart.length === 1 ? 'item' : 'itens'}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="p-2 rounded-lg text-content-muted hover:text-gray-600 dark:hover:text-gray-300 hover:bg-surface-overlay transition-colors"
             aria-label="Fechar carrinho"
           >
             <X className="h-5 w-5" />
@@ -1645,13 +1637,13 @@ const CartSidebar: React.FC<{
         >
           {cart.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full px-6 py-12">
-              <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                <ShoppingCart className="h-10 w-10 text-gray-400 dark:text-gray-500" />
+              <div className="w-20 h-20 rounded-full bg-surface-overlay flex items-center justify-center mb-4">
+                <ShoppingCart className="h-10 w-10 text-content-muted" />
               </div>
-              <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              <p className="text-lg font-medium text-content-primary mb-2">
                 Carrinho vazio
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-xs">
+              <p className="text-sm text-content-muted text-center max-w-xs">
                 Adicione produtos ao carrinho para começar suas compras
               </p>
             </div>
@@ -1660,7 +1652,7 @@ const CartSidebar: React.FC<{
               {cart.map((item, index) => (
                 <div
                   key={index}
-                  className="group backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all border border-white/20 dark:border-gray-700/30 shadow-sm hover:shadow-md"
+                  className="group backdrop-blur-md bg-surface-raised/60 dark:bg-white/[0.06] rounded-xl p-4 hover:bg-white/80 dark:hover:bg-white/[0.09] transition-all border border-border-default/20 dark:border-white/[0.05] shadow-sm hover:shadow-md"
                 >
                   <div className="flex gap-4">
                     {/* Imagem */}
@@ -1672,19 +1664,19 @@ const CartSidebar: React.FC<{
                           className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg"
                         />
                       ) : (
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                          <Package className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-surface-overlay dark:bg-white/[0.1] rounded-lg flex items-center justify-center">
+                          <Package className="h-8 w-8 text-content-muted" />
                         </div>
                       )}
                     </div>
 
                     {/* Informações */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base line-clamp-2 mb-1">
+                      <h3 className="font-semibold text-content-primary text-sm sm:text-base line-clamp-2 mb-1">
                         {item.productName}
                       </h3>
                       {item.variantName && (
-                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        <p className="text-xs sm:text-sm text-content-muted mb-2">
                           {item.variantName}
                         </p>
                       )}
@@ -1694,20 +1686,20 @@ const CartSidebar: React.FC<{
 
                       {/* Controles de quantidade */}
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2 bg-surface-raised rounded-lg border border-border-default">
                           <button
                             onClick={() => onUpdateQuantity(item.productId, item.variantId, -1)}
-                            className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 rounded-l-lg transition-colors"
+                            className="p-1.5 sm:p-2 text-content-muted hover:text-gray-900 dark:hover:text-white hover:bg-surface-overlay rounded-l-lg transition-colors"
                             aria-label="Diminuir quantidade"
                           >
                             <Minus className="h-4 w-4" />
                           </button>
-                          <span className="w-8 sm:w-10 text-center font-semibold text-gray-900 dark:text-white text-sm sm:text-base">
+                          <span className="w-8 sm:w-10 text-center font-semibold text-content-primary text-sm sm:text-base">
                             {item.quantity}
                           </span>
                           <button
                             onClick={() => onUpdateQuantity(item.productId, item.variantId, 1)}
-                            className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 rounded-r-lg transition-colors"
+                            className="p-1.5 sm:p-2 text-content-muted hover:text-gray-900 dark:hover:text-white hover:bg-surface-overlay rounded-r-lg transition-colors"
                             aria-label="Aumentar quantidade"
                           >
                             <Plus className="h-4 w-4" />
@@ -1732,14 +1724,14 @@ const CartSidebar: React.FC<{
         {/* Footer com total e botão - Sempre fixo na parte inferior */}
         {cart.length > 0 && (
           <div
-            className="border-t border-white/20 dark:border-gray-700/50 backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 p-5 sm:p-6 space-y-4 flex-shrink-0"
+            className="border-t border-border-default/30 dark:border-white/[0.07] backdrop-blur-xl bg-surface-raised/[0.97] dark:bg-surface-raised/[0.96] p-5 sm:p-6 space-y-4 flex-shrink-0"
             style={isMobile ? {
               paddingBottom: `max(1.5rem, calc(env(safe-area-inset-bottom) + 1.5rem))`,
               boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'
             } : {}}
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold text-gray-900 dark:text-white">
+              <span className="text-lg font-semibold text-content-primary">
                 Total
               </span>
               <span className="text-2xl font-bold bg-gradient-to-r from-green-500 to-green-600 bg-clip-text text-transparent">
@@ -1830,11 +1822,11 @@ const CompleteProfileModal: React.FC<{
 
   return (
     <div className="fixed inset-0 min-h-screen min-w-full modal-overlay z-50 flex items-center justify-center p-4 animate-fadeIn">
-      <div className="backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 rounded-2xl max-w-md w-full shadow-2xl border border-white/20 dark:border-gray-700/50 animate-scaleIn">
+      <div className="backdrop-blur-xl bg-surface-raised/[0.97] dark:bg-surface-raised/[0.96] rounded-2xl max-w-md w-full shadow-2xl border border-border-default/30 dark:border-white/[0.07] animate-scaleIn">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Completar Perfil</h2>
-            <button onClick={onClose} className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-800/60 backdrop-blur-md transition-all">
+            <h2 className="text-xl font-bold text-content-primary">Completar Perfil</h2>
+            <button onClick={onClose} className="p-2 rounded-xl text-content-muted hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-800/60 backdrop-blur-md transition-all">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -1847,33 +1839,33 @@ const CompleteProfileModal: React.FC<{
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+              <label className="block text-sm font-semibold text-content-primary mb-2">
                 Nome
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2.5 border-2 border-white/20 dark:border-gray-700/50 rounded-xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-md text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-green-500/50 dark:focus:ring-green-400/50 focus:border-green-500/50 dark:focus:border-green-400/50 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 border-2 border-border-default/30 dark:border-white/[0.07] rounded-xl bg-surface-raised/60 dark:bg-white/[0.06] backdrop-blur-md text-content-primary placeholder-content-muted focus:ring-2 focus:ring-green-500/50 dark:focus:ring-green-400/50 focus:border-green-500/50 dark:focus:border-green-400/50 transition-all shadow-sm"
                 placeholder="Seu nome completo"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+              <label className="block text-sm font-semibold text-content-primary mb-2">
                 Telefone/WhatsApp <span className="text-red-500">*</span>
               </label>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 border-2 border-white/20 dark:border-gray-700/50 rounded-xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-md text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-green-500/50 dark:focus:ring-green-400/50 focus:border-green-500/50 dark:focus:border-green-400/50 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 border-2 border-border-default/30 dark:border-white/[0.07] rounded-xl bg-surface-raised/60 dark:bg-white/[0.06] backdrop-blur-md text-content-primary placeholder-content-muted focus:ring-2 focus:ring-green-500/50 dark:focus:ring-green-400/50 focus:border-green-500/50 dark:focus:border-green-400/50 transition-all shadow-sm"
                 placeholder="+258 84 123 4567"
                 required
                 pattern="[+]?[\d\s()\-]{8,}"
                 minLength={8}
               />
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-xs text-content-muted mt-1">
                 Nossa equipe precisa entrar em contato com você para confirmar o pedido
               </p>
             </div>
@@ -1882,7 +1874,7 @@ const CompleteProfileModal: React.FC<{
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-surface-overlay dark:bg-white/[0.1] text-content-primary font-medium hover:bg-gray-300 dark:hover:bg-surface-overlay transition-all"
               >
                 Cancelar
               </button>
@@ -1945,11 +1937,11 @@ const CheckoutModal: React.FC<{
 
   return (
     <div className="fixed inset-0 min-h-screen min-w-full modal-overlay z-50 flex items-center justify-center p-4 animate-fadeIn">
-      <div className="backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20 dark:border-gray-700/50 animate-scaleIn">
+      <div className="backdrop-blur-xl bg-surface-raised/[0.97] dark:bg-surface-raised/[0.96] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border-default/30 dark:border-white/[0.07] animate-scaleIn">
         <div className="p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Finalizar Pedido</h2>
-            <button onClick={onClose} className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-800/60 backdrop-blur-md transition-all">
+            <h2 className="text-xl sm:text-2xl font-bold text-content-primary">Finalizar Pedido</h2>
+            <button onClick={onClose} className="p-2 rounded-xl text-content-muted hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-800/60 backdrop-blur-md transition-all">
               <X className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
           </div>
@@ -1957,9 +1949,9 @@ const CheckoutModal: React.FC<{
           <div className="space-y-5 sm:space-y-6">
             {/* Informações de Contacto - Somente Leitura */}
             {currentUser && (
-              <div className="backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 sm:p-5 border border-white/20 dark:border-gray-700/50 shadow-sm">
+              <div className="backdrop-blur-md bg-surface-raised/60 dark:bg-white/[0.06] rounded-xl p-4 sm:p-5 border border-border-default/30 dark:border-white/[0.07] shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-white flex items-center">
+                  <h3 className="font-semibold text-base sm:text-lg text-content-primary flex items-center">
                     <User className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
                     Seus dados de contato
                   </h3>
@@ -1977,26 +1969,26 @@ const CheckoutModal: React.FC<{
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <label className="block text-xs font-medium text-content-muted mb-1">
                       Nome
                     </label>
-                    <div className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700/50 text-gray-900 dark:text-white">
+                    <div className="px-4 py-2.5 rounded-xl bg-surface-overlay/50 text-content-primary">
                       {currentUser.name || 'Não informado'}
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <label className="block text-xs font-medium text-content-muted mb-1">
                       Telefone/WhatsApp
                     </label>
-                    <div className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700/50 text-gray-900 dark:text-white">
+                    <div className="px-4 py-2.5 rounded-xl bg-surface-overlay/50 text-content-primary">
                       {currentUser.phone || 'Não informado'}
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <label className="block text-xs font-medium text-content-muted mb-1">
                       Email
                     </label>
-                    <div className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700/50 text-gray-900 dark:text-white">
+                    <div className="px-4 py-2.5 rounded-xl bg-surface-overlay/50 text-content-primary">
                       {currentUser.email || 'Néo informado'}
                     </div>
                   </div>
@@ -2005,20 +1997,20 @@ const CheckoutModal: React.FC<{
             )}
 
             {/* Opções de Entrega */}
-            <div className="backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 sm:p-5 border border-white/20 dark:border-gray-700/50 shadow-sm">
+            <div className="backdrop-blur-md bg-surface-raised/60 dark:bg-white/[0.06] rounded-xl p-4 sm:p-5 border border-border-default/30 dark:border-white/[0.07] shadow-sm">
               <label className="flex items-start space-x-3 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={deliveryInfo.isDelivery}
                   onChange={(e) => onUpdateDeliveryInfo({ ...deliveryInfo, isDelivery: e.target.checked })}
-                  className="mt-1 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500 dark:focus:ring-green-400"
+                  className="mt-1 rounded border-gray-300 dark:border-border-strong text-green-600 focus:ring-green-500 dark:focus:ring-green-400"
                 />
                 <div className="flex-1">
-                  <span className="font-semibold text-base text-gray-900 dark:text-white block flex items-center">
+                  <span className="font-semibold text-base text-content-primary block flex items-center">
                     <MapPin className="h-4 w-4 mr-2 text-green-600 dark:text-green-400" />
                     Preciso de entrega
                   </span>
-                  <span className="text-xs text-gray-600 dark:text-gray-400 mt-1 block">
+                  <span className="text-xs text-content-muted mt-1 block">
                     {deliveryInfo.deliveryFee > 0
                       ? `Taxa de entrega: ${deliveryInfo.deliveryFee.toFixed(2)} MT`
                       : 'Selecione a zona de entrega para ver o preço'
@@ -2027,10 +2019,10 @@ const CheckoutModal: React.FC<{
                 </div>
               </label>
               {deliveryInfo.isDelivery && (
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                <div className="mt-4 pt-4 border-t border-border-default space-y-4">
                   {/* Seletor de Zona */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                    <label className="block text-sm font-semibold text-content-primary mb-2">
                       Zona de Entrega <span className="text-red-500">*</span>
                     </label>
                     <DeliveryZoneSelector
@@ -2060,13 +2052,13 @@ const CheckoutModal: React.FC<{
 
                   {/* Campo de Endereço Texto */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                    <label className="block text-sm font-semibold text-content-primary mb-2">
                       Endereço de Entrega <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       value={deliveryInfo.address}
                       onChange={(e) => onUpdateDeliveryInfo({ ...deliveryInfo, address: e.target.value })}
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400 transition-colors resize-none"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 dark:border-border-strong rounded-lg bg-surface-raised text-content-primary placeholder-content-muted focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400 transition-colors resize-none"
                       rows={3}
                       placeholder="Digite o endereço completo (rua, bairro, cidade)..."
                       required={deliveryInfo.isDelivery}
@@ -2077,8 +2069,8 @@ const CheckoutModal: React.FC<{
             </div>
 
             {/* Cupão de Desconto */}
-            <div className="backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 sm:p-5 border border-white/20 dark:border-gray-700/50 shadow-sm">
-              <h3 className="font-semibold text-base text-gray-900 dark:text-white flex items-center mb-3">
+            <div className="backdrop-blur-md bg-surface-raised/60 dark:bg-white/[0.06] rounded-xl p-4 sm:p-5 border border-border-default/30 dark:border-white/[0.07] shadow-sm">
+              <h3 className="font-semibold text-base text-content-primary flex items-center mb-3">
                 <Tag className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
                 Cupão de Desconto
               </h3>
@@ -2103,7 +2095,7 @@ const CheckoutModal: React.FC<{
                       value={couponInput}
                       onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
                       onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
-                      className="flex-1 px-4 py-2.5 border-2 border-white/20 dark:border-gray-700/50 rounded-xl bg-white/60 dark:bg-gray-800/60 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all text-sm font-mono uppercase"
+                      className="flex-1 px-4 py-2.5 border-2 border-border-default/30 dark:border-white/[0.07] rounded-xl bg-surface-raised/60 dark:bg-white/[0.06] text-content-primary placeholder-content-muted focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all text-sm font-mono uppercase"
                       placeholder="CÓDIGO DO CUPÃO"
                     />
                     <button
@@ -2121,40 +2113,40 @@ const CheckoutModal: React.FC<{
             </div>
 
             {/* Resumo do Pedido */}
-            <div className="backdrop-blur-md bg-white/60 dark:bg-gray-800/60 rounded-xl p-4 sm:p-5 border border-white/20 dark:border-gray-700/50 shadow-sm">
-              <h3 className="font-semibold text-base sm:text-lg mb-4 text-gray-900 dark:text-white flex items-center">
+            <div className="backdrop-blur-md bg-surface-raised/60 dark:bg-white/[0.06] rounded-xl p-4 sm:p-5 border border-border-default/30 dark:border-white/[0.07] shadow-sm">
+              <h3 className="font-semibold text-base sm:text-lg mb-4 text-content-primary flex items-center">
                 <ShoppingCart className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
                 Resumo do Pedido
               </h3>
               <div className="space-y-3 mb-4">
                 {cart.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                  <div key={index} className="flex justify-between items-center py-2 border-b border-border-default last:border-0">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      <p className="text-sm font-medium text-content-primary">
                         {item.productName} {item.variantName && `- ${item.variantName}`}
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                      <p className="text-xs text-content-muted">
                         Quantidade: {item.quantity} {item.unit}
                       </p>
                     </div>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white ml-4">
+                    <span className="text-sm font-semibold text-content-primary ml-4">
                       {(item.price * item.quantity).toFixed(2)} MT
                     </span>
                   </div>
                 ))}
               </div>
               {deliveryInfo.isDelivery && deliveryInfo.deliveryFee > 0 && (
-                <div className="flex justify-between items-center py-2 border-t border-gray-200 dark:border-gray-700 mb-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                <div className="flex justify-between items-center py-2 border-t border-border-default mb-2">
+                  <span className="text-sm text-content-secondary">
                     Taxa de Entrega {deliveryInfo.deliveryZoneName && `(${deliveryInfo.deliveryZoneName})`}
                   </span>
-                  <span className={`text-sm font-medium ${appliedCoupon?.type === 'free_shipping' ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+                  <span className={`text-sm font-medium ${appliedCoupon?.type === 'free_shipping' ? 'line-through text-content-muted' : 'text-content-primary'}`}>
                     {deliveryInfo.deliveryFee.toFixed(2)} MT
                   </span>
                 </div>
               )}
               {appliedCoupon && appliedCoupon.discountAmount > 0 && (
-                <div className="flex justify-between items-center py-2 border-t border-gray-200 dark:border-gray-700 mb-2">
+                <div className="flex justify-between items-center py-2 border-t border-border-default mb-2">
                   <span className="text-sm text-green-600 dark:text-green-400">
                     Desconto ({appliedCoupon.code})
                   </span>
@@ -2163,8 +2155,8 @@ const CheckoutModal: React.FC<{
                   </span>
                 </div>
               )}
-              <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300 dark:border-gray-600">
-                <span className="text-lg font-bold text-gray-900 dark:text-white">Total</span>
+              <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300 dark:border-border-strong">
+                <span className="text-lg font-bold text-content-primary">Total</span>
                 <span className="text-xl font-bold text-green-600 dark:text-green-400">
                   {displayTotal.toFixed(2)} MT
                 </span>
@@ -2180,7 +2172,7 @@ const CheckoutModal: React.FC<{
               </button>
               <button
                 onClick={onClose}
-                className="flex-1 backdrop-blur-md bg-white/60 dark:bg-gray-800/60 border border-white/20 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all shadow-sm"
+                className="flex-1 backdrop-blur-md bg-surface-raised/60 dark:bg-white/[0.06] border border-border-default/30 dark:border-white/[0.07] text-content-secondary py-3 rounded-xl font-medium hover:bg-white/80 dark:hover:bg-white/[0.09] transition-all shadow-sm"
               >
                 Cancelar
               </button>
@@ -2208,7 +2200,7 @@ const CategorySidebar: React.FC<{
   return (
     <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-120px)] overflow-y-auto pr-4 custom-scrollbar self-start">
       <div className="space-y-2">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+        <h2 className="text-lg font-bold text-content-primary mb-6 flex items-center gap-2">
           <Filter className="h-5 w-5 text-green-600 dark:text-green-400" />
           Categorias
         </h2>
@@ -2217,11 +2209,11 @@ const CategorySidebar: React.FC<{
           onClick={() => onSelectCategory('all')}
           className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium transition-all duration-200 group ${selectedCategory === 'all'
             ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-500/20'
-            : 'text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80 hover:pl-5'
+            : 'text-content-secondary hover:bg-white/80 dark:hover:bg-white/[0.09] hover:pl-5'
             }`}
         >
           <div className="flex items-center gap-3">
-            <div className={`p-1.5 rounded-lg transition-colors ${selectedCategory === 'all' ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800/50 group-hover:bg-green-100 dark:group-hover:bg-green-900/30'
+            <div className={`p-1.5 rounded-lg transition-colors ${selectedCategory === 'all' ? 'bg-white/20' : 'bg-surface-overlay/50 group-hover:bg-green-100 dark:group-hover:bg-green-900/30'
               }`}>
               <Package className="h-4 w-4" />
             </div>
@@ -2236,11 +2228,11 @@ const CategorySidebar: React.FC<{
             onClick={() => onSelectCategory(category)}
             className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl font-medium transition-all duration-200 group ${selectedCategory === category
               ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-500/20'
-              : 'text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80 hover:pl-5'
+              : 'text-content-secondary hover:bg-white/80 dark:hover:bg-white/[0.09] hover:pl-5'
               }`}
           >
             <div className="flex items-center gap-3">
-              <div className={`p-1.5 rounded-lg transition-colors ${selectedCategory === category ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800/50 group-hover:bg-green-100 dark:group-hover:bg-green-900/30'
+              <div className={`p-1.5 rounded-lg transition-colors ${selectedCategory === category ? 'bg-white/20' : 'bg-surface-overlay/50 group-hover:bg-green-100 dark:group-hover:bg-green-900/30'
                 }`}>
                 <Filter className="h-4 w-4" />
               </div>

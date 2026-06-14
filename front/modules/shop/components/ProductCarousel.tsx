@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product, ProductVariant } from '../../core/types/types';
 import { ProductCard } from '../../products/components/ui/ProductCard';
@@ -105,7 +105,7 @@ export const ProductCarousel: React.FC<{
               onClick={() => goTo(current - 1)}
               disabled={current === 0}
               aria-label="Anterior"
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-200 dark:border-gray-600 shadow-md flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 disabled:opacity-0 disabled:pointer-events-none transition-all duration-200 z-10"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-surface-raised/80 dark:bg-surface-raised/80 backdrop-blur-sm rounded-full border border-border-default shadow-md flex items-center justify-center text-content-secondary hover:bg-surface-raised disabled:opacity-0 disabled:pointer-events-none transition-all duration-200 z-10"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -113,7 +113,7 @@ export const ProductCarousel: React.FC<{
               onClick={() => goTo(current + 1)}
               disabled={current >= maxIndex}
               aria-label="Próximo"
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-200 dark:border-gray-600 shadow-md flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 disabled:opacity-0 disabled:pointer-events-none transition-all duration-200 z-10"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-surface-raised/80 dark:bg-surface-raised/80 backdrop-blur-sm rounded-full border border-border-default shadow-md flex items-center justify-center text-content-secondary hover:bg-surface-raised disabled:opacity-0 disabled:pointer-events-none transition-all duration-200 z-10"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -131,7 +131,7 @@ export const ProductCarousel: React.FC<{
               className={`rounded-full transition-all duration-300 ${
                 i === current
                   ? 'w-5 h-2'
-                  : 'w-2 h-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
+                  : 'w-2 h-2 bg-border-strong dark:bg-white/[0.18] hover:bg-gray-400'
               }`}
               style={i === current ? { background: 'var(--brand-600)' } : undefined}
             />

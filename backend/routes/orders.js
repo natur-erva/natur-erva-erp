@@ -282,6 +282,33 @@ router.post('/', optionalAuth, async (req, res) => {
       orderNumber = String(max + 1);
     }
 
+    // Validar stock disponível para cada item
+    for (const item of (order.items || [])) {
+      if (!item.productId) continue;
+      const qty = Number(item.quantity) || 1;
+      if (item.variantId) {
+        const { rows: vRows } = await client.query(
+          'SELECT stock FROM product_variants WHERE id = $1', [item.variantId]
+        );
+        if (vRows.length && Number(vRows[0].stock) < qty) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error: `Produto "${item.productName || 'desconhecido'}" sem stock suficiente. Disponível: ${vRows[0].stock}`
+          });
+        }
+      } else {
+        const { rows: pRows } = await client.query(
+          'SELECT stock FROM products WHERE id = $1', [item.productId]
+        );
+        if (pRows.length && Number(pRows[0].stock) < qty) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error: `Produto "${item.productName || 'desconhecido'}" sem stock suficiente. Disponível: ${pRows[0].stock}`
+          });
+        }
+      }
+    }
+
     // Validar e aplicar cupão se fornecido
     let couponCode = order.couponCode || null;
     let discountAmount = order.discountAmount || 0;
@@ -344,6 +371,30 @@ router.post('/', optionalAuth, async (req, res) => {
         couponCode, discountAmount
       ]
     );
+
+    // Deduzir stock após criação da ordem
+    for (const item of (order.items || [])) {
+      if (!item.productId) continue;
+      const qty = Number(item.quantity) || 1;
+      if (item.variantId) {
+        await client.query(
+          'UPDATE product_variants SET stock = GREATEST(0, stock - $1) WHERE id = $2',
+          [qty, item.variantId]
+        ).catch(() => {});
+        // Sincronizar stock do produto pai (soma das variantes)
+        await client.query(
+          `UPDATE products SET stock = (
+            SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = products.id
+          ) WHERE id = $1`,
+          [item.productId]
+        ).catch(() => {});
+      } else {
+        await client.query(
+          'UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id = $2',
+          [qty, item.productId]
+        ).catch(() => {});
+      }
+    }
 
     // Auto-definir data estimada de entrega se não fornecida
     if (!order.estimatedDeliveryDate) {
@@ -465,6 +516,31 @@ router.put('/:id', authMiddleware, async (req, res) => {
     values.push(req.params.id);
 
     await pool.query(`UPDATE orders SET ${fields.join(', ')} WHERE id = $${i}`, values);
+
+    // Devolver stock quando cancelado
+    if (updates.status === 'cancelled') {
+      const { rows: oRows } = await pool.query('SELECT items FROM orders WHERE id = $1', [req.params.id]);
+      if (oRows.length) {
+        const items = Array.isArray(oRows[0].items) ? oRows[0].items : JSON.parse(oRows[0].items || '[]');
+        for (const item of items) {
+          if (!item.productId) continue;
+          const qty = Number(item.quantity) || 1;
+          if (item.variantId) {
+            await pool.query(
+              'UPDATE product_variants SET stock = stock + $1 WHERE id = $2', [qty, item.variantId]
+            ).catch(() => {});
+            await pool.query(
+              `UPDATE products SET stock = (SELECT COALESCE(SUM(stock),0) FROM product_variants WHERE product_id=products.id) WHERE id=$1`,
+              [item.productId]
+            ).catch(() => {});
+          } else {
+            await pool.query(
+              'UPDATE products SET stock = stock + $1 WHERE id = $2', [qty, item.productId]
+            ).catch(() => {});
+          }
+        }
+      }
+    }
 
     // Notificações de atualização de status (best-effort)
     const notifyEmail   = updates.notifyEmail   !== false; // default: true

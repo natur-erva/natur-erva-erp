@@ -1,6 +1,7 @@
 /**
  * Chart theme presets for Recharts (grid, axes, tooltip) and bar/line colors.
- * Aligned with CSS variables in index.html; use getChartTheme() for current theme.
+ * getChartTheme() reads CSS variables live from the document so it always
+ * matches the current light/dark token set without hardcoding colours.
  */
 
 export type ChartThemeId = 'light' | 'dark';
@@ -9,7 +10,7 @@ export interface ChartThemeConfig {
   grid: { stroke: string; strokeOpacity: number };
   tick: { fill: string };
   tooltip: {
-    contentStyle: { backgroundColor: string; color: string; border: string; borderRadius: string };
+    contentStyle: { backgroundColor: string; color: string; border: string; borderRadius: string; boxShadow?: string };
     cursor: { fill: string };
     labelStyle?: { color: string };
   };
@@ -19,74 +20,88 @@ export interface ChartThemeConfig {
     lineChart: string;
     lineChartDot: string;
   };
-  /** Per-tier colors for loyalty chart (Bronze, Prata, Ouro, etc.) */
   tierColors: Record<string, string>;
 }
 
-const lightTheme: ChartThemeConfig = {
-  grid: { stroke: '#e5e7eb', strokeOpacity: 0.6 },
-  tick: { fill: '#6b7280' },
-  tooltip: {
-    contentStyle: {
-      backgroundColor: '#1f2937',
-      color: '#f9fafb',
-      border: 'none',
-      borderRadius: '8px',
-    },
-    cursor: { fill: 'rgba(0,0,0,0.06)' },
-    labelStyle: { color: '#9ca3af' },
-  },
-  colors: {
-    ordersBar: '#10b981',
-    salesBar: '#2563eb',
-    lineChart: '#059669',
-    lineChartDot: '#059669',
-  },
-  tierColors: {
-    Bronze: '#b45309',
-    Prata: '#6b7280',
-    Ouro: '#d97706',
-    default: '#8b5cf6',
-  },
+const lightTierColors: Record<string, string> = {
+  Bronze: '#b45309',
+  Prata:  '#6b7280',
+  Ouro:   '#d97706',
+  default: '#635BFF',
 };
 
-const darkTheme: ChartThemeConfig = {
-  grid: { stroke: '#4b5563', strokeOpacity: 0.4 },
-  tick: { fill: '#9ca3af' },
-  tooltip: {
-    contentStyle: {
-      backgroundColor: '#374151',
-      color: '#f9fafb',
-      border: 'none',
-      borderRadius: '8px',
-    },
-    cursor: { fill: 'rgba(255,255,255,0.05)' },
-    labelStyle: { color: '#9ca3af' },
-  },
-  colors: {
-    ordersBar: '#34d399',
-    salesBar: '#60a5fa',
-    lineChart: '#34d399',
-    lineChartDot: '#34d399',
-  },
-  tierColors: {
-    Bronze: '#f59e0b',
-    Prata: '#9ca3af',
-    Ouro: '#fbbf24',
-    default: '#a78bfa',
-  },
+const darkTierColors: Record<string, string> = {
+  Bronze: '#f59e0b',
+  Prata:  '#9ca3af',
+  Ouro:   '#fbbf24',
+  default: '#818cf8',
 };
 
-export const chartThemes: Record<ChartThemeId, ChartThemeConfig> = {
-  light: lightTheme,
-  dark: darkTheme,
-};
-
-/** Returns current chart theme based on document.documentElement classList 'dark'. */
+/** Returns current chart theme by reading live CSS custom properties. */
 export function getChartTheme(): ChartThemeConfig {
-  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-  return isDark ? darkTheme : lightTheme;
+  const isDark =
+    typeof document !== 'undefined' &&
+    document.documentElement.classList.contains('dark');
+
+  if (typeof document === 'undefined') {
+    // SSR fallback
+    return buildTheme(false, {});
+  }
+
+  const style = getComputedStyle(document.documentElement);
+  const get = (v: string) => style.getPropertyValue(v).trim();
+
+  return buildTheme(isDark, { get });
 }
+
+function buildTheme(
+  isDark: boolean,
+  { get }: { get?: (v: string) => string }
+): ChartThemeConfig {
+  const css = get ?? (() => '');
+
+  const gridColor    = css('--chart-grid')         || (isDark ? '#38383a' : '#D4DEE9');
+  const tickColor    = css('--chart-tick')         || (isDark ? '#8d8d92' : '#697386');
+  const tooltipBg    = css('--chart-tooltip-bg')   || (isDark ? '#2c2c2e' : '#1d1d1f');
+  const tooltipText  = css('--chart-tooltip-text') || (isDark ? '#f5f5f7' : '#f5f5f7');
+
+  return {
+    grid: {
+      stroke: gridColor,
+      strokeOpacity: isDark ? 0.5 : 0.55,
+    },
+    tick: { fill: tickColor },
+    tooltip: {
+      contentStyle: {
+        backgroundColor: tooltipBg,
+        color: tooltipText,
+        border: isDark ? '1px solid rgba(255,255,255,0.08)' : 'none',
+        borderRadius: '10px',
+        boxShadow: isDark
+          ? '0 8px 24px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)'
+          : '0 4px 16px rgba(0,0,0,0.18)',
+      },
+      cursor: {
+        fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+      },
+      labelStyle: {
+        color: isDark ? '#8d8d92' : '#9ca3af',
+      },
+    },
+    colors: {
+      ordersBar:    isDark ? '#34d399' : '#10b981',
+      salesBar:     isDark ? '#818cf8' : '#635BFF',
+      lineChart:    isDark ? '#818cf8' : '#635BFF',
+      lineChartDot: isDark ? '#818cf8' : '#635BFF',
+    },
+    tierColors: isDark ? darkTierColors : lightTierColors,
+  };
+}
+
+export const chartThemes = {
+  light: buildTheme(false, {}),
+  dark:  buildTheme(true,  {}),
+};
 
 /** Get fill color for tier bar by tier name (Bronze, Prata, Ouro, etc.). */
 export function getTierBarColor(tierName: string): string {

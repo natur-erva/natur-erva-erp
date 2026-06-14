@@ -67,6 +67,12 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'cotacoes': '/admin/cotacoes',
   // Finanças / IVA
   'financas': '/admin/financas',
+  // Faturas
+  'invoices': '/admin/faturas',
+  // Fluxo de compras completo
+  'purchase-flow': '/admin/compras-flow',
+  // KPI Analytics
+  'kpis': '/admin/kpis',
   // Perfil
   'profile': '/admin/perfis'
 };

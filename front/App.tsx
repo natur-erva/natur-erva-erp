@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation as useRouterLocation } from 'react-router-dom';
 import { dataService } from './modules/core/services/dataService';
-import { applyTheme, applyFontFamily, applyBorderRadius } from './modules/core/utils/theme';
+import { applyTheme, applyFontFamily, applyBorderRadius, applyThemePreset, applyDarkModeVars, removeDarkModeVars } from './modules/core/utils/theme';
 import { type User, Order, OrderStatus, Product, Customer, Sale, Purchase, PurchaseRequest, Supplier, UserRole, ProductVariant } from './modules/core/types/types';
 
 // Core Imports
@@ -45,6 +45,9 @@ const CaixaPage = lazy(() => import('./modules/sales/pages/CaixaPage').then(m =>
 const QuotesPage = lazy(() => import('./modules/sales/pages/QuotesPage').then(m => ({ default: m.QuotesPage })));
 const RemoteScannerPage = lazy(() => import('./modules/sales/pages/RemoteScannerPage').then(m => ({ default: m.RemoteScannerPage })));
 const Financas = lazy(() => import('./modules/admin/pages/Financas').then(m => ({ default: m.Financas })));
+const InvoicesPage = lazy(() => import('./modules/admin/pages/InvoicesPage').then(m => ({ default: m.InvoicesPage })));
+const PurchaseFlowPage = lazy(() => import('./modules/admin/pages/PurchaseFlowPage').then(m => ({ default: m.PurchaseFlowPage })));
+const KPIPage = lazy(() => import('./modules/admin/pages/KPIPage').then(m => ({ default: m.KPIPage })));
 const Shop = lazy(() => import('./modules/shop/pages/Shop').then(m => ({ default: m.Shop })));
 const ProductLandingPage = lazy(() => import('./modules/shop/pages/ProductLandingPage').then(m => ({ default: m.ProductLandingPage })));
 const UserManagement = lazy(() => import('./modules/admin/pages/UserManagement').then(m => ({ default: m.UserManagement })));
@@ -160,6 +163,7 @@ const App = () => {
     setIsShopMode
   } = useAppAuth();
   const [darkMode, setDarkMode] = useState(true); // Default to Dark Mode
+  const location = useRouterLocation();
 
   // Version Check
   const { hasUpdate, updateApp } = useVersionCheck();
@@ -181,17 +185,35 @@ const App = () => {
     if (ref) localStorage.setItem('affiliate_ref', ref);
   }, []);
 
-  // Initialize Dark Mode
+  // Initialize dark mode state from localStorage on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    const isDark = savedTheme === 'dark' || (!savedTheme && true); // Default to true if not set
+    const isDark = savedTheme === 'dark';
     setDarkMode(isDark);
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
   }, []);
+
+  // Sync darkMode state with localStorage on every route change.
+  // This picks up changes made by the shop's own dark mode toggle.
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme !== null) {
+      const isDark = savedTheme === 'dark';
+      if (isDark !== darkMode) setDarkMode(isDark);
+    }
+  // Only re-sync when the route changes — not on every darkMode change (that would loop)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  // Apply dark class + CSS vars globally based on darkMode state.
+  // Uses applyDarkModeVars / removeDarkModeVars so dark vars override
+  // the light-mode inline styles set by applyThemePreset.
+  useEffect(() => {
+    if (darkMode) {
+      applyDarkModeVars();
+    } else {
+      removeDarkModeVars();
+    }
+  }, [location.pathname, darkMode]);
 
   // Load system settings on mount - executar o mais cedo possé­vel
   useEffect(() => {
@@ -205,15 +227,15 @@ const App = () => {
         if (settings.system_name) {
           updatePageTitle(settings.system_name);
         }
-        if (settings.primary_color) {
-          applyTheme(settings.primary_color);
-        }
-        if (settings.theme_font) {
-          applyFontFamily(settings.theme_font);
-        }
-        if (settings.theme_radius) {
-          applyBorderRadius(settings.theme_radius);
-        }
+        const preset = settings.theme_preset || 'stripe';
+        const color = settings.primary_color || undefined;
+        applyThemePreset(preset, color);
+        // Individual overrides take precedence over preset defaults:
+        if (settings.theme_font)   applyFontFamily(settings.theme_font);
+        if (settings.theme_radius) applyBorderRadius(settings.theme_radius);
+        // applyThemePreset sets light vars as inline styles. If dark mode is already
+        // active those dark vars must be re-applied on top to win the cascade.
+        if (localStorage.getItem('theme') === 'dark') applyDarkModeVars();
       } catch (error) {
         console.warn('Erro ao carregar configurações do sistema:', error);
       }
@@ -229,11 +251,9 @@ const App = () => {
     const newMode = !darkMode;
     setDarkMode(newMode);
     localStorage.setItem('theme', newMode ? 'dark' : 'light');
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    // Apply immediately everywhere — don't wait for the effect to prevent flash
+    if (newMode) applyDarkModeVars();
+    else removeDarkModeVars();
   };
 
 
@@ -272,9 +292,12 @@ const App = () => {
       // Re-apply theme after login: invalidate cache so we get fresh settings with auth
       invalidateLogoCache();
       getSystemSettings().then(settings => {
-        if (settings.primary_color) applyTheme(settings.primary_color);
-        if (settings.theme_font)    applyFontFamily(settings.theme_font);
-        if (settings.theme_radius)  applyBorderRadius(settings.theme_radius);
+        const preset = settings.theme_preset || 'stripe';
+        const color = settings.primary_color || undefined;
+        applyThemePreset(preset, color);
+        // Individual overrides take precedence over preset defaults:
+        if (settings.theme_font)   applyFontFamily(settings.theme_font);
+        if (settings.theme_radius) applyBorderRadius(settings.theme_radius);
       }).catch(() => {});
     }
   }, [currentUser, loadData]);
@@ -326,7 +349,7 @@ const App = () => {
 
   if (isAuthLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-surface-base">
         <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
       </div>
     );
@@ -552,6 +575,27 @@ const App = () => {
                 <ProtectedRoute user={currentUser} permission="users.view">
                   <TrackedPage pagePath="/admin/financas" pageTitle="Finanças / IVA">
                     <Financas showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="faturas" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/faturas" pageTitle="Faturas">
+                    <InvoicesPage showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="compras-flow" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/compras-flow" pageTitle="Fluxo de Compras">
+                    <PurchaseFlowPage showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="kpis" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/kpis" pageTitle="KPIs">
+                    <KPIPage showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />

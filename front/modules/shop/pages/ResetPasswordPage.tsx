@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Lock, Eye, EyeOff, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { authService } from '../../auth/services/authService';
@@ -48,8 +48,8 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700">
+    <div className="min-h-screen bg-surface-base flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-surface-raised rounded-2xl shadow-xl p-8 border border-border-default">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <Logo className="h-8" isDarkMode={document.documentElement.classList.contains('dark')} />
@@ -59,16 +59,16 @@ export const ResetPasswordPage: React.FC = () => {
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-8 h-8 text-green-600" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Senha Redefinida!</h1>
-              <p className="text-gray-500 dark:text-gray-400">A sua senha foi alterada com sucesso. A redirecionar...</p>
+              <h1 className="text-2xl font-bold text-content-primary mb-2">Senha Redefinida!</h1>
+              <p className="text-content-muted">A sua senha foi alterada com sucesso. A redirecionar...</p>
             </div>
           ) : (
             <>
               <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Lock className="w-7 h-7 text-green-600" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Nova Senha</h1>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Escolha uma senha forte para a sua conta</p>
+              <h1 className="text-2xl font-bold text-content-primary mb-1">Nova Senha</h1>
+              <p className="text-content-muted text-sm">Escolha uma senha forte para a sua conta</p>
             </>
           )}
         </div>
@@ -82,18 +82,18 @@ export const ResetPasswordPage: React.FC = () => {
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nova Senha</label>
+              <label className="block text-sm font-medium text-content-secondary mb-1">Nova Senha</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" />
                 <input
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 outline-none text-sm"
+                  className="w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-border-strong rounded-lg bg-surface-raised text-content-primary focus:ring-2 focus:ring-green-500 outline-none text-sm"
                   placeholder="Mínimo 8 caracteres"
                   required
                 />
-                <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted">
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -101,7 +101,7 @@ export const ResetPasswordPage: React.FC = () => {
                 <div className="mt-2">
                   <div className="flex gap-1 mb-1">
                     {[1,2,3].map(i => (
-                      <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${s >= i ? BAR_COLOR[s] : 'bg-gray-200 dark:bg-gray-700'}`} />
+                      <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${s >= i ? BAR_COLOR[s] : 'bg-surface-overlay dark:bg-white/[0.1]'}`} />
                     ))}
                   </div>
                   <p className="text-xs text-gray-500">{BAR_LABEL[s]}</p>
@@ -109,14 +109,14 @@ export const ResetPasswordPage: React.FC = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmar Senha</label>
+              <label className="block text-sm font-medium text-content-secondary mb-1">Confirmar Senha</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" />
                 <input
                   type={showPw ? 'text' : 'password'}
                   value={confirm}
                   onChange={e => setConfirm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 outline-none text-sm"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-border-strong rounded-lg bg-surface-raised text-content-primary focus:ring-2 focus:ring-green-500 outline-none text-sm"
                   placeholder="Repita a nova senha"
                   required
                 />

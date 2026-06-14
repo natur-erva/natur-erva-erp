@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Calendar, Eye, Tag, ArrowLeft, Loader2, MessageCircle, Send, User, Trash2 } from 'lucide-react';
 import api from '../../core/services/apiClient';
@@ -89,22 +89,22 @@ export const BlogPostPage: React.FC<BlogPostPageProps> = ({ currentUser }) => {
   const initials = (name: string) => name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
   if (loading) return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="flex justify-center items-center min-h-screen bg-surface-base">
       <Loader2 className="w-8 h-8 animate-spin text-green-600" />
     </div>
   );
 
   if (notFound || !post) return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+    <div className="min-h-screen bg-surface-base flex items-center justify-center">
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Artigo não encontrado</h1>
+        <h1 className="text-2xl font-bold text-content-primary mb-2">Artigo não encontrado</h1>
         <Link to="/blog" className="text-green-600 hover:underline">← Voltar ao Blog</Link>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-surface-base">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <Link to="/blog" className="inline-flex items-center gap-2 text-green-600 hover:underline text-sm mb-8">
           <ArrowLeft className="w-4 h-4" /> Voltar ao Blog
@@ -114,10 +114,10 @@ export const BlogPostPage: React.FC<BlogPostPageProps> = ({ currentUser }) => {
           <img src={post.coverImage} alt={post.title} className="w-full h-64 md:h-80 object-cover rounded-2xl mb-8 shadow-md" />
         )}
 
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4 leading-tight">{post.title}</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-content-primary mb-4 leading-tight">{post.title}</h1>
 
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-6">
-          {post.authorName && <span>por <strong className="text-gray-700 dark:text-gray-300">{post.authorName}</strong></span>}
+        <div className="flex flex-wrap items-center gap-4 text-sm text-content-muted mb-6">
+          {post.authorName && <span>por <strong className="text-content-secondary">{post.authorName}</strong></span>}
           <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{fmtDate(post.publishedAt || post.createdAt)}</span>
           <span className="flex items-center gap-1"><Eye className="w-4 h-4" />{post.views} leituras</span>
           <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{comments.length} comentários</span>
@@ -134,30 +134,30 @@ export const BlogPostPage: React.FC<BlogPostPageProps> = ({ currentUser }) => {
         )}
 
         {post.summary && (
-          <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed mb-8 pb-8 border-b border-gray-200 dark:border-gray-800 font-medium">
+          <p className="text-lg text-content-secondary leading-relaxed mb-8 pb-8 border-b border-border-default font-medium">
             {post.summary}
           </p>
         )}
 
         {post.content && (
           <div
-            className="prose prose-green dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed mb-16"
+            className="prose prose-green dark:prose-invert max-w-none text-content-secondary leading-relaxed mb-16"
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
         )}
 
         {/* ── COMENTÁRIOS ── */}
-        <div className="border-t border-gray-200 dark:border-gray-800 pt-10">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+        <div className="border-t border-border-default pt-10">
+          <h2 className="text-xl font-bold text-content-primary mb-6 flex items-center gap-2">
             <MessageCircle className="w-5 h-5 text-green-600" />
             {comments.length > 0 ? `${comments.length} Comentário${comments.length !== 1 ? 's' : ''}` : 'Comentários'}
           </h2>
 
           {/* Lista de comentários */}
           {commentsLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-content-muted" /></div>
           ) : comments.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">
+            <div className="text-center py-10 text-content-muted">
               <MessageCircle className="w-10 h-10 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Ainda não há comentários. Seja o primeiro!</p>
             </div>
@@ -173,11 +173,11 @@ export const BlogPostPage: React.FC<BlogPostPageProps> = ({ currentUser }) => {
                       <span className="text-xs font-bold text-green-700 dark:text-green-400">{initials(c.authorName)}</span>
                     )}
                   </div>
-                  <div className="flex-1 bg-white dark:bg-gray-900 rounded-2xl rounded-tl-sm px-4 py-3 border border-gray-100 dark:border-gray-800">
+                  <div className="flex-1 bg-surface-raised rounded-2xl rounded-tl-sm px-4 py-3 border border-border-default">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white">{c.authorName}</span>
+                      <span className="text-sm font-semibold text-content-primary">{c.authorName}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">{fmtTime(c.createdAt)}</span>
+                        <span className="text-xs text-content-muted">{fmtTime(c.createdAt)}</span>
                         {(isAdmin || currentUser?.id === c.userId) && (
                           <button
                             onClick={() => handleDelete(c.id)}
@@ -189,7 +189,7 @@ export const BlogPostPage: React.FC<BlogPostPageProps> = ({ currentUser }) => {
                         )}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{c.content}</p>
+                    <p className="text-sm text-content-secondary leading-relaxed whitespace-pre-wrap">{c.content}</p>
                   </div>
                 </div>
               ))}
@@ -197,8 +197,8 @@ export const BlogPostPage: React.FC<BlogPostPageProps> = ({ currentUser }) => {
           )}
 
           {/* Formulário de comentário */}
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <div className="bg-surface-raised rounded-2xl border border-border-default p-5">
+            <h3 className="font-semibold text-content-primary mb-4 flex items-center gap-2">
               <User className="w-4 h-4 text-green-600" />
               {currentUser ? `Comentar como ${currentUser.name}` : 'Deixar um comentário'}
             </h3>
@@ -208,21 +208,21 @@ export const BlogPostPage: React.FC<BlogPostPageProps> = ({ currentUser }) => {
               {!currentUser && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nome *</label>
+                    <label className="block text-xs font-medium text-content-muted mb-1">Nome *</label>
                     <input
                       value={form.authorName}
                       onChange={e => setForm(f => ({ ...f, authorName: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-3 py-2 rounded-xl border border-border-default bg-surface-overlay text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       placeholder="O seu nome"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Email <span className="text-gray-400 font-normal">(opcional)</span></label>
+                    <label className="block text-xs font-medium text-content-muted mb-1">Email <span className="text-content-muted font-normal">(opcional)</span></label>
                     <input
                       type="email"
                       value={form.authorEmail}
                       onChange={e => setForm(f => ({ ...f, authorEmail: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-3 py-2 rounded-xl border border-border-default bg-surface-overlay text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       placeholder="email@exemplo.com"
                     />
                   </div>
@@ -230,12 +230,12 @@ export const BlogPostPage: React.FC<BlogPostPageProps> = ({ currentUser }) => {
               )}
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Comentário *</label>
+                <label className="block text-xs font-medium text-content-muted mb-1">Comentário *</label>
                 <textarea
                   value={form.content}
                   onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                  className="w-full px-3 py-2 rounded-xl border border-border-default bg-surface-overlay text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
                   placeholder="Partilhe a sua opinião sobre este artigo..."
                 />
               </div>
@@ -245,7 +245,7 @@ export const BlogPostPage: React.FC<BlogPostPageProps> = ({ currentUser }) => {
               )}
 
               <div className="flex items-center justify-between">
-                <p className="text-xs text-gray-400">Os comentários são moderados antes de aparecerem.</p>
+                <p className="text-xs text-content-muted">Os comentários são moderados antes de aparecerem.</p>
                 <button
                   type="submit"
                   disabled={submitting || !form.content.trim()}

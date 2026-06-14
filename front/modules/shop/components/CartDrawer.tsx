@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, ShoppingCart, Plus, Minus, Package, ArrowRight } from 'lucide-react';
 import { useMobile } from '../../core/hooks/useMobile';
@@ -120,7 +120,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ open, onClose, onCartCou
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="p-2 rounded-lg text-content-muted hover:text-gray-600 dark:hover:text-gray-300 hover:bg-surface-overlay transition-colors"
             aria-label="Fechar carrinho"
           >
             <X className="h-5 w-5" />
@@ -131,11 +131,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ open, onClose, onCartCou
         <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' as any }}>
           {cart.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full px-6 py-16">
-              <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                <ShoppingCart className="h-10 w-10 text-gray-400 dark:text-gray-500" />
+              <div className="w-20 h-20 rounded-full bg-surface-overlay flex items-center justify-center mb-4">
+                <ShoppingCart className="h-10 w-10 text-content-muted" />
               </div>
-              <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">Carrinho vazio</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-xs">
+              <p className="text-lg font-medium text-content-primary mb-1">Carrinho vazio</p>
+              <p className="text-sm text-content-muted text-center max-w-xs">
                 Adicione produtos ao carrinho para começar as compras
               </p>
             </div>
@@ -155,8 +155,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ open, onClose, onCartCou
                         className="w-16 h-16 object-cover rounded-lg"
                       />
                     ) : (
-                      <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                        <Package className="h-8 w-8 text-gray-400" />
+                      <div className="w-16 h-16 bg-surface-overlay dark:bg-white/[0.1] rounded-lg flex items-center justify-center">
+                        <Package className="h-8 w-8 text-content-muted" />
                       </div>
                     )}
                   </div>
@@ -175,19 +175,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ open, onClose, onCartCou
 
                     {/* Quantidade + remover */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center bg-surface-raised rounded-lg border border-border-default">
                         <button
                           onClick={() => updateQuantity(item.productId, item.variantId, -1)}
-                          className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 rounded-l-lg transition-colors"
+                          className="p-1.5 text-content-muted hover:text-gray-900 dark:hover:text-white hover:bg-surface-overlay rounded-l-lg transition-colors"
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <span className="w-8 text-center font-semibold text-gray-900 dark:text-white text-sm">
+                        <span className="w-8 text-center font-semibold text-content-primary text-sm">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.productId, item.variantId, 1)}
-                          className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 rounded-r-lg transition-colors"
+                          className="p-1.5 text-content-muted hover:text-gray-900 dark:hover:text-white hover:bg-surface-overlay rounded-r-lg transition-colors"
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Instagram, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const API_URL = (import.meta.env.VITE_API_URL as string) || '';
@@ -79,7 +79,7 @@ export const ShopInstagram: React.FC = () => {
   const next = () => { stopAuto(); scrollToIndex(activeDot + 1); };
 
   return (
-    <section className="py-14 bg-gray-50 dark:bg-gray-900">
+    <section className="py-14 bg-surface-base">
       <div className="max-w-7xl mx-auto px-4">
 
         {/* Header */}
@@ -101,7 +101,7 @@ export const ShopInstagram: React.FC = () => {
           /* Skeleton */
           <div className="flex gap-3">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex-1 aspect-square bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse" />
+              <div key={i} className="flex-1 aspect-square bg-surface-overlay dark:bg-white/[0.1] rounded-2xl animate-pulse" />
             ))}
           </div>
 
@@ -143,14 +143,14 @@ export const ShopInstagram: React.FC = () => {
             {/* Setas */}
             <button
               onClick={prev}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-9 h-9 bg-white dark:bg-gray-800 rounded-full shadow-lg flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover/carousel:opacity-100 disabled:opacity-0"
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-9 h-9 bg-surface-raised rounded-full shadow-lg flex items-center justify-center text-content-secondary hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover/carousel:opacity-100 disabled:opacity-0"
               disabled={activeDot === 0}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={next}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-9 h-9 bg-white dark:bg-gray-800 rounded-full shadow-lg flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover/carousel:opacity-100"
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-9 h-9 bg-surface-raised rounded-full shadow-lg flex items-center justify-center text-content-secondary hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover/carousel:opacity-100"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -164,7 +164,7 @@ export const ShopInstagram: React.FC = () => {
                   className={`rounded-full transition-all duration-200 ${
                     i === activeDot
                       ? 'w-5 h-2 bg-gray-700 dark:bg-white'
-                      : 'w-2 h-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-400'
+                      : 'w-2 h-2 bg-border-strong dark:bg-white/[0.2] hover:bg-content-muted'
                   }`}
                 />
               ))}

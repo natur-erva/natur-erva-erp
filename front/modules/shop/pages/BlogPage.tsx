@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Eye, Tag, Loader2, FileText } from 'lucide-react';
 import api from '../../core/services/apiClient';
@@ -23,11 +23,11 @@ export const BlogPage: React.FC = () => {
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-surface-base">
       <div className="max-w-5xl mx-auto px-4 py-12">
         <div className="mb-10">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">Blog NaturErva</h1>
-          <p className="text-gray-500 dark:text-gray-400">Dicas de saúde, nutrição e bem-estar natural</p>
+          <h1 className="text-4xl font-bold text-content-primary mb-2">Blog NaturErva</h1>
+          <p className="text-content-muted">Dicas de saúde, nutrição e bem-estar natural</p>
         </div>
 
         {loading ? (
@@ -41,7 +41,7 @@ export const BlogPage: React.FC = () => {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {posts.map(post => (
               <Link key={post.id} to={`/blog/${post.slug}`}
-                className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col">
+                className="bg-surface-raised rounded-2xl overflow-hidden border border-border-default shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col">
                 {post.coverImage ? (
                   <img src={post.coverImage} alt={post.title} className="w-full h-44 object-cover" />
                 ) : (
@@ -50,9 +50,9 @@ export const BlogPage: React.FC = () => {
                   </div>
                 )}
                 <div className="p-5 flex flex-col flex-1">
-                  <h2 className="font-bold text-gray-900 dark:text-white text-lg leading-snug mb-2 line-clamp-2">{post.title}</h2>
-                  {post.summary && <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-3 mb-3 flex-1">{post.summary}</p>}
-                  <div className="flex items-center justify-between text-xs text-gray-400 mt-auto pt-3 border-t border-gray-100 dark:border-gray-800">
+                  <h2 className="font-bold text-content-primary text-lg leading-snug mb-2 line-clamp-2">{post.title}</h2>
+                  {post.summary && <p className="text-content-muted text-sm line-clamp-3 mb-3 flex-1">{post.summary}</p>}
+                  <div className="flex items-center justify-between text-xs text-content-muted mt-auto pt-3 border-t border-border-default">
                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(post.publishedAt || post.createdAt)}</span>
                     <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{post.views}</span>
                   </div>

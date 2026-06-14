@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Upload, X, Settings, Loader2, Check, Image as ImageIcon,
@@ -266,7 +266,7 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
                     </p>
                     <button
                       onClick={() => handleSlideClick(slide)}
-                      className="inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-6 py-3 rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-lg hover:shadow-xl text-sm md:text-base"
+                      className="inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-6 py-3 rounded-xl hover:bg-surface-base active:scale-95 transition-all shadow-lg hover:shadow-xl text-sm md:text-base"
                     >
                       {slide.buttonText}
                       <ArrowRight className="w-4 h-4" />
@@ -328,13 +328,13 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
       {/* ── Modal de gestão ──────────────────────────────────────── */}
       {managing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <div className="bg-surface-raised rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-border-default">
+              <h2 className="text-lg font-bold text-content-primary flex items-center gap-2">
                 <Settings className="w-5 h-5 text-green-600" />
                 Gerir Slides do Banner
               </h2>
-              <button onClick={() => setManaging(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+              <button onClick={() => setManaging(false)} className="p-2 text-content-muted hover:text-gray-600 hover:bg-surface-overlay rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -345,7 +345,7 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
                 return (
                   <div
                     key={slide.id ?? i}
-                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
+                    className="flex items-center gap-3 p-3 bg-surface-overlay rounded-xl border border-border-default"
                   >
                     {/* Miniatura */}
                     <div
@@ -357,14 +357,14 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
 
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-800 dark:text-white text-sm truncate">{slide.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{slide.subtitle}</p>
+                      <p className="text-xs text-content-muted truncate">{slide.subtitle}</p>
                     </div>
 
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => moveSlide(i, -1)} disabled={i === 0} className="p-1.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
+                      <button onClick={() => moveSlide(i, -1)} disabled={i === 0} className="p-1.5 text-content-muted hover:text-gray-600 disabled:opacity-30 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
                         <GripVertical className="w-4 h-4 rotate-90" />
                       </button>
-                      <button onClick={() => moveSlide(i, 1)} disabled={i === slides.length - 1} className="p-1.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
+                      <button onClick={() => moveSlide(i, 1)} disabled={i === slides.length - 1} className="p-1.5 text-content-muted hover:text-gray-600 disabled:opacity-30 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
                         <GripVertical className="w-4 h-4 -rotate-90" />
                       </button>
                       <button onClick={() => { openEdit(slide); setManaging(false); }} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg">
@@ -387,8 +387,8 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
               </button>
             </div>
 
-            <div className="p-5 border-t border-gray-100 dark:border-gray-800">
-              <button onClick={() => setManaging(false)} className="w-full py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+            <div className="p-5 border-t border-border-default">
+              <button onClick={() => setManaging(false)} className="w-full py-2.5 bg-surface-overlay text-content-secondary rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                 Fechar
               </button>
             </div>
@@ -399,12 +399,12 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
       {/* ── Modal de edição / criação ─────────────────────────────── */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+          <div className="bg-surface-raised rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-border-default">
+              <h2 className="text-lg font-bold text-content-primary">
                 {isNew ? 'Novo Slide' : 'Editar Slide'}
               </h2>
-              <button onClick={() => setEditing(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+              <button onClick={() => setEditing(null)} className="p-2 text-content-muted hover:text-gray-600 hover:bg-surface-overlay rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -412,11 +412,11 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
             <div className="overflow-y-auto flex-1 p-5 space-y-5">
               {/* Imagem */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                <label className="block text-sm font-semibold text-content-secondary mb-2">
                   Imagem do slide
-                  <span className="text-gray-400 font-normal ml-2">Recomendado: 1920×600px · proporção 16:5</span>
+                  <span className="text-content-muted font-normal ml-2">Recomendado: 1920×600px · proporção 16:5</span>
                 </label>
-                <div className="relative rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 h-44 flex items-center justify-center">
+                <div className="relative rounded-xl overflow-hidden bg-surface-overlay border-2 border-dashed border-gray-300 dark:border-border-strong h-44 flex items-center justify-center">
                   {editing.imageUrl ? (
                     <>
                       <img src={uploadService.getPublicUrl(editing.imageUrl)} alt="" className="w-full h-full object-cover" />
@@ -448,9 +448,9 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
 
               {/* Cor de fundo */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                <label className="block text-sm font-semibold text-content-secondary mb-2">
                   Cor de fundo
-                  <span className="text-gray-400 font-normal ml-2">(visível quando não há imagem ou como overlay)</span>
+                  <span className="text-content-muted font-normal ml-2">(visível quando não há imagem ou como overlay)</span>
                 </label>
                 <div className="flex items-center gap-3 flex-wrap">
                   {BG_PRESETS.map(p => (
@@ -474,48 +474,48 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
 
               {/* Título */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Título</label>
+                <label className="block text-sm font-semibold text-content-secondary mb-1">Título</label>
                 <input
                   type="text"
                   value={editing.title}
                   onChange={e => setEditing(prev => prev ? { ...prev, title: e.target.value } : prev)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-border-strong rounded-xl focus:ring-2 focus:ring-green-500 bg-surface-raised text-content-primary"
                   placeholder="Ex: Saúde Natural em Cada Produto"
                 />
               </div>
 
               {/* Subtítulo */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Subtítulo</label>
+                <label className="block text-sm font-semibold text-content-secondary mb-1">Subtítulo</label>
                 <textarea
                   value={editing.subtitle}
                   onChange={e => setEditing(prev => prev ? { ...prev, subtitle: e.target.value } : prev)}
                   rows={2}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-border-strong rounded-xl focus:ring-2 focus:ring-green-500 bg-surface-raised text-content-primary resize-none"
                 />
               </div>
 
               {/* Botão */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Texto do botão</label>
+                <label className="block text-sm font-semibold text-content-secondary mb-1">Texto do botão</label>
                 <input
                   type="text"
                   value={editing.buttonText}
                   onChange={e => setEditing(prev => prev ? { ...prev, buttonText: e.target.value } : prev)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-border-strong rounded-xl focus:ring-2 focus:ring-green-500 bg-surface-raised text-content-primary"
                   placeholder="Ex: Ver Produto, Comprar Agora..."
                 />
               </div>
 
               {/* Produto */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
-                  Produto em destaque <span className="text-gray-400 font-normal">(opcional)</span>
+                <label className="block text-sm font-semibold text-content-secondary mb-1">
+                  Produto em destaque <span className="text-content-muted font-normal">(opcional)</span>
                 </label>
                 <select
                   value={editing.productId || ''}
                   onChange={e => handleProductChange(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-border-strong rounded-xl focus:ring-2 focus:ring-green-500 bg-surface-raised text-content-primary"
                 >
                   <option value="">— Sem produto (botão vai para a lista) —</option>
                   {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -524,7 +524,7 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
 
               {/* Preview */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Pré-visualização</label>
+                <label className="block text-sm font-semibold text-content-secondary mb-2">Pré-visualização</label>
                 <div
                   className="relative rounded-xl overflow-hidden h-32 flex items-center"
                   style={{ backgroundColor: editing.bgColor }}
@@ -546,10 +546,10 @@ export const ShopBanner: React.FC<ShopBannerProps> = ({ isAdmin = false, product
               </div>
             </div>
 
-            <div className="flex gap-3 p-5 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex gap-3 p-5 border-t border-border-default">
               <button
                 onClick={() => { setEditing(null); if (managing) setManaging(true); }}
-                className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 py-2.5 bg-surface-overlay text-content-secondary rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancelar
               </button>

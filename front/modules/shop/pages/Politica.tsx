@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Shield, RefreshCw, Truck, Lock, AlertCircle } from 'lucide-react';
 import { PageHeroBanner } from '../components/PageHeroBanner';
 
@@ -55,7 +55,7 @@ const sections = [
 
 const Politica: React.FC = () => {
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
+    <div className="min-h-screen bg-surface-base">
 
       <PageHeroBanner
         pageKey="politica"
@@ -69,16 +69,16 @@ const Politica: React.FC = () => {
       <section className="py-14 px-6">
         <div className="max-w-4xl mx-auto space-y-8">
           {sections.map((section, i) => (
-            <div key={i} className="bg-gray-50 dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
+            <div key={i} className="bg-surface-base rounded-2xl p-6 border border-border-default">
               <div className="flex items-center gap-3 mb-5">
                 <span className={`w-10 h-10 rounded-xl flex items-center justify-center ${section.color}`}>
                   {section.icon}
                 </span>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">{section.title}</h2>
+                <h2 className="text-lg font-bold text-content-primary">{section.title}</h2>
               </div>
               <ul className="space-y-3">
                 {section.items.map((item, j) => (
-                  <li key={j} className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                  <li key={j} className="flex items-start gap-3 text-sm text-content-muted">
                     <span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-2 flex-shrink-0" />
                     {item}
                   </li>

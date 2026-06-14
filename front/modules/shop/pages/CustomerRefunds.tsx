@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Camera, ChevronLeft, Loader2, RefreshCw, Plus, X, Check } from 'lucide-react';
 import api from '../../core/services/apiClient';
@@ -90,14 +90,14 @@ export const CustomerRefunds: React.FC = () => {
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4">
+    <div className="min-h-screen bg-surface-base py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/minha-conta')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400">
+            <button onClick={() => navigate('/minha-conta')} className="p-2 rounded-lg hover:bg-surface-overlay transition-colors text-content-muted">
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Reembolsos</h1>
+            <h1 className="text-xl font-bold text-content-primary">Reembolsos</h1>
           </div>
           {!showForm && (
             <button
@@ -111,56 +111,56 @@ export const CustomerRefunds: React.FC = () => {
 
         {/* Formulário */}
         {showForm && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
+          <div className="bg-surface-raised rounded-2xl p-6 shadow-sm border border-border-default">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-semibold text-gray-900 dark:text-white">Novo Pedido de Reembolso</h2>
-              <button onClick={() => { setShowForm(false); setSubmitError(''); setPhotoFiles([]); }} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+              <h2 className="font-semibold text-content-primary">Novo Pedido de Reembolso</h2>
+              <button onClick={() => { setShowForm(false); setSubmitError(''); setPhotoFiles([]); }} className="p-1.5 rounded-lg hover:bg-surface-overlay text-gray-500">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-content-secondary mb-1">
                   ID / Número do Pedido <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={form.orderId}
                   onChange={e => setForm(f => ({ ...f, orderId: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-border-default bg-surface-raised text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
                   placeholder="Cole aqui o ID do pedido"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">Encontra o ID na página das tuas encomendas.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-content-secondary mb-1">Motivo <span className="text-red-500">*</span></label>
                 <select
                   value={form.reason}
                   onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-border-default bg-surface-raised text-content-primary focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
                 >
                   {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Detalhes</label>
+                <label className="block text-sm font-medium text-content-secondary mb-1">Detalhes</label>
                 <textarea
                   value={form.details}
                   onChange={e => setForm(f => ({ ...f, details: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm resize-none"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-border-default bg-surface-raised text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-green-500 text-sm resize-none"
                   placeholder="Descreve o problema em detalhe..."
                 />
               </div>
 
               {/* Upload de fotos */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Fotos <span className="text-xs text-gray-400 font-normal">(opcional · máx. 3)</span>
+                <label className="block text-sm font-medium text-content-secondary mb-2">
+                  Fotos <span className="text-xs text-content-muted font-normal">(opcional · máx. 3)</span>
                 </label>
                 <div className="flex gap-2 flex-wrap">
                   {photoFiles.map((p, i) => (
-                    <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex-shrink-0">
+                    <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-border-default flex-shrink-0">
                       <img src={p.preview} alt="" className="w-full h-full object-cover" />
                       <button
                         type="button"
@@ -172,9 +172,9 @@ export const CustomerRefunds: React.FC = () => {
                     </div>
                   ))}
                   {photoFiles.length < 3 && (
-                    <label className="w-20 h-20 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl cursor-pointer hover:border-green-500 dark:hover:border-green-500 transition-colors flex-shrink-0">
-                      <Camera className="w-5 h-5 text-gray-400" />
-                      <span className="text-[10px] text-gray-400">Adicionar</span>
+                    <label className="w-20 h-20 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-300 dark:border-border-default rounded-xl cursor-pointer hover:border-green-500 dark:hover:border-green-500 transition-colors flex-shrink-0">
+                      <Camera className="w-5 h-5 text-content-muted" />
+                      <span className="text-[10px] text-content-muted">Adicionar</span>
                       <input
                         ref={photoInputRef}
                         type="file"
@@ -186,7 +186,7 @@ export const CustomerRefunds: React.FC = () => {
                     </label>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mt-1.5">Envia fotos do produto para facilitar a análise.</p>
+                <p className="text-xs text-content-muted mt-1.5">Envia fotos do produto para facilitar a análise.</p>
               </div>
 
               {submitError && <p className="text-sm text-red-500">{submitError}</p>}
@@ -204,43 +204,43 @@ export const CustomerRefunds: React.FC = () => {
 
         {/* Lista */}
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-content-muted" /></div>
         ) : refunds.length === 0 && !showForm ? (
-          <div className="text-center py-16 text-gray-500 dark:text-gray-400">
+          <div className="text-center py-16 text-content-muted">
             <RefreshCw className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="mb-3">Ainda não tens pedidos de reembolso.</p>
           </div>
         ) : refunds.length > 0 ? (
           <div className="space-y-3">
-            <h2 className="font-semibold text-gray-900 dark:text-white text-sm">Histórico</h2>
+            <h2 className="font-semibold text-content-primary text-sm">Histórico</h2>
             {refunds.map(r => {
               const s = STATUS_LABEL[r.status];
               return (
-                <div key={r.id} className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-gray-800">
+                <div key={r.id} className="bg-surface-raised rounded-2xl p-5 shadow-sm border border-border-default">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">Pedido #{r.orderNumber || r.orderId.slice(0,8)}</span>
+                        <span className="text-sm font-semibold text-content-primary">Pedido #{r.orderNumber || r.orderId.slice(0,8)}</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${s.className}`}>{s.label}</span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{r.reason}</p>
+                      <p className="text-sm text-content-muted">{r.reason}</p>
                       {r.details && <p className="text-xs text-gray-500 mt-1">{r.details}</p>}
                       {r.photos && r.photos.length > 0 && (
                         <div className="flex gap-2 mt-2 flex-wrap">
                           {r.photos.map((url, i) => (
-                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-14 h-14 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:opacity-80 transition-opacity flex-shrink-0">
+                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-14 h-14 rounded-lg overflow-hidden border border-border-default hover:opacity-80 transition-opacity flex-shrink-0">
                               <img src={url} alt="" className="w-full h-full object-cover" />
                             </a>
                           ))}
                         </div>
                       )}
                       {r.adminNotes && (
-                        <div className="mt-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
+                        <div className="mt-2 bg-surface-overlay rounded-lg px-3 py-2 text-xs text-content-muted">
                           <span className="font-medium">Resposta: </span>{r.adminNotes}
                         </div>
                       )}
                     </div>
-                    <span className="text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</span>
+                    <span className="text-xs text-content-muted whitespace-nowrap">{fmtDate(r.createdAt)}</span>
                   </div>
                 </div>
               );

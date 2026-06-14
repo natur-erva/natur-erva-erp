@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, Copy, Check, Loader2, Gift, Users, TrendingUp, Clock,
@@ -124,25 +124,25 @@ export const CustomerAffiliate: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-      <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+    <div className="min-h-screen bg-surface-base flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-content-muted" />
     </div>
   );
 
   const referralLink = affiliate ? `${window.location.origin}/?ref=${affiliate.referral_code}` : '';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4">
+    <div className="min-h-screen bg-surface-base py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/minha-conta')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400">
+          <button onClick={() => navigate('/minha-conta')} className="p-2 rounded-lg hover:bg-surface-overlay transition-colors text-content-muted">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Programa de Afiliados</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <h1 className="text-xl font-bold text-content-primary">Programa de Afiliados</h1>
+            <p className="text-sm text-content-muted">
               Ganha {affiliate ? `${Number(affiliate.commission_rate).toFixed(0)}%` : '5%'} de comissão por cada compra dos teus referidos
             </p>
           </div>
@@ -185,8 +185,8 @@ export const CustomerAffiliate: React.FC = () => {
             </div>
 
             {/* Como funciona */}
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
-              <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Como Funciona</h2>
+            <div className="bg-surface-raised rounded-2xl p-6 shadow-sm border border-border-default">
+              <h2 className="font-semibold text-content-primary mb-4">Como Funciona</h2>
               <div className="space-y-4">
                 {[
                   { n: '1', title: 'Regista-te', desc: 'Clica em "Aderir" e obtém o teu código de referência único.' },
@@ -199,8 +199,8 @@ export const CustomerAffiliate: React.FC = () => {
                       {n}
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">{title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{desc}</p>
+                      <p className="font-medium text-content-primary text-sm">{title}</p>
+                      <p className="text-xs text-content-muted mt-0.5">{desc}</p>
                     </div>
                   </div>
                 ))}
@@ -210,18 +210,18 @@ export const CustomerAffiliate: React.FC = () => {
         ) : (
           <>
             {/* ── Código de referência ─────────────────────────── */}
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
+            <div className="bg-surface-raised rounded-2xl p-6 shadow-sm border border-border-default">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                   <Gift className="w-4 h-4 text-green-600 dark:text-green-400" />
                 </div>
-                <h2 className="font-semibold text-gray-900 dark:text-white">O Teu Código</h2>
+                <h2 className="font-semibold text-content-primary">O Teu Código</h2>
                 <span className={`ml-auto px-2 py-0.5 rounded text-xs font-medium ${affiliate.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 text-red-700'}`}>
                   {affiliate.status === 'active' ? 'Activo' : 'Suspenso'}
                 </span>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 flex items-center justify-between gap-3 mb-3">
-                <span className="text-2xl font-mono font-bold tracking-widest text-gray-900 dark:text-white">
+              <div className="bg-surface-overlay rounded-xl p-4 flex items-center justify-between gap-3 mb-3">
+                <span className="text-2xl font-mono font-bold tracking-widest text-content-primary">
                   {affiliate.referral_code}
                 </span>
                 <button
@@ -234,12 +234,12 @@ export const CustomerAffiliate: React.FC = () => {
               </div>
               <button
                 onClick={() => copy(referralLink, 'link')}
-                className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 border border-border-default rounded-xl text-sm text-content-muted hover:bg-surface-overlay transition-colors"
               >
                 {copied === 'link' ? <Check className="w-4 h-4 text-green-500" /> : <ExternalLink className="w-4 h-4" />}
                 {copied === 'link' ? 'Link copiado!' : 'Copiar Link de Referência'}
               </button>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center truncate">{referralLink}</p>
+              <p className="text-xs text-content-muted mt-2 text-center truncate">{referralLink}</p>
             </div>
 
             {/* ── Stats grid ───────────────────────────────────── */}
@@ -250,10 +250,10 @@ export const CustomerAffiliate: React.FC = () => {
                 { icon: Download, color: 'text-blue-500', label: 'Disponível', value: `${Number(affiliate.available_balance).toFixed(2)} MT` },
                 { icon: Users, color: 'text-purple-500', label: 'Referidos', value: String(affiliate.total_referrals) },
               ].map(({ icon: Icon, color, label, value }) => (
-                <div key={label} className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-gray-800">
+                <div key={label} className="bg-surface-raised rounded-2xl p-5 shadow-sm border border-border-default">
                   <Icon className={`w-5 h-5 ${color} mb-2`} />
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{value}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
+                  <p className="text-xl font-bold text-content-primary">{value}</p>
+                  <p className="text-xs text-content-muted mt-0.5">{label}</p>
                 </div>
               ))}
             </div>
@@ -277,16 +277,16 @@ export const CustomerAffiliate: React.FC = () => {
             )}
 
             {showWithdraw && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
+              <div className="bg-surface-raised rounded-2xl p-6 shadow-sm border border-border-default">
                 <div className="flex items-center justify-between mb-5">
-                  <h2 className="font-semibold text-gray-900 dark:text-white">Solicitar Levantamento</h2>
-                  <button onClick={() => { setShowWithdraw(false); setWdError(''); }} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
+                  <h2 className="font-semibold text-content-primary">Solicitar Levantamento</h2>
+                  <button onClick={() => { setShowWithdraw(false); setWdError(''); }} className="p-1.5 rounded-lg hover:bg-surface-overlay text-content-muted">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
                 <form onSubmit={handleWithdraw} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-content-secondary mb-1">
                       Valor (MT) <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -294,19 +294,19 @@ export const CustomerAffiliate: React.FC = () => {
                       max={Number(affiliate.available_balance)}
                       value={wdForm.amount}
                       onChange={e => setWdForm(f => ({ ...f, amount: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-border-default bg-surface-raised text-content-primary focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
                       placeholder="100.00"
                     />
                     <p className="text-xs text-gray-500 mt-1">Disponível: {Number(affiliate.available_balance).toFixed(2)} MT • Mínimo: 100 MT</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Método de Pagamento</label>
+                    <label className="block text-sm font-medium text-content-secondary mb-1">Método de Pagamento</label>
                     <div className="grid grid-cols-2 gap-2">
                       {([['mpesa', 'M-Pesa', Smartphone], ['bank', 'Banco', CreditCard]] as const).map(([val, lbl, Icon]) => (
                         <button
                           key={val} type="button"
                           onClick={() => setWdForm(f => ({ ...f, method: val }))}
-                          className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-colors ${wdForm.method === val ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'}`}
+                          className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-colors ${wdForm.method === val ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'border-border-default text-content-muted'}`}
                         >
                           <Icon className="w-4 h-4" />{lbl}
                         </button>
@@ -314,13 +314,13 @@ export const CustomerAffiliate: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-content-secondary mb-1">
                       {wdForm.method === 'mpesa' ? 'Número M-Pesa' : 'IBAN / Conta Bancária'} <span className="text-red-500">*</span>
                     </label>
                     <input
                       value={wdForm.accountInfo}
                       onChange={e => setWdForm(f => ({ ...f, accountInfo: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-border-default bg-surface-raised text-content-primary focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
                       placeholder={wdForm.method === 'mpesa' ? '+258 84 000 0000' : 'MZ59 0000 0000 0000 0000 000'}
                     />
                   </div>
@@ -338,9 +338,9 @@ export const CustomerAffiliate: React.FC = () => {
 
             {/* ── Comissões ────────────────────────────────────── */}
             {commissions.length > 0 && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-                  <h2 className="font-semibold text-gray-900 dark:text-white">Comissões Geradas</h2>
+              <div className="bg-surface-raised rounded-2xl shadow-sm border border-border-default overflow-hidden">
+                <div className="px-5 py-4 border-b border-border-default">
+                  <h2 className="font-semibold text-content-primary">Comissões Geradas</h2>
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {commissions.map(c => {
@@ -348,10 +348,10 @@ export const CustomerAffiliate: React.FC = () => {
                     return (
                       <div key={c.id} className="px-5 py-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          <p className="text-sm font-medium text-content-primary truncate">
                             {c.referred_name ? `Compra de ${c.referred_name}` : `Pedido #${c.order_number || '...'}`}
                           </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{fmt(c.created_at)} · {Number(c.commission_rate).toFixed(0)}% de {Number(c.order_amount).toFixed(2)} MT</p>
+                          <p className="text-xs text-content-muted">{fmt(c.created_at)} · {Number(c.commission_rate).toFixed(0)}% de {Number(c.order_amount).toFixed(2)} MT</p>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-sm font-bold text-green-600 dark:text-green-400">+{Number(c.commission_amount).toFixed(2)} MT</p>
@@ -366,9 +366,9 @@ export const CustomerAffiliate: React.FC = () => {
 
             {/* ── Histórico de levantamentos ───────────────────── */}
             {withdrawals.length > 0 && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-                  <h2 className="font-semibold text-gray-900 dark:text-white">Histórico de Levantamentos</h2>
+              <div className="bg-surface-raised rounded-2xl shadow-sm border border-border-default overflow-hidden">
+                <div className="px-5 py-4 border-b border-border-default">
+                  <h2 className="font-semibold text-content-primary">Histórico de Levantamentos</h2>
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {withdrawals.map(w => {
@@ -376,12 +376,12 @@ export const CustomerAffiliate: React.FC = () => {
                     return (
                       <div key={w.id} className="px-5 py-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">{w.method.toUpperCase()} — {w.account_info}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{fmt(w.created_at)}</p>
-                          {w.admin_notes && <p className="text-xs text-gray-400 mt-0.5">{w.admin_notes}</p>}
+                          <p className="text-sm font-medium text-content-primary">{w.method.toUpperCase()} — {w.account_info}</p>
+                          <p className="text-xs text-content-muted">{fmt(w.created_at)}</p>
+                          {w.admin_notes && <p className="text-xs text-content-muted mt-0.5">{w.admin_notes}</p>}
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-bold text-gray-900 dark:text-white">{Number(w.amount).toFixed(2)} MT</p>
+                          <p className="text-sm font-bold text-content-primary">{Number(w.amount).toFixed(2)} MT</p>
                           <span className={`text-xs px-2 py-0.5 rounded font-medium ${s.cls}`}>{s.label}</span>
                         </div>
                       </div>
@@ -392,7 +392,7 @@ export const CustomerAffiliate: React.FC = () => {
             )}
 
             {commissions.length === 0 && withdrawals.length === 0 && (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-12 text-content-muted">
                 <Gift className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>Ainda não tens comissões. Partilha o teu código!</p>
               </div>

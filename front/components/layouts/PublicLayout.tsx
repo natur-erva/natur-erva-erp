@@ -81,7 +81,7 @@ const PublicLayoutContent: React.FC<PublicLayoutProps> = ({
   }, [shopContext?.onLoginClick, onLogin]);
   
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 via-green-50/30 to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+    <div className="min-h-screen flex flex-col bg-surface-base transition-colors duration-300">
       <Header
         currentUser={currentUser}
         isDarkMode={effectiveDarkMode}

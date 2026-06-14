@@ -38,6 +38,11 @@ import posRoutes from './routes/pos.js';
 import taxRoutes from './routes/tax.js';
 import quotesRoutes from './routes/quotes.js';
 import reviewRoutes from './routes/reviews.js';
+import pdfRoutes from './routes/pdf.js';
+import shiftsRoutes from './routes/shifts.js';
+import reportsRoutes from './routes/reports.js';
+import loyaltyRoutes from './routes/loyalty.js';
+import invoicesRoutes from './routes/invoices.js';
 
 const app = express();
 const PORT = process.env.PORT || 3060;
@@ -138,6 +143,11 @@ app.use('/api/pos',    posRoutes);
 app.use('/api/tax',    taxRoutes);
 app.use('/api/quotes', quotesRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/pdf',     pdfRoutes);
+app.use('/api/shifts',  shiftsRoutes);
+app.use('/api/reports', reportsRoutes);
+app.use('/api/loyalty',  loyaltyRoutes);
+app.use('/api/invoices', invoicesRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

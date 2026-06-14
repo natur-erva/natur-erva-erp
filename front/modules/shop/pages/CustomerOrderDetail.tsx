@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, Loader2, Package, Truck, CheckCircle, Clock, XCircle, MapPin, Tag, Copy, Check, Scan, CreditCard, ThumbsUp, CalendarClock, ShieldCheck, ShieldOff, AlertTriangle } from 'lucide-react';
 import api from '../../core/services/apiClient';
@@ -96,13 +96,13 @@ export const CustomerOrderDetail: React.FC = () => {
   }, [id]);
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-      <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+    <div className="min-h-screen bg-surface-base flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-content-muted" />
     </div>
   );
 
   if (error || !order) return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center gap-4">
+    <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center gap-4">
       <p className="text-red-500">{error || 'Encomenda não encontrada'}</p>
       <button onClick={() => navigate('/minha-conta/encomendas')} className="text-green-600 hover:underline text-sm">Voltar</button>
     </div>
@@ -112,15 +112,15 @@ export const CustomerOrderDetail: React.FC = () => {
   const items = Array.isArray(order.items) ? order.items : [];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4">
+    <div className="min-h-screen bg-surface-base py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/minha-conta/encomendas')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400">
+          <button onClick={() => navigate('/minha-conta/encomendas')} className="p-2 rounded-lg hover:bg-surface-overlay transition-colors text-content-muted">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Pedido #{order.orderNumber || order.id.slice(0,8)}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{fmtDate(order.createdAt)}</p>
+            <h1 className="text-xl font-bold text-content-primary">Pedido #{order.orderNumber || order.id.slice(0,8)}</h1>
+            <p className="text-sm text-content-muted">{fmtDate(order.createdAt)}</p>
           </div>
         </div>
 
@@ -131,8 +131,8 @@ export const CustomerOrderDetail: React.FC = () => {
               <Scan className="w-5 h-5 text-green-600 dark:text-green-400" />
               <h2 className="font-semibold text-green-800 dark:text-green-300 text-sm">Código de Rastreio</h2>
             </div>
-            <div className="flex items-center justify-between bg-white dark:bg-gray-900 rounded-xl px-4 py-3 border border-green-200 dark:border-green-700">
-              <span className="font-mono text-lg font-bold tracking-widest text-gray-900 dark:text-white">
+            <div className="flex items-center justify-between bg-surface-raised rounded-xl px-4 py-3 border border-green-200 dark:border-green-700">
+              <span className="font-mono text-lg font-bold tracking-widest text-content-primary">
                 {order.trackingCode}
               </span>
               <button
@@ -187,14 +187,14 @@ export const CustomerOrderDetail: React.FC = () => {
           return (
             <div className={`rounded-2xl p-5 border ${
               expired
-                ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
+                ? 'bg-surface-base dark:bg-white/[0.04] border-border-default'
                 : days <= 3
                   ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
                   : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
             }`}>
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  expired ? 'bg-gray-200 dark:bg-gray-700' : days <= 3 ? 'bg-amber-100 dark:bg-amber-800/50' : 'bg-emerald-100 dark:bg-emerald-800/50'
+                  expired ? 'bg-surface-overlay dark:bg-white/[0.1]' : days <= 3 ? 'bg-amber-100 dark:bg-amber-800/50' : 'bg-emerald-100 dark:bg-emerald-800/50'
                 }`}>
                   {expired
                     ? <ShieldOff className="w-5 h-5 text-gray-500" />
@@ -206,8 +206,8 @@ export const CustomerOrderDetail: React.FC = () => {
                 <div className="flex-1">
                   {expired ? (
                     <>
-                      <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Período de Disputa Encerrado</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">O prazo para abrir uma disputa expirou em {fmtShortDate(order.disputeDeadline)}.</p>
+                      <p className="text-sm font-semibold text-content-muted">Período de Disputa Encerrado</p>
+                      <p className="text-xs text-content-muted mt-0.5">O prazo para abrir uma disputa expirou em {fmtShortDate(order.disputeDeadline)}.</p>
                     </>
                   ) : (
                     <>
@@ -228,8 +228,8 @@ export const CustomerOrderDetail: React.FC = () => {
         })()}
 
         {/* Timeline */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-5">Rastreio do Pedido</h2>
+        <div className="bg-surface-raised rounded-2xl p-6 shadow-sm border border-border-default">
+          <h2 className="font-semibold text-content-primary mb-5">Rastreio do Pedido</h2>
           <div className="space-y-0">
             {timeline.map((step, i) => (
               <div key={i} className="flex gap-4">
@@ -237,19 +237,19 @@ export const CustomerOrderDetail: React.FC = () => {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                     step.isCancelled ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                     : step.done ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+                    : 'bg-surface-overlay text-content-muted'
                   }`}>
                     {step.icon}
                   </div>
                   {i < timeline.length - 1 && (
-                    <div className={`w-0.5 flex-1 my-1 ${step.done && !step.isCancelled ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'}`} style={{ minHeight: '24px' }} />
+                    <div className={`w-0.5 flex-1 my-1 ${step.done && !step.isCancelled ? 'bg-green-400' : 'bg-surface-overlay dark:bg-white/[0.1]'}`} style={{ minHeight: '24px' }} />
                   )}
                 </div>
                 <div className="pb-4 flex-1">
-                  <p className={`font-medium text-sm ${step.isCancelled ? 'text-red-600 dark:text-red-400' : step.done ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'}`}>
+                  <p className={`font-medium text-sm ${step.isCancelled ? 'text-red-600 dark:text-red-400' : step.done ? 'text-content-primary' : 'text-content-muted dark:text-content-muted'}`}>
                     {step.label}
                   </p>
-                  {step.date && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{step.date}</p>}
+                  {step.date && <p className="text-xs text-content-muted mt-0.5">{step.date}</p>}
                 </div>
               </div>
             ))}
@@ -257,16 +257,16 @@ export const CustomerOrderDetail: React.FC = () => {
         </div>
 
         {/* Itens */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Itens do Pedido</h2>
+        <div className="bg-surface-raised rounded-2xl p-6 shadow-sm border border-border-default">
+          <h2 className="font-semibold text-content-primary mb-4">Itens do Pedido</h2>
           <div className="space-y-3">
             {items.map((item: any, i: number) => (
-              <div key={i} className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+              <div key={i} className="flex justify-between items-center py-2 border-b border-border-default last:border-0">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{item.productName}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Qtd: {item.quantity} {item.unit || ''}</p>
+                  <p className="text-sm font-medium text-content-primary">{item.productName}</p>
+                  <p className="text-xs text-content-muted">Qtd: {item.quantity} {item.unit || ''}</p>
                 </div>
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                <span className="text-sm font-semibold text-content-primary">
                   {((item.priceAtTime || item.price || 0) * item.quantity).toFixed(2)} MT
                 </span>
               </div>
@@ -276,7 +276,7 @@ export const CustomerOrderDetail: React.FC = () => {
           {/* Totais */}
           <div className="mt-4 space-y-2">
             {order.isDelivery && order.deliveryFee != null && order.deliveryFee > 0 && (
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex justify-between text-sm text-content-muted">
                 <span>Taxa de entrega {order.deliveryZoneName ? `(${order.deliveryZoneName})` : ''}</span>
                 <span>{order.deliveryFee.toFixed(2)} MT</span>
               </div>
@@ -287,7 +287,7 @@ export const CustomerOrderDetail: React.FC = () => {
                 <span>-{(order.discountAmount || 0).toFixed(2)} MT</span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-base border-t border-gray-200 dark:border-gray-700 pt-2 text-gray-900 dark:text-white">
+            <div className="flex justify-between font-bold text-base border-t border-border-default pt-2 text-content-primary">
               <span>Total</span>
               <span>{order.totalAmount?.toFixed(2)} MT</span>
             </div>
@@ -296,12 +296,12 @@ export const CustomerOrderDetail: React.FC = () => {
 
         {/* Endereço */}
         {order.isDelivery && order.deliveryLocation && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
+          <div className="bg-surface-raised rounded-2xl p-6 shadow-sm border border-border-default">
             <div className="flex items-center gap-2 mb-2">
               <MapPin className="w-5 h-5 text-green-600 dark:text-green-400" />
-              <h2 className="font-semibold text-gray-900 dark:text-white">Endereço de Entrega</h2>
+              <h2 className="font-semibold text-content-primary">Endereço de Entrega</h2>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{order.deliveryLocation}</p>
+            <p className="text-sm text-content-muted">{order.deliveryLocation}</p>
           </div>
         )}
 
@@ -313,8 +313,8 @@ export const CustomerOrderDetail: React.FC = () => {
                 <ThumbsUp className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Recebeste a tua encomenda?</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                <h3 className="font-semibold text-content-primary text-sm">Recebeste a tua encomenda?</h3>
+                <p className="text-xs text-content-muted mt-0.5">
                   Confirma a receção para que possamos fechar o processo de entrega.
                 </p>
               </div>
@@ -342,13 +342,13 @@ export const CustomerOrderDetail: React.FC = () => {
         {isDelivered(order.status) && (() => {
           const deadlineExpired = order.disputeDeadline ? daysRemaining(order.disputeDeadline) < 0 : false;
           return deadlineExpired ? (
-            <div className="w-full py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-center text-sm text-gray-400 dark:text-gray-600 cursor-not-allowed">
+            <div className="w-full py-3 rounded-xl border-2 border-border-default text-center text-sm text-content-muted dark:text-content-muted cursor-not-allowed">
               Prazo de disputa encerrado — reembolso não disponível
             </div>
           ) : (
             <button
               onClick={() => navigate('/minha-conta/reembolsos', { state: { orderId: order.id, orderNumber: order.orderNumber } })}
-              className="w-full py-3 rounded-xl border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 dark:hover:text-red-400 transition-colors font-medium text-sm"
+              className="w-full py-3 rounded-xl border-2 border-gray-300 dark:border-border-default text-content-secondary hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 dark:hover:text-red-400 transition-colors font-medium text-sm"
             >
               Solicitar Reembolso / Disputa
             </button>

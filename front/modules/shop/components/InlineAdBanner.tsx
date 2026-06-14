@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, X, Settings, Loader2, Check, Image as ImageIcon, ArrowRight, Plus } from 'lucide-react';
 import api from '../../core/services/apiClient';
@@ -112,7 +112,7 @@ export const InlineAdBanner: React.FC<InlineAdBannerProps> = ({ slot, isAdmin = 
       <div className="my-6">
         <button
           onClick={openEdit}
-          className="w-full h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center gap-2 text-gray-400 dark:text-gray-500 hover:border-orange-400 hover:text-orange-500 transition-colors rounded-xl"
+          className="w-full h-24 border-2 border-dashed border-gray-300 dark:border-border-strong flex flex-col items-center justify-center gap-2 text-content-muted hover:border-orange-400 hover:text-orange-500 transition-colors rounded-xl"
         >
           <Plus className="w-6 h-6" />
           <span className="text-sm font-medium">Adicionar anúncio em linha (slot {slot})</span>
@@ -125,10 +125,10 @@ export const InlineAdBanner: React.FC<InlineAdBannerProps> = ({ slot, isAdmin = 
   function renderModal() {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
-          <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Anúncio em Linha · Slot {slot}</h2>
-            <button onClick={() => setEditing(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+        <div className="bg-surface-raised rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
+          <div className="flex items-center justify-between p-5 border-b border-border-default">
+            <h2 className="text-lg font-bold text-content-primary">Anúncio em Linha · Slot {slot}</h2>
+            <button onClick={() => setEditing(false)} className="p-2 text-content-muted hover:text-gray-600 hover:bg-surface-overlay rounded-lg">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -136,10 +136,10 @@ export const InlineAdBanner: React.FC<InlineAdBannerProps> = ({ slot, isAdmin = 
           <div className="overflow-y-auto flex-1 p-5 space-y-4">
             {/* Imagem */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
-                Imagem <span className="text-gray-400 font-normal">Recomendado: 1920×200px · faixa horizontal</span>
+              <label className="block text-sm font-semibold text-content-secondary mb-1">
+                Imagem <span className="text-content-muted font-normal">Recomendado: 1920×200px · faixa horizontal</span>
               </label>
-              <div className="relative rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 h-28 flex items-center justify-center">
+              <div className="relative rounded-xl overflow-hidden bg-surface-overlay border-2 border-dashed border-gray-300 dark:border-border-strong h-28 flex items-center justify-center">
                 {draft.imageUrl ? (
                   <>
                     <img src={uploadService.getPublicUrl(draft.imageUrl)} alt="" className="w-full h-full object-cover" />
@@ -168,7 +168,7 @@ export const InlineAdBanner: React.FC<InlineAdBannerProps> = ({ slot, isAdmin = 
 
             {/* Cor de fundo */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Cor de fundo</label>
+              <label className="block text-sm font-semibold text-content-secondary mb-2">Cor de fundo</label>
               <div className="flex items-center gap-2 flex-wrap">
                 {BG_PRESETS.map(color => (
                   <button key={color} onClick={() => setDraft(prev => ({ ...prev, bgColor: color }))}
@@ -185,38 +185,38 @@ export const InlineAdBanner: React.FC<InlineAdBannerProps> = ({ slot, isAdmin = 
 
             {/* Título */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Título</label>
+              <label className="block text-sm font-semibold text-content-secondary mb-1">Título</label>
               <input type="text" value={draft.title} onChange={e => setDraft(prev => ({ ...prev, title: e.target.value }))}
-                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-border-strong rounded-xl focus:ring-2 focus:ring-orange-500 bg-surface-raised text-content-primary"
                 placeholder="Ex: Promoção da Semana!"
               />
             </div>
 
             {/* Subtítulo */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Subtítulo</label>
+              <label className="block text-sm font-semibold text-content-secondary mb-1">Subtítulo</label>
               <input type="text" value={draft.subtitle} onChange={e => setDraft(prev => ({ ...prev, subtitle: e.target.value }))}
-                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-border-strong rounded-xl focus:ring-2 focus:ring-orange-500 bg-surface-raised text-content-primary"
                 placeholder="Ex: Até 30% de desconto em produtos selecionados"
               />
             </div>
 
             {/* Botão */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Texto do botão</label>
+              <label className="block text-sm font-semibold text-content-secondary mb-1">Texto do botão</label>
               <input type="text" value={draft.buttonText} onChange={e => setDraft(prev => ({ ...prev, buttonText: e.target.value }))}
-                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-border-strong rounded-xl focus:ring-2 focus:ring-orange-500 bg-surface-raised text-content-primary"
                 placeholder="Ex: Ver Promoção"
               />
             </div>
 
             {/* Produto */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
-                Produto em destaque <span className="text-gray-400 font-normal">(opcional)</span>
+              <label className="block text-sm font-semibold text-content-secondary mb-1">
+                Produto em destaque <span className="text-content-muted font-normal">(opcional)</span>
               </label>
               <select value={draft.productId || ''} onChange={e => handleProductChange(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-border-strong rounded-xl focus:ring-2 focus:ring-orange-500 bg-surface-raised text-content-primary"
               >
                 <option value="">— Nenhum —</option>
                 {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -224,8 +224,8 @@ export const InlineAdBanner: React.FC<InlineAdBannerProps> = ({ slot, isAdmin = 
             </div>
           </div>
 
-          <div className="flex gap-3 p-5 border-t border-gray-100 dark:border-gray-800">
-            <button onClick={() => setEditing(false)} className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+          <div className="flex gap-3 p-5 border-t border-border-default">
+            <button onClick={() => setEditing(false)} className="flex-1 py-2.5 bg-surface-overlay text-content-secondary rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
               Cancelar
             </button>
             <button onClick={handleSave} disabled={saving || !draft.title}
@@ -272,7 +272,7 @@ export const InlineAdBanner: React.FC<InlineAdBannerProps> = ({ slot, isAdmin = 
             )}
           </div>
           {banner!.buttonText && (
-            <button className="flex-shrink-0 inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-4 py-2 rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-md text-sm whitespace-nowrap">
+            <button className="flex-shrink-0 inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-4 py-2 rounded-xl hover:bg-surface-base active:scale-95 transition-all shadow-md text-sm whitespace-nowrap">
               {banner!.buttonText}
               <ArrowRight className="w-3.5 h-3.5" />
             </button>

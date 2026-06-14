@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 interface FAQItem {
@@ -90,7 +90,7 @@ export const FAQSection: React.FC = () => {
           return (
             <div
               key={globalIdx}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden"
+              className="bg-surface-raised border border-border-default rounded-xl shadow-sm overflow-hidden"
             >
               <button
                 className="w-full flex items-center justify-between px-6 py-4 text-left"
@@ -101,14 +101,14 @@ export const FAQSection: React.FC = () => {
                   {faq.question}
                 </span>
                 <ChevronDown
-                  className={`h-5 w-5 text-gray-500 dark:text-gray-400 flex-shrink-0 ml-4 transition-transform duration-300 ${
+                  className={`h-5 w-5 text-content-muted flex-shrink-0 ml-4 transition-transform duration-300 ${
                     isOpen ? 'rotate-180' : ''
                   }`}
                 />
               </button>
               {isOpen && (
                 <div className="px-6 pb-5">
-                  <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
+                  <p className="text-content-secondary text-sm leading-relaxed">
                     {faq.answer}
                   </p>
                 </div>
@@ -128,7 +128,7 @@ export const FAQSection: React.FC = () => {
               className={`w-3 h-3 rounded-full transition-colors ${
                 p === page
                   ? 'bg-green-600 dark:bg-green-400'
-                  : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500'
+                  : 'bg-border-strong dark:bg-white/[0.2] hover:bg-content-muted'
               }`}
               aria-label={`Página ${p + 1}`}
             />

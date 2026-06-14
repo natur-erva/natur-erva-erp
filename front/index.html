@@ -18,7 +18,7 @@
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'Arial', 'sans-serif'],
             },
             colors: {
               brand: {
@@ -40,17 +40,17 @@
                 950: '#0B0F19',
               },
               surface: {
-                base: 'var(--surface-base)',
-                raised: 'var(--surface-raised)',
-                overlay: 'var(--surface-overlay)',
+                base: 'rgb(var(--surface-base-rgb) / <alpha-value>)',
+                raised: 'rgb(var(--surface-raised-rgb) / <alpha-value>)',
+                overlay: 'rgb(var(--surface-overlay-rgb) / <alpha-value>)',
               },
               content: {
                 primary: 'var(--text-primary)',
                 secondary: 'var(--text-secondary)',
                 muted: 'var(--text-muted)',
               },
-              'border-default': 'var(--border-default)',
-              'border-strong': 'var(--border-strong)',
+              'border-default': 'rgb(var(--border-default-rgb) / <alpha-value>)',
+              'border-strong': 'rgb(var(--border-strong-rgb) / <alpha-value>)',
               'brand-logo': {
                 dark: 'rgb(var(--brand-logo-dark) / <alpha-value>)',
                 light: 'rgb(var(--brand-logo-light) / <alpha-value>)',
@@ -61,7 +61,27 @@
                 warning: 'var(--color-warning)',
                 info: 'var(--color-info)',
               },
-            }
+            },
+            borderRadius: {
+              'none':  '0',
+              'sm':    'var(--radius-sm, 3px)',
+              DEFAULT: 'var(--radius-md, 6px)',
+              'md':    'var(--radius-md, 6px)',
+              'lg':    'var(--radius-lg, 8px)',
+              'xl':    'var(--radius-xl, 12px)',
+              '2xl':   'var(--radius-2xl, 16px)',
+              '3xl':   '24px',
+              'full':  '9999px',
+            },
+            boxShadow: {
+              'sm':  'var(--shadow-sm)',
+              DEFAULT: 'var(--shadow-md)',
+              'md':  'var(--shadow-md)',
+              'lg':  'var(--shadow-lg)',
+              'xl':  'var(--shadow-xl)',
+              '2xl': 'var(--shadow-2xl)',
+              'none': 'none',
+            },
           }
         }
       }
@@ -69,56 +89,101 @@
     <style>
       /* Design tokens - Light (default) */
       :root {
-        --surface-base: #f3f4f6;
-        --surface-raised: #ffffff;
-        --surface-overlay: #ffffff;
-        --text-primary: #111827;
-        --text-secondary: #4b5563;
-        --text-muted: #6b7280;
-        --border-default: #e5e7eb;
-        --border-strong: #d1d5db;
-        --color-success: #059669;
-        --color-error: #dc2626;
-        --color-warning: #d97706;
-        --color-info: #2563eb;
-        --chart-grid: #e5e7eb;
-        --chart-tick: #6b7280;
-        --chart-tooltip-bg: #1f2937;
-        --chart-tooltip-text: #f9fafb;
-        --brand-logo-dark: 53 167 84;
-        --brand-logo-light: 136 224 50;
+        /* Stripe light mode defaults */
+        --surface-base: #F4F7FA;
+        --surface-raised: #FFFFFF;
+        --surface-overlay: #ECF1F6;
+        /* RGB triplets — required for Tailwind opacity modifier (bg-surface-raised/80 etc.) */
+        --surface-base-rgb: 244 247 250;
+        --surface-raised-rgb: 255 255 255;
+        --surface-overlay-rgb: 236 241 246;
+        --border-default-rgb: 212 222 233;
+        --border-strong-rgb: 155 174 200;
+        --text-primary: #414552;
+        --text-secondary: #3C4257;
+        --text-muted: #697386;
+        --border-default: #D4DEE9;
+        --border-strong: #9BAEC8;
+        --color-success: #28a745;
+        --color-error: #E61947;
+        --color-warning: #CC4B00;
+        --color-info: #675DFF;
+        --chart-grid: #D4DEE9;
+        --chart-tick: #697386;
+        --chart-tooltip-bg: #414552;
+        --chart-tooltip-text: #F4F7FA;
+        --brand-logo-dark: 103 93 255;
+        --brand-logo-light: 163 155 255;
+        /* Stripe brand purple */
+        --brand-50: #f0effe;
+        --brand-100: #e2dffe;
+        --brand-200: #c5bffd;
+        --brand-300: #a79efa;
+        --brand-400: #8a7ef8;
+        --brand-500: #675DFF;
+        --brand-600: #635BFF;
+        --brand-700: #533AFD;
+        --brand-800: #3d25d0;
+        --brand-900: #2a18a0;
+        /* Shadows */
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+        --shadow-md: 0 5px 15px rgba(0,0,0,0.12), 0 15px 35px rgba(48,49,61,0.08);
+        --shadow-lg: 0 10px 24px rgba(0,0,0,0.15), 0 20px 48px rgba(48,49,61,0.10);
+        --shadow-xl: 0 20px 40px rgba(0,0,0,0.18), 0 30px 60px rgba(48,49,61,0.12);
+        --shadow-2xl: 0 30px 60px rgba(0,0,0,0.25);
       }
       .dark {
-        --surface-base: #111827;
-        --surface-raised: #1f2937;
-        --surface-overlay: #0B0F19;
-        --text-primary: #f9fafb;
-        --text-secondary: #d1d5db;
-        --text-muted: #9ca3af;
-        --border-default: #374151;
-        --border-strong: #4b5563;
-        --color-success: #34d399;
-        --color-error: #f87171;
-        --color-warning: #fbbf24;
-        --color-info: #60a5fa;
-        --chart-grid: #374151;
-        --chart-tick: #9ca3af;
-        --chart-tooltip-bg: #374151;
-        --chart-tooltip-text: #f9fafb;
+        --surface-base: #0a0a0a;
+        --surface-raised: #1c1c1e;
+        --surface-overlay: #111113;
+        --surface-base-rgb: 10 10 10;
+        --surface-raised-rgb: 28 28 30;
+        --surface-overlay-rgb: 17 17 19;
+        --border-default-rgb: 56 56 58;
+        --border-strong-rgb: 72 72 74;
+        --text-primary: #f5f5f7;
+        --text-secondary: #aeaeb2;
+        --text-muted: #8d8d92;
+        --border-default: #38383a;
+        --border-strong: #48484a;
+        --color-success: #32d74b;
+        --color-error: #ff453a;
+        --color-warning: #ffd60a;
+        --color-info: #0a84ff;
+        --chart-grid: #38383a;
+        --chart-tick: #8d8d92;
+        --chart-tooltip-bg: #2c2c2e;
+        --chart-tooltip-text: #f5f5f7;
         --brand-logo-dark: 53 167 84;
         --brand-logo-light: 136 224 50;
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+        --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+        --shadow-xl: 0 16px 40px rgba(0,0,0,0.6);
+        --shadow-2xl: 0 32px 64px rgba(0,0,0,0.7);
       }
       body {
         background-color: var(--surface-base);
         color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
       }
       /* Custom Scrollbar */
-      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-      .dark ::-webkit-scrollbar-thumb { background: #374151; }
-      .dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
-      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      ::-webkit-scrollbar-thumb { background: #c0c0c5; border-radius: 10px; }
+      .dark ::-webkit-scrollbar-thumb { background: #38383a; }
+      .dark ::-webkit-scrollbar-thumb:hover { background: #48484a; }
+      ::-webkit-scrollbar-thumb:hover { background: #a0a0a5; }
+
+      /* Focus ring */
+      *:focus-visible {
+        outline: 2px solid var(--brand-600, #059669);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
       
       /* Animations */
       @keyframes fade-in-up {
@@ -172,21 +237,36 @@
         -webkit-text-size-adjust: 100%;
       }
       
-      /* Overlay de modais: blur transparente, tela inteira */
+      /* Overlay de modais */
+      @keyframes overlay-enter {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes modal-enter {
+        from { opacity: 0; transform: translateY(20px) scale(0.985); }
+        to   { opacity: 1; transform: translateY(0)    scale(1);     }
+      }
+      @keyframes modal-sheet-enter {
+        from { opacity: 0; transform: translateY(100%); }
+        to   { opacity: 1; transform: translateY(0);    }
+      }
       .modal-overlay {
         position: fixed;
         inset: 0;
-        min-height: 100vh;
-        min-width: 100vw;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        background: rgba(0,0,0,0.04);
+        background: rgba(0, 0, 0, 0.48);
+        animation: overlay-enter 0.18s ease-out forwards;
       }
-      /* Só blur/bg para overlays filhos (absolute) */
       .modal-overlay-bg {
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        background: rgba(0,0,0,0.04);
+        background: rgba(0, 0, 0, 0.48);
+        animation: overlay-enter 0.18s ease-out forwards;
+      }
+      .animate-modal-enter {
+        animation: modal-enter 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      @media (max-width: 639px) {
+        .animate-modal-enter {
+          animation: modal-sheet-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
       }
 
       /* Esconder setas dos inputs numéricos */

@@ -168,3 +168,207 @@ export const applyTheme = (primaryHex: string) => {
     if (logoLightRgb) root.style.setProperty('--brand-logo-light', `${logoLightRgb.r} ${logoLightRgb.g} ${logoLightRgb.b}`);
 };
 
+// ── Theme Presets ────────────────────────────────────────────────────────────
+
+export interface ThemePreset {
+  id: string;
+  name: string;
+  description: string;
+  previewColors: string[];   // [brand, surface, text]
+  brandColor: string;
+  font: string;
+  radius: string;
+  lightVars: Record<string, string>;
+}
+
+export const THEME_PRESETS: ThemePreset[] = [
+  {
+    id: 'stripe',
+    name: 'Stripe',
+    description: 'Moderno · violeta · sombras marcadas',
+    previewColors: ['#675DFF', '#F4F7FA', '#414552'],
+    brandColor: '#675DFF',
+    font: 'Inter',
+    radius: 'default',
+    lightVars: {
+      '--surface-base':    '#F4F7FA',
+      '--surface-raised':  '#FFFFFF',
+      '--surface-overlay': '#ECF1F6',
+      '--text-primary':    '#414552',
+      '--text-secondary':  '#3C4257',
+      '--text-muted':      '#697386',
+      '--border-default':  '#D4DEE9',
+      '--border-strong':   '#9BAEC8',
+      '--shadow-sm':  '0 1px 3px rgba(0,0,0,0.08)',
+      '--shadow-md':  '0 5px 15px rgba(0,0,0,0.12), 0 15px 35px rgba(48,49,61,0.08)',
+      '--shadow-lg':  '0 10px 24px rgba(0,0,0,0.15), 0 20px 48px rgba(48,49,61,0.10)',
+      '--shadow-xl':  '0 20px 40px rgba(0,0,0,0.18), 0 30px 60px rgba(48,49,61,0.12)',
+      '--shadow-2xl': '0 30px 60px rgba(0,0,0,0.25)',
+    },
+  },
+  {
+    id: 'naturerva',
+    name: 'NaturErva',
+    description: 'Minimalista · verde · inspirado Apple',
+    previewColors: ['#059669', '#f5f5f7', '#1d1d1f'],
+    brandColor: '#059669',
+    font: 'Inter',
+    radius: 'default',
+    lightVars: {
+      '--surface-base':    '#f5f5f7',
+      '--surface-raised':  '#ffffff',
+      '--surface-overlay': '#fbfbfd',
+      '--text-primary':    '#1d1d1f',
+      '--text-secondary':  '#424245',
+      '--text-muted':      '#6e6e73',
+      '--border-default':  '#d2d2d7',
+      '--border-strong':   '#b0b0b7',
+      '--shadow-sm':  '0 1px 2px rgba(0,0,0,0.04)',
+      '--shadow-md':  '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
+      '--shadow-lg':  '0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05)',
+      '--shadow-xl':  '0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05)',
+      '--shadow-2xl': '0 25px 50px rgba(0,0,0,0.25)',
+    },
+  },
+  {
+    id: 'minimal',
+    name: 'Minimal',
+    description: 'Limpo · monocromático · sem distrações',
+    previewColors: ['#18181b', '#fafafa', '#18181b'],
+    brandColor: '#18181b',
+    font: 'Inter',
+    radius: 'sharp',
+    lightVars: {
+      '--surface-base':    '#fafafa',
+      '--surface-raised':  '#ffffff',
+      '--surface-overlay': '#f4f4f5',
+      '--text-primary':    '#18181b',
+      '--text-secondary':  '#52525b',
+      '--text-muted':      '#a1a1aa',
+      '--border-default':  '#e4e4e7',
+      '--border-strong':   '#d4d4d8',
+      '--shadow-sm':  '0 1px 2px rgba(0,0,0,0.06)',
+      '--shadow-md':  '0 2px 4px rgba(0,0,0,0.08)',
+      '--shadow-lg':  '0 4px 8px rgba(0,0,0,0.10)',
+      '--shadow-xl':  '0 8px 16px rgba(0,0,0,0.12)',
+      '--shadow-2xl': '0 16px 32px rgba(0,0,0,0.16)',
+    },
+  },
+  {
+    id: 'ocean',
+    name: 'Ocean',
+    description: 'Profundo · azul · tranquilo',
+    previewColors: ['#0070f3', '#f0f4ff', '#0a1929'],
+    brandColor: '#0070f3',
+    font: 'Inter',
+    radius: 'rounded',
+    lightVars: {
+      '--surface-base':    '#f0f4ff',
+      '--surface-raised':  '#ffffff',
+      '--surface-overlay': '#e8eeff',
+      '--text-primary':    '#0a1929',
+      '--text-secondary':  '#1e3a5f',
+      '--text-muted':      '#5b7ba8',
+      '--border-default':  '#c8d8f0',
+      '--border-strong':   '#9ab8d8',
+      '--shadow-sm':  '0 1px 3px rgba(0,70,180,0.08)',
+      '--shadow-md':  '0 4px 12px rgba(0,70,180,0.12)',
+      '--shadow-lg':  '0 8px 24px rgba(0,70,180,0.15)',
+      '--shadow-xl':  '0 16px 40px rgba(0,70,180,0.18)',
+      '--shadow-2xl': '0 32px 64px rgba(0,70,180,0.22)',
+    },
+  },
+];
+
+/**
+ * Apply a full theme preset (surface/text/border/shadow CSS vars + brand + font + radius).
+ * Calling with overrideBrandColor keeps the preset surfaces but uses a custom brand color.
+ */
+export const applyThemePreset = (presetId: string, overrideBrandColor?: string): void => {
+  const preset = THEME_PRESETS.find(p => p.id === presetId);
+  if (!preset) return;
+
+  const root = document.documentElement;
+  // Save the preset ID so removeDarkModeVars can restore it
+  root.dataset.themePreset = presetId;
+  if (overrideBrandColor) root.dataset.themeBrand = overrideBrandColor;
+
+  // Map hex vars → their RGB-triplet counterparts (needed for Tailwind opacity modifiers)
+  const RGB_MAP: Record<string, string> = {
+    '--surface-base':    '--surface-base-rgb',
+    '--surface-raised':  '--surface-raised-rgb',
+    '--surface-overlay': '--surface-overlay-rgb',
+    '--border-default':  '--border-default-rgb',
+    '--border-strong':   '--border-strong-rgb',
+  };
+  Object.entries(preset.lightVars).forEach(([k, v]) => {
+    root.style.setProperty(k, v);
+    if (RGB_MAP[k]) {
+      const rgb = hexToRgb(v);
+      if (rgb) root.style.setProperty(RGB_MAP[k], `${rgb.r} ${rgb.g} ${rgb.b}`);
+    }
+  });
+
+  applyTheme(overrideBrandColor || preset.brandColor);
+  applyFontFamily(preset.font);
+  applyBorderRadius(preset.radius);
+};
+
+// ── Dark mode CSS vars ──────────────────────────────────────────────────────
+// Must be set as inline styles to override light-mode inline styles from applyThemePreset.
+// Mirrors the .dark block in front/index.html exactly.
+const DARK_VARS: Record<string, string> = {
+  '--surface-base':       '#0a0a0a',
+  '--surface-raised':     '#1c1c1e',
+  '--surface-overlay':    '#111113',
+  '--surface-base-rgb':    '10 10 10',
+  '--surface-raised-rgb':  '28 28 30',
+  '--surface-overlay-rgb': '17 17 19',
+  '--text-primary':       '#f5f5f7',
+  '--text-secondary':     '#aeaeb2',
+  '--text-muted':         '#8d8d92',
+  '--border-default':     '#38383a',
+  '--border-strong':      '#48484a',
+  '--border-default-rgb':  '56 56 58',
+  '--border-strong-rgb':   '72 72 74',
+  '--color-success':      '#32d74b',
+  '--color-error':        '#ff453a',
+  '--color-warning':      '#ffd60a',
+  '--color-info':         '#0a84ff',
+  '--chart-grid':         '#38383a',
+  '--chart-tick':         '#8d8d92',
+  '--chart-tooltip-bg':   '#2c2c2e',
+  '--chart-tooltip-text': '#f5f5f7',
+  '--shadow-sm':  '0 1px 3px rgba(0,0,0,0.3)',
+  '--shadow-md':  '0 4px 12px rgba(0,0,0,0.4)',
+  '--shadow-lg':  '0 8px 24px rgba(0,0,0,0.5)',
+  '--shadow-xl':  '0 16px 40px rgba(0,0,0,0.6)',
+  '--shadow-2xl': '0 32px 64px rgba(0,0,0,0.7)',
+};
+
+/**
+ * Enable dark mode: adds the `dark` class AND sets dark CSS vars as inline styles,
+ * overriding any light-mode vars previously set by applyThemePreset.
+ */
+export const applyDarkModeVars = (): void => {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.classList.add('dark');
+  Object.entries(DARK_VARS).forEach(([k, v]) => root.style.setProperty(k, v));
+};
+
+/**
+ * Disable dark mode: removes the `dark` class AND removes dark CSS var overrides,
+ * exposing the light-mode vars set by applyThemePreset.
+ */
+export const removeDarkModeVars = (): void => {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.classList.remove('dark');
+  Object.keys(DARK_VARS).forEach(k => root.style.removeProperty(k));
+  // Re-apply the saved light preset so its surface/text/border vars are active again
+  const savedPreset = root.dataset.themePreset;
+  const savedBrand  = root.dataset.themeBrand;
+  if (savedPreset) applyThemePreset(savedPreset, savedBrand);
+};
+

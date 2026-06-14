@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { Product, Order, OrderStatus, StockMovement } from '../../core/types/types';
 import {
   Package,
@@ -249,68 +249,68 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     >
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="text-gray-500 dark:text-gray-400">Carregando...</div>
+          <div className="text-content-muted">Carregando...</div>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="bg-surface-raised rounded-lg p-6 shadow-sm border border-border-default">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <div className="text-sm font-medium text-content-muted">
                   Stock Total na Loja
                 </div>
                 <Package className="w-5 h-5 text-blue-500" />
               </div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-2xl font-bold text-content-primary">
                 {totalStockLoja.toLocaleString('pt-PT')}
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-xs text-content-muted mt-1">
                 Itens disponé­veis
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="bg-surface-raised rounded-lg p-6 shadow-sm border border-border-default">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <div className="text-sm font-medium text-content-muted">
                   Pedidos Pendentes
                 </div>
                 <Clock className="w-5 h-5 text-amber-500" />
               </div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-2xl font-bold text-content-primary">
                 {pendingOrders}
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-xs text-content-muted mt-1">
                 Aguardando processamento
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="bg-surface-raised rounded-lg p-6 shadow-sm border border-border-default">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <div className="text-sm font-medium text-content-muted">
                   Pedidos Completados
                 </div>
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
               </div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-2xl font-bold text-content-primary">
                 {completedOrdersInPeriod}
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-xs text-content-muted mt-1">
                 No peré­odo selecionado
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="bg-surface-raised rounded-lg p-6 shadow-sm border border-border-default">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <div className="text-sm font-medium text-content-muted">
                   Vendas do Peré­odo
                 </div>
                 <DollarSign className="w-5 h-5 text-green-500" />
               </div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-2xl font-bold text-content-primary">
                 {totalSalesInPeriod.toLocaleString('pt-PT', { style: 'currency', currency: 'MZN' })}
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-xs text-content-muted mt-1">
                 Receita total
               </div>
             </div>
@@ -327,8 +327,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
               </div>
               <div className="space-y-2">
                 {lowStockAlerts.map((alert, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded">
-                    <span className="text-sm text-gray-900 dark:text-white">
+                  <div key={idx} className="flex items-center justify-between p-2 bg-surface-raised rounded">
+                    <span className="text-sm text-content-primary">
                       {alert.productName}{alert.variantName ? ` (${alert.variantName})` : ''}
                     </span>
                     <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
@@ -342,62 +342,62 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
 
           {/* Top Products and Recent Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="bg-surface-raised rounded-lg p-6 shadow-sm border border-border-default">
+              <h3 className="text-lg font-semibold text-content-primary mb-4">
                 Top Produtos por Vendas
               </h3>
               <div className="space-y-2">
                 {topProductsBySales.length > 0 ? (
                   topProductsBySales.map((product, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                    <div key={idx} className="flex items-center justify-between p-2 bg-surface-base dark:bg-white/[0.05] rounded">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400 w-6">
+                        <span className="text-sm font-medium text-content-muted w-6">
                           #{idx + 1}
                         </span>
-                        <span className="text-sm text-gray-900 dark:text-white">
+                        <span className="text-sm text-content-primary">
                           {product.name}
                         </span>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        <div className="text-sm font-medium text-content-primary">
                           {product.quantity} un
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-content-muted">
                           {product.revenue.toLocaleString('pt-PT', { style: 'currency', currency: 'MZN' })}
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                  <div className="text-sm text-content-muted text-center py-4">
                     Nenhuma venda no peré­odo
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="bg-surface-raised rounded-lg p-6 shadow-sm border border-border-default">
+              <h3 className="text-lg font-semibold text-content-primary mb-4">
                 Movimentaçéµes Recentes de Stock
               </h3>
               <div className="space-y-2">
                 {stockMovementsInPeriod.slice(0, 5).map(movement => (
-                  <div key={movement.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                  <div key={movement.id} className="flex items-center justify-between p-2 bg-surface-base dark:bg-white/[0.05] rounded">
                     <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="text-sm font-medium text-content-primary">
                         {new Date(movement.date).toLocaleDateString('pt-MZ')}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <div className="text-xs text-content-muted">
                         {movement.items.length} item(ns)
                       </div>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-xs text-content-muted">
                       {movement.sourceReference?.type || 'Manual'}
                     </div>
                   </div>
                 ))}
                 {stockMovementsInPeriod.length === 0 && (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                  <div className="text-sm text-content-muted text-center py-4">
                     Nenhuma movimentaçéo no peré­odo
                   </div>
                 )}

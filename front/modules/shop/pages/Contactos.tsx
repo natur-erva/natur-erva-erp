@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, MessageSquare, Send, Instagram, Facebook } from 'lucide-react';
 import { PageHeroBanner } from '../components/PageHeroBanner';
 
@@ -18,7 +18,7 @@ const Contactos: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
+    <div className="min-h-screen bg-surface-base">
 
       <PageHeroBanner
         pageKey="contactos"
@@ -33,7 +33,7 @@ const Contactos: React.FC = () => {
 
           {/* Informações de contacto */}
           <div className="space-y-5">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Informações de Contacto</h2>
+            <h2 className="text-xl font-bold text-content-primary mb-6">Informações de Contacto</h2>
 
             {[
               {
@@ -70,21 +70,21 @@ const Contactos: React.FC = () => {
                   {item.icon}
                 </span>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{item.label}</p>
+                  <p className="text-xs text-content-muted mb-0.5">{item.label}</p>
                   {item.href ? (
-                    <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-gray-900 dark:text-white hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                    <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-content-primary hover:text-green-600 dark:hover:text-green-400 transition-colors">
                       {item.value}
                     </a>
                   ) : (
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{item.value}</p>
+                    <p className="text-sm font-medium text-content-primary">{item.value}</p>
                   )}
                 </div>
               </div>
             ))}
 
             {/* Redes sociais */}
-            <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Siga-nos nas redes sociais</p>
+            <div className="pt-4 border-t border-border-default">
+              <p className="text-xs text-content-muted mb-3">Siga-nos nas redes sociais</p>
               <div className="flex gap-3">
                 <a href="https://instagram.com/naturervamz" target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 text-white text-sm font-medium hover:opacity-90 transition-opacity">
@@ -99,43 +99,43 @@ const Contactos: React.FC = () => {
           </div>
 
           {/* Formulário */}
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-5">Envie uma Mensagem</h2>
+          <div className="bg-surface-base rounded-2xl p-6 border border-border-default">
+            <h2 className="text-xl font-bold text-content-primary mb-5">Envie uma Mensagem</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Nome</label>
+                <label className="block text-xs font-medium text-content-muted mb-1.5">Nome</label>
                 <input
                   type="text" required value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="O seu nome"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border-default bg-surface-raised text-sm text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Email</label>
+                <label className="block text-xs font-medium text-content-muted mb-1.5">Email</label>
                 <input
                   type="email" value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                   placeholder="o.seu@email.com"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border-default bg-surface-raised text-sm text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Telefone</label>
+                <label className="block text-xs font-medium text-content-muted mb-1.5">Telefone</label>
                 <input
                   type="tel" value={form.phone}
                   onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                   placeholder="+258 8X XXX XXXX"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border-default bg-surface-raised text-sm text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Mensagem</label>
+                <label className="block text-xs font-medium text-content-muted mb-1.5">Mensagem</label>
                 <textarea
                   required rows={4} value={form.message}
                   onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
                   placeholder="Escreva a sua mensagem..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border-default bg-surface-raised text-sm text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 transition resize-none"
                 />
               </div>
               <button
@@ -145,7 +145,7 @@ const Contactos: React.FC = () => {
                 <Send className="w-4 h-4" />
                 {sent ? 'A abrir WhatsApp...' : 'Enviar via WhatsApp'}
               </button>
-              <p className="text-xs text-center text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-center text-content-muted">
                 A mensagem será enviada via WhatsApp.
               </p>
             </form>

@@ -955,4 +955,96 @@ router.get('/transactions', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/stock/transfer — transfer stock between locations
+router.post('/transfer', authMiddleware, async (req, res) => {
+  const { productId, variantId = null, quantity, fromLocationId, toLocationId, notes = '' } = req.body;
+  if (!productId || !quantity || !fromLocationId || !toLocationId) {
+    return res.status(400).json({ error: 'productId, quantity, fromLocationId e toLocationId são obrigatórios' });
+  }
+  if (fromLocationId === toLocationId) {
+    return res.status(400).json({ error: 'Origem e destino não podem ser iguais' });
+  }
+  const qty = Number(quantity);
+  if (qty <= 0) return res.status(400).json({ error: 'Quantidade deve ser positiva' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Check source stock
+    const whereV = variantId
+      ? 'product_id = $1 AND variant_id = $2 AND location_id = $3'
+      : 'product_id = $1 AND variant_id IS NULL AND location_id = $2';
+    const params = variantId ? [productId, variantId, fromLocationId] : [productId, fromLocationId];
+    const { rows: src } = await client.query(
+      `SELECT * FROM product_location_stock WHERE ${whereV}`,
+      params
+    );
+    const srcQty = Number(src[0]?.quantity || 0);
+    if (srcQty < qty) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Stock insuficiente na origem. Disponível: ${srcQty}` });
+    }
+
+    const upsertSql = variantId
+      ? `INSERT INTO product_location_stock (product_id, variant_id, location_id, quantity)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (product_id, variant_id, location_id)
+         DO UPDATE SET quantity = product_location_stock.quantity + EXCLUDED.quantity`
+      : `INSERT INTO product_location_stock (product_id, location_id, quantity)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (product_id, location_id)
+         DO UPDATE SET quantity = product_location_stock.quantity + EXCLUDED.quantity`;
+
+    if (variantId) {
+      // Deduct from source
+      await client.query(
+        `UPDATE product_location_stock SET quantity = quantity - $1
+         WHERE product_id = $2 AND variant_id = $3 AND location_id = $4`,
+        [qty, productId, variantId, fromLocationId]
+      );
+      // Add to destination
+      await client.query(upsertSql, [productId, variantId, toLocationId, qty]);
+    } else {
+      await client.query(
+        `UPDATE product_location_stock SET quantity = quantity - $1
+         WHERE product_id = $2 AND variant_id IS NULL AND location_id = $3`,
+        [qty, productId, fromLocationId]
+      );
+      await client.query(upsertSql, [productId, toLocationId, qty]);
+    }
+
+    // Log in stock_movements
+    const { rows: product } = await client.query('SELECT name FROM products WHERE id = $1', [productId]);
+    const productName = product[0]?.name || '';
+    await client.query(
+      `INSERT INTO stock_movements
+         (date, items, description, metadata)
+       VALUES (CURRENT_DATE, $1, $2, $3)`,
+      [
+        JSON.stringify([{ productId, variantId, quantity: qty }]),
+        `Transferência: ${productName} — ${qty} un${notes ? ` (${notes})` : ''}`,
+        JSON.stringify({ type: 'transfer', from: fromLocationId, to: toLocationId }),
+      ]
+    );
+
+    await client.query('COMMIT');
+    res.status(201).json({
+      success: true,
+      productId,
+      variantId,
+      quantity: qty,
+      fromLocationId,
+      toLocationId,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[POST /stock/transfer]', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;
+

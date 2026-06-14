@@ -71,6 +71,7 @@ const toDateStr = (v) => v
 
 const mapPurchase = (p) => ({
   id: p.id,
+  poNumber: p.po_number ?? undefined,
   supplierId: p.supplier_id ?? undefined,
   supplierName: p.supplier_name ?? undefined,
   supplierLocationId: p.supplier_location_id ?? undefined,
@@ -89,6 +90,14 @@ const mapPurchase = (p) => ({
   notes: p.notes ?? undefined,
   createdBy: p.created_by ?? undefined,
   locationId: p.location_id ?? undefined,
+  approvedBy: p.approved_by ?? undefined,
+  approvedByName: p.approved_by_name ?? undefined,
+  approvedAt: p.approved_at ?? undefined,
+  rejectionReason: p.rejection_reason ?? undefined,
+  supplierInvoiceNumber: p.supplier_invoice_number ?? undefined,
+  supplierInvoiceAmount: p.supplier_invoice_amount != null ? Number(p.supplier_invoice_amount) : undefined,
+  supplierInvoiceDate: toDateStr(p.supplier_invoice_date),
+  matchStatus: p.match_status ?? 'pending',
   createdAt: p.created_at,
   updatedAt: p.updated_at
 });
@@ -350,6 +359,265 @@ router.delete('/requests/:id', authMiddleware, async (req, res) => {
     await pool.query('DELETE FROM purchase_requests WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Erro ao apagar requisição' }); }
+});
+
+// ── APPROVE / REJECT REQUEST ───────────────────────────────────────────────────
+
+router.post('/requests/:id/approve', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE purchase_requests SET status='approved', approved_by=$1, approved_at=NOW(), updated_at=NOW()
+       WHERE id=$2 AND status='pending' RETURNING *`,
+      [req.user.id, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Requisição não encontrada ou já processada' });
+    res.json({ request: mapRequest(rows[0]) });
+  } catch (err) { res.status(500).json({ error: 'Erro ao aprovar requisição' }); }
+});
+
+router.post('/requests/:id/reject', authMiddleware, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const { rows } = await pool.query(
+      `UPDATE purchase_requests SET status='rejected', approved_by=$1, approved_at=NOW(),
+       rejection_reason=$2, updated_at=NOW() WHERE id=$3 AND status='pending' RETURNING *`,
+      [req.user.id, reason || null, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Requisição não encontrada ou já processada' });
+    res.json({ request: mapRequest(rows[0]) });
+  } catch (err) { res.status(500).json({ error: 'Erro ao rejeitar requisição' }); }
+});
+
+router.post('/requests/:id/convert-to-po', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: rRows } = await client.query(
+      `SELECT * FROM purchase_requests WHERE id=$1 AND status='approved'`, [req.params.id]
+    );
+    if (!rRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Requisição não aprovada ou não encontrada' });
+    }
+    const req_ = rRows[0];
+    const { rows: cnt } = await client.query(
+      `UPDATE po_counter SET counter = counter + 1 WHERE id = 1 RETURNING counter`
+    );
+    const yr = new Date().getFullYear();
+    const poNumber = `PO/${yr}/${String(cnt[0].counter).padStart(4, '0')}`;
+    const total = (Array.isArray(req_.items) ? req_.items : JSON.parse(req_.items))
+      .reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.unitCost || 0)), 0);
+    const { rows: pRows } = await client.query(
+      `INSERT INTO purchases (po_number, items, total_amount, status, notes, created_by, location_id)
+       VALUES ($1,$2,$3,'draft',$4,$5,$6) RETURNING *`,
+      [poNumber, req_.items, total, req_.notes, req_.requested_by, req_.location_id]
+    );
+    await client.query(
+      `UPDATE purchase_requests SET status='converted', updated_at=NOW() WHERE id=$1`, [req_.id]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ purchase: mapPurchase(pRows[0]) });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[convert-to-po]', err);
+    res.status(500).json({ error: 'Erro ao converter para PO' });
+  } finally { client.release(); }
+});
+
+// ── PO WORKFLOW ────────────────────────────────────────────────────────────────
+
+router.post('/purchases/:id/submit', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE purchases SET status='pending_approval', updated_at=NOW() WHERE id=$1 AND status='draft' RETURNING *`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(400).json({ error: 'PO não encontrada ou status inválido' });
+    res.json({ purchase: mapPurchase(rows[0]) });
+  } catch (err) { res.status(500).json({ error: 'Erro ao submeter PO' }); }
+});
+
+router.post('/purchases/:id/approve', authMiddleware, async (req, res) => {
+  try {
+    const name = req.user.name || req.user.email || 'Manager';
+    const { rows } = await pool.query(
+      `UPDATE purchases SET status='approved', approved_by=$1, approved_by_name=$2, approved_at=NOW(), updated_at=NOW()
+       WHERE id=$3 AND status='pending_approval' RETURNING *`,
+      [req.user.id, name, req.params.id]
+    );
+    if (!rows.length) return res.status(400).json({ error: 'PO não encontrada ou status inválido' });
+    res.json({ purchase: mapPurchase(rows[0]) });
+  } catch (err) { res.status(500).json({ error: 'Erro ao aprovar PO' }); }
+});
+
+router.post('/purchases/:id/reject', authMiddleware, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const name = req.user.name || req.user.email || 'Manager';
+    const { rows } = await pool.query(
+      `UPDATE purchases SET status='rejected', approved_by=$1, approved_by_name=$2, approved_at=NOW(),
+       rejection_reason=$3, updated_at=NOW() WHERE id=$4 AND status='pending_approval' RETURNING *`,
+      [req.user.id, name, reason || null, req.params.id]
+    );
+    if (!rows.length) return res.status(400).json({ error: 'PO não encontrada ou status inválido' });
+    res.json({ purchase: mapPurchase(rows[0]) });
+  } catch (err) { res.status(500).json({ error: 'Erro ao rejeitar PO' }); }
+});
+
+router.post('/purchases/:id/order', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE purchases SET status='ordered', order_date=NOW(), updated_at=NOW()
+       WHERE id=$1 AND status='approved' RETURNING *`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(400).json({ error: 'PO não aprovada' });
+    res.json({ purchase: mapPurchase(rows[0]) });
+  } catch (err) { res.status(500).json({ error: 'Erro ao marcar como encomendado' }); }
+});
+
+// ── GRN — GOODS RECEIVED NOTES ────────────────────────────────────────────────
+
+const mapReceipt = (r) => ({
+  id: r.id,
+  purchaseId: r.purchase_id,
+  receivedBy: r.received_by,
+  receivedByName: r.received_by_name,
+  receivedAt: r.received_at,
+  items: Array.isArray(r.items) ? r.items : (r.items ? JSON.parse(r.items) : []),
+  notes: r.notes,
+  createdAt: r.created_at,
+});
+
+router.get('/purchases/:id/receipts', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM purchase_receipts WHERE purchase_id=$1 ORDER BY received_at DESC`, [req.params.id]
+    );
+    res.json(rows.map(mapReceipt));
+  } catch (err) { res.status(500).json({ error: 'Erro ao buscar recepções' }); }
+});
+
+router.post('/purchases/:id/receive', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: poRows } = await client.query(
+      `SELECT * FROM purchases WHERE id=$1 AND status IN ('ordered','partially_received')`, [req.params.id]
+    );
+    if (!poRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'PO não em estado de recepção' });
+    }
+    const po = poRows[0];
+    const { items: receivedItems, notes } = req.body;
+    if (!Array.isArray(receivedItems) || !receivedItems.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Itens de recepção obrigatórios' });
+    }
+
+    const receiverName = req.user.name || req.user.email || 'Utilizador';
+    const { rows: grnRows } = await client.query(
+      `INSERT INTO purchase_receipts (purchase_id, received_by, received_by_name, items, notes)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [req.params.id, req.user.id, receiverName, JSON.stringify(receivedItems), notes || null]
+    );
+
+    // Update stock for each received item
+    for (const item of receivedItems) {
+      if (!item.productId || !item.quantityReceived || item.quantityReceived <= 0) continue;
+      const locationId = item.locationId || po.location_id;
+      if (locationId) {
+        await client.query(
+          `INSERT INTO stock (product_id, location_id, quantity)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (product_id, location_id)
+           DO UPDATE SET quantity = stock.quantity + EXCLUDED.quantity, updated_at = NOW()`,
+          [item.productId, locationId, item.quantityReceived]
+        );
+      }
+      await client.query(
+        `INSERT INTO stock_movements (product_id, location_id, movement_type, quantity, unit_cost, reference_id, notes, created_by)
+         VALUES ($1,$2,'purchase',$3,$4,$5,$6,$7)`,
+        [item.productId, locationId || null, item.quantityReceived,
+         item.unitCost || 0, req.params.id,
+         `GRN ${grnRows[0].id.slice(0,8)}`, req.user.id]
+      );
+    }
+
+    // Check if all PO items fully received by comparing GRN totals vs PO items
+    const allReceipts = await client.query(
+      `SELECT items FROM purchase_receipts WHERE purchase_id=$1`, [req.params.id]
+    );
+    const poItems = Array.isArray(po.items) ? po.items : JSON.parse(po.items);
+    const receivedTotals = {};
+    for (const receipt of allReceipts.rows) {
+      const ri = Array.isArray(receipt.items) ? receipt.items : JSON.parse(receipt.items);
+      for (const i of ri) {
+        receivedTotals[i.productId] = (receivedTotals[i.productId] || 0) + Number(i.quantityReceived || 0);
+      }
+    }
+    const allReceived = poItems.every(i =>
+      (receivedTotals[i.productId] || 0) >= Number(i.quantity || 0)
+    );
+    const newStatus = allReceived ? 'received' : 'partially_received';
+    await client.query(
+      `UPDATE purchases SET status=$1, received_date=COALESCE(received_date, NOW()), updated_at=NOW() WHERE id=$2`,
+      [newStatus, req.params.id]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ receipt: mapReceipt(grnRows[0]), poStatus: newStatus });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[receive]', err);
+    res.status(500).json({ error: 'Erro ao registar recepção' });
+  } finally { client.release(); }
+});
+
+// ── THREE-WAY MATCH ───────────────────────────────────────────────────────────
+
+router.post('/purchases/:id/match-invoice', authMiddleware, async (req, res) => {
+  try {
+    const { supplierInvoiceNumber, supplierInvoiceAmount, supplierInvoiceDate } = req.body;
+    const { rows: poRows } = await pool.query(`SELECT * FROM purchases WHERE id=$1`, [req.params.id]);
+    if (!poRows.length) return res.status(404).json({ error: 'PO não encontrada' });
+    const po = poRows[0];
+
+    // GRN total
+    const { rows: grnRows } = await pool.query(
+      `SELECT items FROM purchase_receipts WHERE purchase_id=$1`, [req.params.id]
+    );
+    let grnTotal = 0;
+    for (const r of grnRows) {
+      const ri = Array.isArray(r.items) ? r.items : JSON.parse(r.items);
+      grnTotal += ri.reduce((s, i) => s + (Number(i.quantityReceived || 0) * Number(i.unitCost || 0)), 0);
+    }
+
+    const poTotal = Number(po.total_amount);
+    const invAmount = Number(supplierInvoiceAmount);
+    const tolerance = 0.05; // 5% tolerance
+    const matchStatus = (
+      Math.abs(invAmount - poTotal) / (poTotal || 1) <= tolerance &&
+      Math.abs(invAmount - grnTotal) / (grnTotal || 1) <= tolerance
+    ) ? 'matched' : 'discrepancy';
+
+    const { rows } = await pool.query(
+      `UPDATE purchases SET supplier_invoice_number=$1, supplier_invoice_amount=$2,
+       supplier_invoice_date=$3, match_status=$4, updated_at=NOW() WHERE id=$5 RETURNING *`,
+      [supplierInvoiceNumber, invAmount, supplierInvoiceDate || null, matchStatus, req.params.id]
+    );
+    res.json({
+      purchase: mapPurchase(rows[0]),
+      matchStatus,
+      poTotal,
+      grnTotal,
+      invoiceTotal: invAmount,
+    });
+  } catch (err) {
+    console.error('[match-invoice]', err);
+    res.status(500).json({ error: 'Erro ao processar correspondência' });
+  }
 });
 
 export default router;
