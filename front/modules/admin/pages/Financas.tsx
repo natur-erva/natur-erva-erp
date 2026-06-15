@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, Loader2, FileText, TrendingUp, Receipt, Printer, Store, CheckCircle, XCircle, Clock, Upload, Image, Download, FileSpreadsheet } from 'lucide-react';
 import { PageShell } from '../../core/components/layout/PageShell';
-import api from '../../core/services/apiClient';
+import api, { downloadBlob } from '../../core/services/apiClient';
 import { uploadService } from '../../../services/uploadService';
 import { invalidateLogoCache } from '../../core/services/systemSettingsService';
 import type { Toast } from '../../core/components/ui/Toast';
@@ -582,14 +582,13 @@ function ExportTab({ showToast }: { showToast?: (m: string, t: any) => void }) {
       <Download className="w-4 h-4" />
       Descarregar CSV
      </a>
-     <a
-      href={`${apiBase}/pdf/vat-report?month=${vatMonth}`}
-      download
+     <button
+      onClick={() => downloadBlob(`/pdf/vat-report?month=${vatMonth}`, `relatorio-iva-${vatMonth}.pdf`).catch(() => {})}
       className="flex items-center gap-2 px-4 py-2 border border-border-default text-content-secondary hover:bg-surface-base text-sm font-medium rounded-lg transition-colors"
      >
       <FileText className="w-4 h-4" />
       Relatório IVA PDF
-     </a>
+     </button>
     </div>
    </div>
 

@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, ShoppingCart, Package, LogOut, Award, TrendingUp, Warehouse, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, Egg, UserCheck, Repeat, Truck, FileText, BarChart3, ArrowLeftRight, Wallet, Download, Activity, ArrowRight, Upload, Globe, CreditCard, Megaphone, Target, Share2, Eye, MapPin, Store, Image, Tv, List, Layers, Ruler, Tag, ClipboardCheck, Scale, AlertTriangle, Shield, Boxes } from 'lucide-react';
+import { LayoutDashboard, Users, ShoppingCart, Package, LogOut, Award, TrendingUp, Warehouse, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, Egg, UserCheck, Repeat, Truck, FileText, BarChart3, ArrowLeftRight, Wallet, Download, Activity, ArrowRight, Upload, Globe, CreditCard, Megaphone, Target, Share2, Eye, MapPin, Store, Image, Tv, List, Layers, Ruler, Tag, ClipboardCheck, Scale, AlertTriangle, Shield, Boxes, BookOpen, Building2 } from 'lucide-react';
 import { User, UserRole } from '../../../core/types/types';
 import { useLanguage } from '../../../core/contexts/LanguageContext';
 
@@ -174,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
  { id: 'products', children: [{ path: '/admin/produtos' }, { path: '/admin/produtos/categorias' }, { path: '/admin/produtos/unidades' }, { path: '/admin/produtos/etiquetas' }] },
  { id: 'stock-management', children: [{ path: '/admin/stock' }, { path: '/admin/stock/alertas' }, { path: '/admin/stock/movimentos' }, { path: '/admin/stock/lotes' }, { path: '/admin/stock/auditoria' }, { path: '/admin/stock/ajustes' }] },
  { id: 'users', children: [{ path: '/admin/usuarios' }, { path: '/admin/usuarios/roles' }] },
- { id: 'financas', children: [{ path: '/admin/financas' }, { path: '/admin/faturas' }] },
+ { id: 'financas', children: [{ path: '/admin/financas' }, { path: '/admin/faturas' }, { path: '/admin/contas-pagar' }, { path: '/admin/razao-geral' }] },
  ];
 
  // Auto-expandir apenas o menu que contém a rota atual
@@ -298,6 +298,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
  { id: 'financas', label: 'Finanças', icon: Wallet, permission: 'users.view', children: [
   { id: 'financas-iva', label: 'IVA / Configuração', icon: Wallet, path: '/admin/financas' },
   { id: 'invoices', label: 'Faturas', icon: ClipboardCheck, path: '/admin/faturas' },
+  { id: 'ap', label: 'Contas a Pagar', icon: Building2, path: '/admin/contas-pagar' },
+  { id: 'ledger', label: 'Razão Geral', icon: BookOpen, path: '/admin/razao-geral' },
  ] },
  { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'users.view' },
  { id: 'logistics', label: 'Logística', icon: Truck, permission: 'logistics.manage' },

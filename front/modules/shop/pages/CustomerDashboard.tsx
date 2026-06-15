@@ -121,6 +121,7 @@ export const CustomerDashboard: React.FC<{ currentUser: any }> = ({ currentUser 
   const [loading, setLoading] = useState(true);
   const [affiliate, setAffiliate] = useState<AffiliateSnippet | null | false>(null);
   const [copied, setCopied] = useState(false);
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
 
   useEffect(() => {
     api.get<Order[]>('/orders/my-orders')
@@ -130,10 +131,13 @@ export const CustomerDashboard: React.FC<{ currentUser: any }> = ({ currentUser 
     api.get<AffiliateSnippet>('/affiliates/me')
       .then(data => setAffiliate(data))
       .catch(() => setAffiliate(false));
+    api.get<{ points: number }>('/loyalty/me')
+      .then(data => setLoyaltyPoints(data.points || 0))
+      .catch(() => {});
   }, []);
 
   const totalSpent = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
-  const points = currentUser?.points || 0;
+  const points = loyaltyPoints;
 
   const copyTracking = (code: string) => {
     navigator.clipboard.writeText(code).then(() => {

@@ -4,7 +4,7 @@ import {
   Clock, AlertTriangle, RefreshCw, ChevronRight, X, Loader2,
   DollarSign, TrendingUp, Eye, Send, Ban
 } from 'lucide-react';
-import api from '../../core/services/apiClient';
+import api, { downloadBlob } from '../../core/services/apiClient';
 import { PageShell } from '../../core/components/layout/PageShell';
 import type { Toast } from '../../core/components/ui/Toast';
 
@@ -82,6 +82,7 @@ function InvoiceDetail({
   showToast?: (msg: string, type: Toast['type']) => void;
 }) {
   const [loading, setLoading] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const act = async (fn: () => Promise<any>, successMsg: string) => {
     setLoading(successMsg);
@@ -161,11 +162,19 @@ function InvoiceDetail({
               </button>
             )}
             {invoice.status !== 'draft' && (
-              <a href={`${apiBase}/pdf/order/${invoice.orderId || invoice.id}`}
-                target="_blank" rel="noopener noreferrer" download
+              <button
+                onClick={async () => {
+                  setPdfLoading(true);
+                  try {
+                    const path = invoice.orderId ? `/pdf/order/${invoice.orderId}` : `/pdf/invoice/${invoice.id}`;
+                    await downloadBlob(path, `fatura-${invoice.invoiceNumber}.pdf`);
+                  } catch (e: any) { showToast?.(e.message || 'Erro ao gerar PDF', 'error'); }
+                  finally { setPdfLoading(false); }
+                }}
+                disabled={pdfLoading}
                 className="flex items-center gap-1.5 px-3 py-2 border border-border-default text-content-secondary hover:bg-surface-base text-sm font-medium rounded-lg transition-colors ml-auto">
-                <Download className="w-4 h-4" />PDF
-              </a>
+                {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}PDF
+              </button>
             )}
           </div>
 

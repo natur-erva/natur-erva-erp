@@ -100,4 +100,29 @@ export const api = {
   delete: <T>(path: string, body?: unknown) => request<T>('DELETE', path, body),
 };
 
+/**
+ * Fetches a binary resource (PDF, etc.) with the auth token and triggers a browser download.
+ * Use this instead of <a href> for protected endpoints.
+ */
+export const downloadBlob = async (path: string, filename: string): Promise<void> => {
+  const token = getApiToken();
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let msg = `Erro ${res.status}`;
+    try { const d = await res.json(); msg = d.error || d.message || msg; } catch {}
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+};
+
 export default api;

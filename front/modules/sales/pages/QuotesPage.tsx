@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import api from '../../core/services/apiClient';
+import api, { downloadBlob } from '../../core/services/apiClient';
 import { Product } from '../../core/types/types';
 import { getEffectivePrice } from '../../core/utils/pricing';
 import { Settings, Plus, Trash2, Edit2, X as XIcon, Eye, Download, Printer } from 'lucide-react';
@@ -516,10 +516,10 @@ export const QuotesPage: React.FC = () => {
  className="flex items-center gap-1 px-2 py-1 text-xs text-brand-700 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded font-medium transition-colors">
  <Eye className="w-3 h-3" /> Ver
  </button>
- <a href={`${import.meta.env.VITE_API_URL}/pdf/quote/${q.id}`} target="_blank" rel="noopener noreferrer" download title="Descarregar PDF"
+ <button onClick={() => downloadBlob(`/pdf/quote/${q.id}`, `orcamento-${q.quoteNumber || q.id.slice(0,8)}.pdf`).catch(() => {})} title="Descarregar PDF"
  className="flex items-center gap-1 px-2 py-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded font-medium transition-colors">
  <Download className="w-3 h-3" /> PDF
- </a>
+ </button>
  <button onClick={() => openQuote(q, 'print')} title="Imprimir"
  className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded font-medium transition-colors">
  <Printer className="w-3 h-3" />

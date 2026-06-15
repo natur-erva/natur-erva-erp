@@ -66,6 +66,51 @@ router.get('/order/:id', authMiddleware, async (req, res) => {
   } catch (err) { console.error('[PDF/order]', err); res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/pdf/invoice/:id — fatura formal (tabela invoices)
+router.get('/invoice/:id', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT i.*, o.order_number FROM invoices i LEFT JOIN orders o ON o.id = i.order_id WHERE i.id = $1`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Fatura não encontrada' });
+    const inv = rows[0];
+    const tax = await getTax();
+
+    const items = (inv.items || []).map(i => ({
+      name:       i.name || i.productName || '',
+      variantName: i.variantName,
+      quantity:   i.quantity || 1,
+      unitPrice:  Number(i.unitPrice || i.price || 0),
+      vatRate:    tax.vatRate,
+    }));
+
+    const subtotal = Number(inv.subtotal || 0);
+    const buf = await generateDocumentPDF({
+      type:   'invoice',
+      number: inv.invoice_number,
+      doc: {
+        customerName:    inv.customer_name,
+        customerPhone:   inv.customer_phone,
+        customerEmail:   inv.customer_email,
+        customerNuit:    inv.customer_nuit,
+        customerAddress: inv.customer_address,
+        notes:           inv.notes,
+      },
+      taxConfig: tax,
+      items,
+      totals: {
+        subtotal,
+        discount:    Number(inv.discount_amount || 0),
+        deliveryFee: Number(inv.delivery_fee    || 0),
+        total:       Number(inv.total_amount    || 0),
+        vatRate:     tax.vatRate,
+      },
+    });
+    send(res, buf, `fatura-${inv.invoice_number}.pdf`);
+  } catch (err) { console.error('[PDF/invoice]', err); res.status(500).json({ error: err.message }); }
+});
+
 // GET /api/pdf/quote/:id — orçamento
 router.get('/quote/:id', authMiddleware, async (req, res) => {
   try {

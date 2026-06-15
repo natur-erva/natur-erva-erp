@@ -48,8 +48,14 @@ CREATE INDEX IF NOT EXISTS invoices_status_idx        ON invoices(status);
 CREATE INDEX IF NOT EXISTS invoices_issued_at_idx     ON invoices(issued_at DESC);
 CREATE INDEX IF NOT EXISTS invoices_due_date_idx      ON invoices(due_date);
 
--- Add invoice_counter column to tax_config if missing
-ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS invoice_counter INTEGER NOT NULL DEFAULT 0;
+-- Add invoice_counter and bank/logo columns to tax_config if missing
+ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS invoice_counter      INTEGER       NOT NULL DEFAULT 0;
+ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_name            VARCHAR(100)  NOT NULL DEFAULT '';
+ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_account         VARCHAR(60)   NOT NULL DEFAULT '';
+ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_iban            VARCHAR(40)   NOT NULL DEFAULT '';
+ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_account_holder  VARCHAR(200)  NOT NULL DEFAULT '';
+ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS bank_accounts        JSONB         NOT NULL DEFAULT '[]';
+ALTER TABLE tax_config ADD COLUMN IF NOT EXISTS logo_url             TEXT          NOT NULL DEFAULT '';
 
 -- Auto-mark overdue invoices (run periodically or at query time)
 -- UPDATE invoices SET status = 'overdue'

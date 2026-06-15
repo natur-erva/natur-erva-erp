@@ -3,7 +3,7 @@ import {
  Store, Printer, Clock, Banknote, Smartphone,
  CreditCard, CheckCircle, RefreshCw, Download,
 } from 'lucide-react';
-import api from '../../core/services/apiClient';
+import api, { downloadBlob } from '../../core/services/apiClient';
 import { PageShell } from '../../core/components/layout/PageShell';
 import type { Toast } from '../../core/components/ui/Toast';
 
@@ -228,12 +228,11 @@ export const CaixaPage: React.FC<CaixaPageProps> = ({ showToast }) => {
  className="flex items-center justify-center gap-1.5 py-2.5 px-4 border border-border-default text-content-secondary rounded-xl hover:bg-surface-base transition-colors text-sm font-medium">
  <Printer className="w-4 h-4" />Imprimir
  </button>
- <a
- href={`${import.meta.env.VITE_API_URL}/pdf/pos-session/${s.id}?format=A4`}
- target="_blank" rel="noopener noreferrer" download
+ <button
+ onClick={() => downloadBlob(`/pdf/pos-session/${s.id}?format=A4`, `caixa-${s.id.slice(0,8)}.pdf`).catch(() => {})}
  className="flex items-center justify-center gap-1.5 py-2.5 px-4 border border-border-default text-content-secondary rounded-xl hover:bg-surface-base transition-colors text-sm font-medium">
  <Download className="w-4 h-4" />PDF
- </a>
+ </button>
  <button
  onClick={() => { setCloseReport(null); setTab('atual'); }}
  className="flex-1 py-2.5 text-white font-semibold rounded-xl transition-colors text-sm"

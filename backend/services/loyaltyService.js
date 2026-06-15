@@ -30,8 +30,24 @@ export async function awardOrderPoints(orderId) {
     if (!orders.length) { await client.query('ROLLBACK'); return null; }
     const order = orders[0];
 
-    // Skip if no customer or already rewarded
-    if (!order.customer_id) { await client.query('ROLLBACK'); return null; }
+    // Determine which profile to award points to.
+    // Priority: created_by (self-placed shop orders) → profile linked via customer_id
+    let profileId = order.created_by || null;
+
+    // If no direct profile link, try to find profile via customer email
+    if (!profileId && order.customer_id) {
+      const { rows: linked } = await client.query(
+        `SELECT p.id FROM profiles p
+         JOIN customers c ON LOWER(p.email) = LOWER(c.email)
+         WHERE c.id = $1 AND c.email IS NOT NULL LIMIT 1`,
+        [order.customer_id]
+      );
+      if (linked.length) profileId = linked[0].id;
+    }
+
+    if (!profileId) { await client.query('ROLLBACK'); return null; }
+
+    // Skip if already rewarded for this order
     const { rows: logs } = await client.query(
       `SELECT id FROM loyalty_log WHERE order_id = $1 AND type = 'earn'`,
       [orderId]
@@ -41,23 +57,23 @@ export async function awardOrderPoints(orderId) {
     const points = Math.floor(Number(order.total_amount || 0) * POINTS_PER_MT);
     if (points <= 0) { await client.query('ROLLBACK'); return null; }
 
-    // Update customer points
+    // Update profile loyalty_points
     await client.query(
       `UPDATE profiles SET loyalty_points = COALESCE(loyalty_points, 0) + $1 WHERE id = $2`,
-      [points, order.customer_id]
+      [points, profileId]
     );
 
     // Read updated points and compute new tier
     const { rows: profiles } = await client.query(
       'SELECT loyalty_points FROM profiles WHERE id = $1',
-      [order.customer_id]
+      [profileId]
     );
     const newPoints = Number(profiles[0]?.loyalty_points || 0);
     const tier = getTierForPoints(newPoints);
 
     await client.query(
       `UPDATE profiles SET loyalty_tier = $1 WHERE id = $2`,
-      [tier.name, order.customer_id]
+      [tier.name, profileId]
     );
 
     // Log the transaction
@@ -68,7 +84,7 @@ export async function awardOrderPoints(orderId) {
       `INSERT INTO loyalty_log (customer_id, order_id, type, points, description, expires_at)
        VALUES ($1, $2, 'earn', $3, $4, $5)`,
       [
-        order.customer_id,
+        profileId,
         orderId,
         points,
         `Pontos pela encomenda #${order.order_number || orderId.slice(0, 8)}`,

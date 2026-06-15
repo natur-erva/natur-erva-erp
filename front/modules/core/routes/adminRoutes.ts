@@ -73,6 +73,10 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'purchase-flow': '/admin/compras-flow',
   // KPI Analytics
   'kpis': '/admin/kpis',
+  // Contas a Pagar (AP)
+  'ap': '/admin/contas-pagar',
+  // Razão Geral / Ledger
+  'ledger': '/admin/razao-geral',
   // Perfil
   'profile': '/admin/perfis'
 };

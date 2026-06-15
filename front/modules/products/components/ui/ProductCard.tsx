@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { Product, ProductVariant } from '../../../core/types/types';
-import { ShoppingCart, Package, Bell, X, Star } from 'lucide-react';
+import { ShoppingCart, Package, Bell, X, Star, TrendingUp } from 'lucide-react';
 import { getVariantImage } from '../../../core/utils/productUtils';
 import { StarRating } from './StarRating';
 import { ReviewModal } from './ReviewModal';
@@ -185,11 +185,12 @@ const ProductCardComponent: React.FC<{
  </h3>
  </Link>
 
- {/* Rating */}
+ {/* Rating + Vendas */}
+ <div className="flex items-center justify-between mb-1.5">
  <button
  type="button"
  onClick={() => setShowReviewModal(true)}
- className="flex items-center gap-1 w-fit p-0 border-0 bg-transparent mb-1.5"
+ className="flex items-center gap-1 w-fit p-0 border-0 bg-transparent"
  aria-label="Ver avaliações"
  >
  <StarRating value={ratingStats.average} size="sm" />
@@ -197,6 +198,13 @@ const ProductCardComponent: React.FC<{
  {ratingStats.total > 0 ? `(${ratingStats.total})` : 'Avaliar'}
  </span>
  </button>
+ {(product.totalSold || 0) > 0 && (
+ <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+ <TrendingUp className="w-3 h-3" />
+ {product.totalSold! >= 1000 ? `${(product.totalSold! / 1000).toFixed(1)}k` : product.totalSold} vendas
+ </span>
+ )}
+ </div>
 
  {/* Descrição — flex-1 garante que absorve o espaço extra,
  mantendo preço+botão sempre no fundo independente do texto */}

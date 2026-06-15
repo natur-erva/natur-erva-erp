@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../db.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendWhatsAppMessage } from '../services/emailService.js';
+import { awardOrderPoints } from '../services/loyaltyService.js';
 
 const router = express.Router();
 
@@ -164,6 +165,10 @@ router.put('/my-orders/:id/confirm', authMiddleware, async (req, res) => {
     await pool.query(
       `UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`,
       [req.params.id]
+    );
+    // Atribuir pontos de fidelidade ao confirmar receção
+    awardOrderPoints(req.params.id).catch(pErr =>
+      console.warn('[Orders] loyalty award on confirm error:', pErr.message)
     );
     res.json({ success: true });
   } catch (err) {
@@ -603,32 +608,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
       } catch {}
     }
 
-    // Atribuir pontos ao cliente quando pedido é marcado como entregue/concluído (best-effort)
+    // Atribuir pontos de fidelidade quando pedido é entregue/concluído (best-effort)
     if (updates.status === 'delivered' || updates.status === 'completed') {
-      try {
-        // Fallback: se created_by for nulo (pedido criado pelo admin), procura o perfil via customer_id
-        const { rows: orderData } = await pool.query(
-          `SELECT o.total_amount, o.created_by, p.id AS linked_profile_id
-           FROM orders o
-           LEFT JOIN profiles p ON p.customer_id = o.customer_id
-           WHERE o.id = $1`,
-          [req.params.id]
-        );
-        if (orderData.length) {
-          const profileId = orderData[0].created_by || orderData[0].linked_profile_id;
-          if (profileId) {
-            const pts = Math.floor(Number(orderData[0].total_amount) / 10);
-            if (pts > 0) {
-              await pool.query(
-                'UPDATE profiles SET points = points + $1, total_points_earned = total_points_earned + $1 WHERE id = $2',
-                [pts, profileId]
-              );
-            }
-          }
-        }
-      } catch (pErr) {
-        console.warn('[Orders] points award error:', pErr.message);
-      }
+      awardOrderPoints(req.params.id).catch(pErr =>
+        console.warn('[Orders] loyalty award error:', pErr.message)
+      );
     }
 
     res.json({ success: true });

@@ -21,6 +21,7 @@ import { formatDateOnly, formatDateWithOptions, getTodayDateString, toDateString
 import { normalizeForSearch, normalizeOrderStatus, hasPaymentProof, getPaidAmount } from '../../core/services/serviceUtils';
 import { useTrackAction } from '../../auth/components/TrackedPage';
 import { appSystemConfig } from '../../../config/appConfig';
+import { downloadBlob } from '../../core/services/apiClient';
 
 interface OrdersProps {
  orders: Order[];
@@ -4414,14 +4415,13 @@ ${order.trackingCode ? `<div class="track-box"><span style="font-size:10px;color
  <button onClick={() => handlePrint(selectedOrder)} className="p-2 text-content-secondary border dark:border-border-strong rounded-lg hover:bg-surface-base transition-colors" title="Imprimir">
  <Printer className="w-5 h-5" />
  </button>
- <a
- href={`${import.meta.env.VITE_API_URL}/pdf/order/${selectedOrder.id}`}
- target="_blank" rel="noopener noreferrer" download
+ <button
+ onClick={() => downloadBlob(`/pdf/order/${selectedOrder.id}`, `fatura-${selectedOrder.orderNumber || selectedOrder.id}.pdf`).catch(() => {})}
  className="p-2 text-content-secondary border dark:border-border-strong rounded-lg hover:bg-surface-base transition-colors"
  title="Descarregar Fatura PDF"
  >
  <Download className="w-5 h-5" />
- </a>
+ </button>
  {canDelete && onDeleteOrder && (
  <button onClick={handleDelete} className="p-2 text-red-600 dark:text-red-400 border dark:border-border-strong rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors" title="Apagar">
  <Trash2 className="w-5 h-5" />

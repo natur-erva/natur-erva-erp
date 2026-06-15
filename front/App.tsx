@@ -47,7 +47,9 @@ const RemoteScannerPage = lazy(() => import('./modules/sales/pages/RemoteScanner
 const Financas = lazy(() => import('./modules/admin/pages/Financas').then(m => ({ default: m.Financas })));
 const InvoicesPage = lazy(() => import('./modules/admin/pages/InvoicesPage').then(m => ({ default: m.InvoicesPage })));
 const PurchaseFlowPage = lazy(() => import('./modules/admin/pages/PurchaseFlowPage').then(m => ({ default: m.PurchaseFlowPage })));
-const KPIPage = lazy(() => import('./modules/admin/pages/KPIPage').then(m => ({ default: m.KPIPage })));
+const KPIPage    = lazy(() => import('./modules/admin/pages/KPIPage').then(m => ({ default: m.KPIPage })));
+const APPage     = lazy(() => import('./modules/admin/pages/APPage').then(m => ({ default: m.APPage })));
+const LedgerPage = lazy(() => import('./modules/admin/pages/LedgerPage').then(m => ({ default: m.LedgerPage })));
 const Shop = lazy(() => import('./modules/shop/pages/Shop').then(m => ({ default: m.Shop })));
 const ProductLandingPage = lazy(() => import('./modules/shop/pages/ProductLandingPage').then(m => ({ default: m.ProductLandingPage })));
 const UserManagement = lazy(() => import('./modules/admin/pages/UserManagement').then(m => ({ default: m.UserManagement })));
@@ -56,6 +58,7 @@ const AdminRefunds = lazy(() => import('./modules/admin/pages/Refunds').then(m =
 const CustomerDashboard = lazy(() => import('./modules/shop/pages/CustomerDashboard').then(m => ({ default: m.CustomerDashboard })));
 const CustomerOrders = lazy(() => import('./modules/shop/pages/CustomerOrders').then(m => ({ default: m.CustomerOrders })));
 const CustomerOrderDetail = lazy(() => import('./modules/shop/pages/CustomerOrderDetail').then(m => ({ default: m.CustomerOrderDetail })));
+const OrderTrackingPage = lazy(() => import('./modules/shop/pages/OrderTrackingPage').then(m => ({ default: m.OrderTrackingPage })));
 const CustomerRefunds = lazy(() => import('./modules/shop/pages/CustomerRefunds').then(m => ({ default: m.CustomerRefunds })));
 const CustomerAffiliate = lazy(() => import('./modules/shop/pages/CustomerAffiliate').then(m => ({ default: m.CustomerAffiliate })));
 const AdminAffiliates = lazy(() => import('./modules/admin/pages/Affiliates').then(m => ({ default: m.Affiliates })));
@@ -394,6 +397,8 @@ const App = () => {
             <Route path="politica" element={<Suspense fallback={<PageLoadingFallback />}><Politica /></Suspense>} />
             <Route path="contactos" element={<Suspense fallback={<PageLoadingFallback />}><Contactos /></Suspense>} />
             <Route path="reset-password" element={<Suspense fallback={<PageLoadingFallback />}><ResetPasswordPage /></Suspense>} />
+            {/* Rastreio público de encomendas — sem autenticação */}
+            <Route path="rastrear-encomenda" element={<Suspense fallback={<PageLoadingFallback />}><OrderTrackingPage /></Suspense>} />
             {/* Scanner remoto POS — público, token na URL */}
             <Route path="scanner-remoto" element={<Suspense fallback={<PageLoadingFallback />}><RemoteScannerPage /></Suspense>} />
             {/* Home: mostra loja */}
@@ -596,6 +601,20 @@ const App = () => {
                 <ProtectedRoute user={currentUser} permission="users.view">
                   <TrackedPage pagePath="/admin/kpis" pageTitle="KPIs">
                     <KPIPage showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="contas-pagar" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/contas-pagar" pageTitle="Contas a Pagar">
+                    <APPage showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="razao-geral" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/razao-geral" pageTitle="Razão Geral">
+                    <LedgerPage showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />
