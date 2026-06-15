@@ -4,8 +4,7 @@ import {
   Search, Package, CreditCard, Clock, Truck, CheckCircle,
   XCircle, ThumbsUp, Loader2, AlertCircle, MapPin,
 } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+import api from '../../core/services/apiClient';
 
 const TZ = 'Africa/Maputo';
 const fmtDate = (d?: string | null) =>
@@ -88,16 +87,17 @@ export const OrderTrackingPage: React.FC = () => {
     setError('');
     setResult(null);
     try {
-      const res = await fetch(`${API_BASE}/orders/tracking/${encodeURIComponent(trimmed)}`);
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || `Código não encontrado (${res.status})`);
-      }
-      const data = await res.json();
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Tempo limite excedido. Verifique a sua ligação.')), 12000)
+      );
+      const data = await Promise.race([
+        api.get<TrackResult>(`/orders/tracking/${encodeURIComponent(trimmed)}`),
+        timeout,
+      ]);
       setResult(data);
       setSearchParams({ codigo: trimmed }, { replace: true });
     } catch (e: any) {
-      setError(e.message || 'Erro ao rastrear encomenda');
+      setError(e?.message || 'Erro ao rastrear encomenda');
     } finally {
       setLoading(false);
     }

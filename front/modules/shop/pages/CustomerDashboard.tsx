@@ -194,10 +194,10 @@ export const CustomerDashboard: React.FC<{ currentUser: any }> = ({ currentUser 
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {orders.map(o => (
-                <button
+                <div
                   key={o.id}
                   onClick={() => navigate(`/minha-conta/encomendas/${o.id}`)}
-                  className="w-full flex items-center justify-between px-5 py-3 hover:bg-surface-overlay/50 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-5 py-3 hover:bg-surface-overlay/50 transition-colors text-left cursor-pointer"
                 >
                   <div>
                     <p className="font-medium text-content-primary text-sm">Pedido #{o.orderNumber || o.id.slice(0,8)}</p>
@@ -218,7 +218,7 @@ export const CustomerDashboard: React.FC<{ currentUser: any }> = ({ currentUser 
                     <p className="text-sm font-semibold text-content-primary">{o.totalAmount?.toFixed(2)} MT</p>
                     <span className="text-xs text-gray-500">{STATUS_LABEL[o.status] || o.status}</span>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
