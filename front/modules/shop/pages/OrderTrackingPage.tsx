@@ -4,7 +4,8 @@ import {
   Search, Package, CreditCard, Clock, Truck, CheckCircle,
   XCircle, ThumbsUp, Loader2, AlertCircle, MapPin,
 } from 'lucide-react';
-import api from '../../core/services/apiClient';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3060/api';
 
 const TZ = 'Africa/Maputo';
 const fmtDate = (d?: string | null) =>
@@ -73,39 +74,60 @@ const statusColor = (status: string) => {
 };
 
 export const OrderTrackingPage: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [code, setCode] = useState(searchParams.get('codigo') || '');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TrackResult | null>(null);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const didAutoSearch = useRef(false);
 
   const search = async (trackingCode: string) => {
     const trimmed = trackingCode.trim().toUpperCase();
     if (!trimmed) return;
+
+    // Cancel any in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const timerId = setTimeout(() => controller.abort(), 15000);
+
     setLoading(true);
     setError('');
     setResult(null);
     try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Tempo limite excedido. Verifique a sua ligação.')), 12000)
+      const res = await fetch(
+        `${API_BASE}/orders/tracking/${encodeURIComponent(trimmed)}`,
+        { signal: controller.signal }
       );
-      const data = await Promise.race([
-        api.get<TrackResult>(`/orders/tracking/${encodeURIComponent(trimmed)}`),
-        timeout,
-      ]);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Erro ${res.status}`);
+      }
+      const data: TrackResult = await res.json();
       setResult(data);
-      setSearchParams({ codigo: trimmed }, { replace: true });
     } catch (e: any) {
-      setError(e?.message || 'Erro ao rastrear encomenda');
+      if (e.name === 'AbortError') {
+        setError('Tempo limite excedido. Tente novamente.');
+      } else {
+        setError(e?.message || 'Código não encontrado');
+      }
     } finally {
+      clearTimeout(timerId);
       setLoading(false);
     }
   };
 
+  // Auto-search when page loads with ?codigo= in URL.
+  // didAutoSearch ref prevents StrictMode double-fire.
   useEffect(() => {
     const inicial = searchParams.get('codigo');
-    if (inicial) search(inicial);
+    if (inicial && !didAutoSearch.current) {
+      didAutoSearch.current = true;
+      search(inicial);
+    }
+    return () => { abortRef.current?.abort(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = (e: React.FormEvent) => {
