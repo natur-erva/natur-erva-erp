@@ -1,11 +1,31 @@
 import { Router } from 'express';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import pool from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Auto-mark overdue on startup
-pool.query(`UPDATE invoices SET status = 'overdue' WHERE status = 'issued' AND due_date < CURRENT_DATE`).catch(() => {});
+// Auto-migrate: create invoices table if missing
+(async () => {
+  try {
+    await pool.query('SELECT 1 FROM invoices LIMIT 1');
+    // Table exists — mark overdue
+    pool.query(`UPDATE invoices SET status = 'overdue' WHERE status = 'issued' AND due_date < CURRENT_DATE`).catch(() => {});
+  } catch (err) {
+    if (err.code === '42P01') {
+      try {
+        const sql = readFileSync(join(__dirname, '../../sql/migrations/CREATE_INVOICES.sql'), 'utf8');
+        await pool.query(sql);
+        console.log('[invoices] ✅ Auto-migration: tabela invoices criada');
+      } catch (migErr) {
+        console.error('[invoices] ❌ Auto-migration falhou:', migErr.message);
+      }
+    }
+  }
+})();
 
 const mapInvoice = (r) => ({
   id:              r.id,
@@ -131,7 +151,9 @@ router.post('/', authMiddleware, async (req, res) => {
     await client.query('BEGIN');
 
     const b = req.body;
-    const vatRate = Number(b.vatRate ?? 16);
+    const vatRate = b.vatRate != null
+      ? Number(b.vatRate)
+      : Number((await client.query('SELECT vat_rate FROM tax_config WHERE id = 1')).rows[0]?.vat_rate || 16);
     const { subtotal, vatAmount, total } = computeTotals(b.items, Number(b.discountAmount || 0), Number(b.deliveryFee || 0), vatRate);
     const status  = b.status === 'issued' ? 'issued' : 'draft';
     const issuedAt = status === 'issued' ? (b.issuedAt || new Date().toISOString().slice(0, 10)) : (b.issuedAt || null);

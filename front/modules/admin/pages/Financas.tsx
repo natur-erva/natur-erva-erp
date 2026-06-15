@@ -535,15 +535,30 @@ function ExportTab({ showToast }: { showToast?: (m: string, t: any) => void }) {
  const [vatMonth, setVatMonth] = React.useState(thisMonthStr);
  const [loadingVat, setLoadingVat] = React.useState(false);
  const [vatSummary, setVatSummary] = React.useState<any>(null);
- const apiBase = import.meta.env.VITE_API_URL as string;
+ const [configuredVatRate, setConfiguredVatRate] = React.useState(16);
+ const [downloadingCsv, setDownloadingCsv] = React.useState(false);
+
+ React.useEffect(() => {
+  api.get<{ vatRate: number }>('/tax/config')
+   .then(c => { if (c?.vatRate) setConfiguredVatRate(c.vatRate); })
+   .catch(() => {});
+ }, []);
 
  const loadVatSummary = async () => {
   setLoadingVat(true);
   try {
-   const d = await (await import('../../core/services/apiClient')).default.get<any>(`/reports/vat-summary?month=${vatMonth}`);
+   const d = await api.get<any>(`/reports/vat-summary?month=${vatMonth}`);
    setVatSummary(d);
   } catch { showToast?.('Erro ao carregar resumo IVA', 'error'); }
   setLoadingVat(false);
+ };
+
+ const handleDownloadCsv = async () => {
+  setDownloadingCsv(true);
+  try {
+   await downloadBlob(`/reports/accounting?from=${from}&to=${to}&format=csv`, `contabilidade-${from}-${to}.csv`);
+  } catch { showToast?.('Erro ao descarregar CSV', 'error'); }
+  setDownloadingCsv(false);
  };
 
  const PAY: Record<string, string> = { cash: 'Dinheiro', mpesa: 'M-Pesa', transfer: 'Transferência' };
@@ -559,7 +574,7 @@ function ExportTab({ showToast }: { showToast?: (m: string, t: any) => void }) {
     </div>
     <p className="text-sm text-content-muted mb-4">
      Exporta todas as transações num ficheiro CSV compatível com Excel e software de contabilidade.
-     Inclui base tributável, IVA 16% e total bruto por transação.
+     Inclui base tributável, IVA {configuredVatRate}% e total bruto por transação.
     </p>
     <div className="flex flex-wrap items-end gap-3 mb-4">
      <div>
@@ -574,14 +589,14 @@ function ExportTab({ showToast }: { showToast?: (m: string, t: any) => void }) {
      </div>
     </div>
     <div className="flex gap-2">
-     <a
-      href={`${apiBase}/reports/accounting?from=${from}&to=${to}&format=csv`}
-      download
-      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors"
+     <button
+      onClick={handleDownloadCsv}
+      disabled={downloadingCsv}
+      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-colors"
      >
-      <Download className="w-4 h-4" />
+      {downloadingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
       Descarregar CSV
-     </a>
+     </button>
      <button
       onClick={() => downloadBlob(`/pdf/vat-report?month=${vatMonth}`, `relatorio-iva-${vatMonth}.pdf`).catch(() => {})}
       className="flex items-center gap-2 px-4 py-2 border border-border-default text-content-secondary hover:bg-surface-base text-sm font-medium rounded-lg transition-colors"
@@ -615,7 +630,7 @@ function ExportTab({ showToast }: { showToast?: (m: string, t: any) => void }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
        {[
         { label: 'Total Bruto', value: `${Number(vatSummary.totals?.gross || 0).toFixed(2)} MT`, color: 'text-green-600' },
-        { label: `IVA ${vatSummary.vatRate || 16}%`, value: `${Number(vatSummary.totals?.vat || 0).toFixed(2)} MT`, color: 'text-yellow-600' },
+        { label: `IVA ${vatSummary.vatRate ?? configuredVatRate}%`, value: `${Number(vatSummary.totals?.vat || 0).toFixed(2)} MT`, color: 'text-yellow-600' },
         { label: 'Base Tributável', value: `${Number(vatSummary.totals?.net || 0).toFixed(2)} MT`, color: 'text-blue-600' },
         { label: 'Nº Transações', value: String(vatSummary.totals?.count || 0), color: 'text-content-primary' },
        ].map(k => (

@@ -104,6 +104,13 @@ function CreateBillModal({ onClose, onCreated, showToast }: {
   });
   const [items, setItems] = useState([{ name: '', quantity: 1, unitPrice: 0 }]);
 
+  // Load configured VAT rate
+  useEffect(() => {
+    api.get<{ vatRate: number }>('/tax/config')
+      .then(c => { if (c.vatRate) setForm(p => ({ ...p, vatRate: c.vatRate })); })
+      .catch(() => {});
+  }, []);
+
   const addItem = () => setItems(p => [...p, { name: '', quantity: 1, unitPrice: 0 }]);
   const removeItem = (i: number) => setItems(p => p.filter((_, j) => j !== i));
   const setItem = (i: number, k: string, v: any) => setItems(p => p.map((it, j) => j === i ? { ...it, [k]: v } : it));

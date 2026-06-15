@@ -20,6 +20,10 @@ router.get('/accounting', authMiddleware, async (req, res) => {
     const to     = req.query.to   || new Date().toISOString().slice(0, 10);
     const format = req.query.format === 'json' ? 'json' : 'csv';
 
+    const { rows: tcRows } = await pool.query('SELECT vat_rate FROM tax_config WHERE id = 1');
+    const vatRate = Number(tcRows[0]?.vat_rate || 16);
+    const divisor = 100 + vatRate;
+
     const { rows } = await pool.query(
       `SELECT
          o.id,
@@ -33,24 +37,24 @@ router.get('/accounting', authMiddleware, async (req, res) => {
          o.discount_amount,
          o.delivery_fee,
          o.source,
-         COALESCE(o.total_amount, 0) * 16 / 116 AS vat_amount,
-         COALESCE(o.total_amount, 0) - COALESCE(o.total_amount, 0) * 16 / 116 AS net_amount
+         COALESCE(o.total_amount, 0) * $3 / $4 AS vat_amount,
+         COALESCE(o.total_amount, 0) - COALESCE(o.total_amount, 0) * $3 / $4 AS net_amount
        FROM orders o
        WHERE o.created_at::date >= $1
          AND o.created_at::date <= $2
          AND o.status NOT IN ('cancelled')
        ORDER BY o.created_at ASC`,
-      [from, to]
+      [from, to, vatRate, divisor]
     );
 
     if (format === 'json') {
-      return res.json({ from, to, count: rows.length, rows });
+      return res.json({ from, to, vatRate, count: rows.length, rows });
     }
 
     // CSV export
     const lines = [
       csvRow('ID', 'Nº Doc', 'Data', 'Cliente', 'Telefone', 'Pagamento', 'Estado', 'Origem',
-             'Desconto (MT)', 'Entrega (MT)', 'Base Tributável (MT)', 'IVA 16% (MT)', 'Total Bruto (MT)'),
+             'Desconto (MT)', 'Entrega (MT)', 'Base Tributável (MT)', `IVA ${vatRate}% (MT)`, 'Total Bruto (MT)'),
       ...rows.map(r => csvRow(
         r.id,
         r.order_number || '',
@@ -100,19 +104,23 @@ router.get('/vat-summary', authMiddleware, async (req, res) => {
     const toDate = new Date(new Date(from).getFullYear(), new Date(from).getMonth() + 1, 0);
     const to     = toDate.toISOString().slice(0, 10);
 
+    const { rows: tcRows } = await pool.query('SELECT vat_rate FROM tax_config WHERE id = 1');
+    const vatRate = Number(tcRows[0]?.vat_rate || 16);
+    const divisor = 100 + vatRate;
+
     const { rows } = await pool.query(
       `SELECT
          payment_method,
          COUNT(*) AS count,
          COALESCE(SUM(total_amount), 0) AS gross,
-         COALESCE(SUM(total_amount * 16 / 116), 0) AS vat,
-         COALESCE(SUM(total_amount - total_amount * 16 / 116), 0) AS net
+         COALESCE(SUM(total_amount * $3 / $4), 0) AS vat,
+         COALESCE(SUM(total_amount - total_amount * $3 / $4), 0) AS net
        FROM orders
        WHERE created_at::date >= $1
          AND created_at::date <= $2
          AND status NOT IN ('cancelled')
        GROUP BY payment_method`,
-      [from, to]
+      [from, to, vatRate, divisor]
     );
 
     const totals = rows.reduce(
@@ -125,7 +133,7 @@ router.get('/vat-summary', authMiddleware, async (req, res) => {
       { count: 0, gross: 0, vat: 0, net: 0 }
     );
 
-    res.json({ month, from, to, byPaymentMethod: rows, totals });
+    res.json({ month, from, to, vatRate, byPaymentMethod: rows, totals });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

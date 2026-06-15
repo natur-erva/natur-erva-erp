@@ -39,7 +39,7 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
     const settings: SystemSettings = {
       ...base,
       ...(config.logoUrl ? { logo_light: config.logoUrl, logo_dark: config.logoUrl } : {}),
-      ...(config.logoIconUrl ? { logo_icon: config.logoIconUrl } : {}),
+      ...(config.logoIconUrl ? { logo_icon: config.logoIconUrl, favicon: config.logoIconUrl } : {}),
       ...(config.themePrimaryColor ? { primary_color: config.themePrimaryColor } : {}),
       ...(config.themeFont ? { theme_font: config.themeFont } : {}),
       ...(config.themeRadius ? { theme_radius: config.themeRadius } : {}),
