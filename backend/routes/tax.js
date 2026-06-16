@@ -170,6 +170,50 @@ router.post('/quote/number', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /api/tax/setup-invoices — cria tabela invoices se não existir (idempotent)
+router.post('/setup-invoices', authMiddleware, async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id                BIGSERIAL     PRIMARY KEY,
+        invoice_number    VARCHAR(50)   NOT NULL,
+        order_id          BIGINT        REFERENCES orders(id)     ON DELETE SET NULL,
+        customer_id       BIGINT        REFERENCES customers(id)  ON DELETE SET NULL,
+        customer_name     VARCHAR(200),
+        customer_phone    VARCHAR(50),
+        customer_email    VARCHAR(100),
+        customer_nuit     VARCHAR(20),
+        customer_address  TEXT,
+        status            VARCHAR(20)   NOT NULL DEFAULT 'draft'
+                          CHECK (status IN ('draft','issued','paid','partial','overdue','cancelled')),
+        issued_at         DATE,
+        due_date          DATE,
+        paid_at           TIMESTAMPTZ,
+        items             JSONB         NOT NULL DEFAULT '[]',
+        subtotal          NUMERIC(12,2) NOT NULL DEFAULT 0,
+        discount_amount   NUMERIC(12,2) NOT NULL DEFAULT 0,
+        delivery_fee      NUMERIC(12,2) NOT NULL DEFAULT 0,
+        vat_rate          NUMERIC(5,2)  NOT NULL DEFAULT 16,
+        vat_amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+        total_amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
+        payment_method    VARCHAR(50),
+        amount_paid       NUMERIC(12,2) NOT NULL DEFAULT 0,
+        notes             TEXT,
+        internal_notes    TEXT,
+        created_by        BIGINT        REFERENCES profiles(id)   ON DELETE SET NULL,
+        created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+        updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS invoices_order_id_idx    ON invoices(order_id);
+      CREATE INDEX IF NOT EXISTS invoices_customer_id_idx ON invoices(customer_id);
+      CREATE INDEX IF NOT EXISTS invoices_status_idx      ON invoices(status);
+      CREATE INDEX IF NOT EXISTS invoices_issued_at_idx   ON invoices(issued_at DESC);
+    `);
+    const { rows } = await pool.query('SELECT COUNT(*) AS n FROM invoices');
+    res.json({ ok: true, invoicesCount: Number(rows[0].n), message: 'Tabela invoices pronta' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // GET /api/tax/report?start=YYYY-MM-DD&end=YYYY-MM-DD
 router.get('/report', authMiddleware, async (req, res) => {
   try {

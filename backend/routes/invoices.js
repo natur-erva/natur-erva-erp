@@ -1,31 +1,53 @@
 import { Router } from 'express';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import pool from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Auto-migrate: create invoices table if missing
-(async () => {
-  try {
-    await pool.query('SELECT 1 FROM invoices LIMIT 1');
-    // Table exists — mark overdue
+const CREATE_INVOICES_SQL = `
+  CREATE TABLE IF NOT EXISTS invoices (
+    id                BIGSERIAL     PRIMARY KEY,
+    invoice_number    VARCHAR(50)   NOT NULL,
+    order_id          BIGINT        REFERENCES orders(id)     ON DELETE SET NULL,
+    customer_id       BIGINT        REFERENCES customers(id)  ON DELETE SET NULL,
+    customer_name     VARCHAR(200),
+    customer_phone    VARCHAR(50),
+    customer_email    VARCHAR(100),
+    customer_nuit     VARCHAR(20),
+    customer_address  TEXT,
+    status            VARCHAR(20)   NOT NULL DEFAULT 'draft'
+                      CHECK (status IN ('draft','issued','paid','partial','overdue','cancelled')),
+    issued_at         DATE,
+    due_date          DATE,
+    paid_at           TIMESTAMPTZ,
+    items             JSONB         NOT NULL DEFAULT '[]',
+    subtotal          NUMERIC(12,2) NOT NULL DEFAULT 0,
+    discount_amount   NUMERIC(12,2) NOT NULL DEFAULT 0,
+    delivery_fee      NUMERIC(12,2) NOT NULL DEFAULT 0,
+    vat_rate          NUMERIC(5,2)  NOT NULL DEFAULT 16,
+    vat_amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+    total_amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
+    payment_method    VARCHAR(50),
+    amount_paid       NUMERIC(12,2) NOT NULL DEFAULT 0,
+    notes             TEXT,
+    internal_notes    TEXT,
+    created_by        BIGINT        REFERENCES profiles(id)   ON DELETE SET NULL,
+    created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS invoices_order_id_idx      ON invoices(order_id);
+  CREATE INDEX IF NOT EXISTS invoices_customer_id_idx   ON invoices(customer_id);
+  CREATE INDEX IF NOT EXISTS invoices_status_idx        ON invoices(status);
+  CREATE INDEX IF NOT EXISTS invoices_issued_at_idx     ON invoices(issued_at DESC);
+`;
+
+// Auto-migrate: create invoices table if missing (inline SQL — no file dependency)
+pool.query(CREATE_INVOICES_SQL)
+  .then(() => {
+    console.log('[invoices] ✅ tabela invoices OK');
     pool.query(`UPDATE invoices SET status = 'overdue' WHERE status = 'issued' AND due_date < CURRENT_DATE`).catch(() => {});
-  } catch (err) {
-    if (err.code === '42P01') {
-      try {
-        const sql = readFileSync(join(__dirname, '../../sql/migrations/CREATE_INVOICES.sql'), 'utf8');
-        await pool.query(sql);
-        console.log('[invoices] ✅ Auto-migration: tabela invoices criada');
-      } catch (migErr) {
-        console.error('[invoices] ❌ Auto-migration falhou:', migErr.message);
-      }
-    }
-  }
-})();
+  })
+  .catch(err => console.error('[invoices] ❌ setup:', err.message));
 
 const mapInvoice = (r) => ({
   id:              r.id,

@@ -285,19 +285,40 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ showToast }) => {
   const [fromOrderId, setFromOrderId] = useState('');
   const [creatingFromOrder, setCreatingFromOrder] = useState(false);
 
+  const [setupError, setSetupError] = useState('');
+  const [fixing, setFixing] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
+    setSetupError('');
     try {
       const params = new URLSearchParams({ limit: '100' });
       if (statusFilter) params.set('status', statusFilter);
       if (search)       params.set('search', search);
       const d = await api.get<InvoicesResponse>(`/invoices?${params}`);
       setData(d);
-    } catch { showToast?.('Erro ao carregar faturas', 'error'); }
+    } catch (e: any) {
+      const msg = e?.message || 'Erro ao carregar faturas';
+      setSetupError(msg);
+      showToast?.(msg, 'error');
+    }
     setLoading(false);
   }, [statusFilter, search]);
 
   useEffect(() => { load(); }, [load]);
+
+  const runSetup = async () => {
+    setFixing(true);
+    try {
+      await api.post('/tax/setup-invoices', {});
+      showToast?.('Tabela criada com sucesso!', 'success');
+      setSetupError('');
+      load();
+    } catch (e: any) {
+      showToast?.(e.message || 'Erro ao configurar', 'error');
+    }
+    setFixing(false);
+  };
 
   const createFromOrder = async () => {
     if (!fromOrderId.trim()) return;
@@ -398,6 +419,24 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ showToast }) => {
         {loading ? (
           <div className="py-16 flex justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-content-muted" />
+          </div>
+        ) : setupError ? (
+          <div className="py-12 text-center px-6">
+            <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">Erro ao carregar faturas</p>
+            <p className="text-xs text-content-muted font-mono mb-5 max-w-lg mx-auto break-all">{setupError}</p>
+            <div className="flex justify-center gap-3">
+              <button onClick={runSetup} disabled={fixing}
+                className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60">
+                {fixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Configurar Base de Dados
+              </button>
+              <button onClick={load}
+                className="flex items-center gap-1.5 px-4 py-2 border border-border-default text-content-secondary hover:bg-surface-base text-sm font-medium rounded-lg transition-colors">
+                <RefreshCw className="w-4 h-4" />
+                Tentar Novamente
+              </button>
+            </div>
           </div>
         ) : !data?.invoices.length ? (
           <div className="py-16 text-center">
