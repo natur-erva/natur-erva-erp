@@ -320,16 +320,23 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ showToast }) => {
     setFixing(false);
   };
 
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   const createFromOrder = async () => {
-    if (!fromOrderId.trim()) return;
+    const id = fromOrderId.trim();
+    if (!id) return;
+    if (!UUID_RE.test(id)) {
+      showToast?.('O ID da encomenda deve ser um UUID válido (ex: 550e8400-e29b-41d4-a716-446655440000)', 'error');
+      return;
+    }
     setCreatingFromOrder(true);
     try {
-      const inv = await api.post<Invoice>(`/invoices/from-order/${fromOrderId.trim()}`, {});
+      const inv = await api.post<Invoice>(`/invoices/from-order/${id}`, {});
       showToast?.(`Fatura ${inv.invoiceNumber} criada!`, 'success');
       setFromOrderId('');
       load();
       setSelected(inv);
-    } catch (e: any) { showToast?.(e.message || 'Erro', 'error'); }
+    } catch (e: any) { showToast?.(e.message || 'Erro ao criar fatura', 'error'); }
     setCreatingFromOrder(false);
   };
 

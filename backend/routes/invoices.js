@@ -102,6 +102,24 @@ async function nextInvoiceNumber(client) {
   return `${invoice_prefix}/${yr}/${String(invoice_counter).padStart(4, '0')}`;
 }
 
+// ── Error helper ──────────────────────────────────────────────────────────────
+const PG_MESSAGES = {
+  '22P02': [400, 'ID ou valor com formato inválido'],
+  '22003': [400, 'Valor fora do intervalo permitido'],
+  '23502': [400, 'Campo obrigatório em falta'],
+  '23503': [400, 'Referência inválida — registo relacionado não existe'],
+  '23505': [409, 'Já existe um registo com esses dados (duplicado)'],
+  '42P01': [500, 'Tabela não encontrada — execute a migração'],
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function errReply(res, err, ctx = '') {
+  console.error(`[invoices]${ctx ? ' ' + ctx : ''}`, err.code ? `PG(${err.code})` : '', err.message);
+  const [status, msg] = PG_MESSAGES[err.code] || [500, err.message];
+  res.status(status).json({ error: msg });
+}
+
 // ── Compute totals from items ──────────────────────────────────────────────────
 function computeTotals(items = [], discount = 0, deliveryFee = 0, vatRate = 16) {
   const subtotal = items.reduce((s, i) => s + (Number(i.quantity || 1) * Number(i.unitPrice || i.price || 0)), 0);
@@ -154,10 +172,7 @@ router.get('/', authMiddleware, async (req, res) => {
       totalPaid:        Number(totals[0]?.total_paid        || 0),
       totalOutstanding: Number(totals[0]?.total_outstanding || 0),
     });
-  } catch (err) {
-    console.error('[invoices] GET /:', err.message);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { errReply(res, err, 'GET /'); }
 });
 
 // GET /api/invoices/:id
@@ -166,7 +181,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     const { rows } = await pool.query(`${BASE_SELECT} WHERE i.id = $1`, [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Fatura não encontrada' });
     res.json(mapInvoice(rows[0]));
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errReply(res, err, 'GET /:id'); }
 });
 
 // POST /api/invoices — create (draft or immediately issue)
@@ -216,7 +231,7 @@ router.post('/', authMiddleware, async (req, res) => {
     res.status(201).json(mapInvoice(full[0]));
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    errReply(res, err, 'POST /');
   } finally { client.release(); }
 });
 
@@ -266,7 +281,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     res.json(mapInvoice(full[0]));
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    errReply(res, err, 'PUT /:id');
   } finally { client.release(); }
 });
 
@@ -297,7 +312,7 @@ router.post('/:id/issue', authMiddleware, async (req, res) => {
     res.json(mapInvoice(full[0]));
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    errReply(res, err, 'POST /:id/issue');
   } finally { client.release(); }
 });
 
@@ -330,7 +345,7 @@ router.post('/:id/pay', authMiddleware, async (req, res) => {
 
     const { rows: full } = await pool.query(`${BASE_SELECT} WHERE i.id = $1`, [rows[0].id]);
     res.json(mapInvoice(full[0]));
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errReply(res, err, 'POST /:id/pay'); }
 });
 
 // POST /api/invoices/:id/cancel
@@ -344,16 +359,21 @@ router.post('/:id/cancel', authMiddleware, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Fatura não encontrada' });
     const { rows: full } = await pool.query(`${BASE_SELECT} WHERE i.id = $1`, [rows[0].id]);
     res.json(mapInvoice(full[0]));
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errReply(res, err, 'POST /:id/cancel'); }
 });
 
 // POST /api/invoices/from-order/:orderId — create invoice from existing order
 router.post('/from-order/:orderId', authMiddleware, async (req, res) => {
+  const { orderId } = req.params;
+  if (!UUID_RE.test(orderId)) {
+    return res.status(400).json({ error: `ID de encomenda inválido: "${orderId}" — deve ser um UUID` });
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const { rows: orders } = await client.query('SELECT * FROM orders WHERE id = $1', [req.params.orderId]);
+    const { rows: orders } = await client.query('SELECT * FROM orders WHERE id = $1', [orderId]);
     if (!orders.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Encomenda não encontrada' }); }
     const o = orders[0];
 
@@ -400,7 +420,7 @@ router.post('/from-order/:orderId', authMiddleware, async (req, res) => {
     res.status(201).json(mapInvoice(full[0]));
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    errReply(res, err, 'POST /from-order/:orderId');
   } finally { client.release(); }
 });
 
@@ -412,7 +432,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     if (rows[0].status !== 'draft') return res.status(400).json({ error: 'Só rascunhos podem ser eliminados. Cancele a fatura em vez disso.' });
     await pool.query('DELETE FROM invoices WHERE id = $1', [req.params.id]);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errReply(res, err, 'DELETE /:id'); }
 });
 
 // GET /api/invoices/stats/summary — KPIs for AR dashboard
@@ -432,7 +452,7 @@ router.get('/stats/summary', authMiddleware, async (req, res) => {
       FROM invoices
     `);
     res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errReply(res, err, 'GET /stats/summary'); }
 });
 
 export default router;
