@@ -16,6 +16,9 @@ export interface UploadResult {
 // Redimensiona e comprime a imagem no browser antes de enviar
 function compressImage(file: File, maxSize = 1200, quality = 0.85): Promise<File> {
   return new Promise((resolve) => {
+    // SVG não precisa de redimensionamento — enviar directamente
+    if (file.type === 'image/svg+xml') { resolve(file); return; }
+
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
@@ -26,11 +29,23 @@ function compressImage(file: File, maxSize = 1200, quality = 0.85): Promise<File
       const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      const ctx = canvas.getContext('2d')!;
+
+      // PNG pode ter transparência — preservar formato para não tornar fundo preto
+      const isPng = file.type === 'image/png';
+      const outputMime = isPng ? 'image/png' : 'image/jpeg';
+
+      if (!isPng) {
+        // Para JPEG preencher fundo branco (evita artefactos em imagens com alpha)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      ctx.drawImage(img, 0, 0, w, h);
       canvas.toBlob(
-        (blob) => resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file),
-        'image/jpeg',
-        quality
+        (blob) => resolve(blob ? new File([blob], file.name, { type: outputMime }) : file),
+        outputMime,
+        isPng ? undefined : quality
       );
     };
     img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
