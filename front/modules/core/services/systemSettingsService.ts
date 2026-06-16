@@ -59,49 +59,60 @@ export const saveSystemSettings = async (_settings: SystemSettings): Promise<boo
 export const updateFavicon = (faviconUrl: string): void => {
   if (!faviconUrl) return;
 
-  const getFaviconType = (url: string): string => {
-    const lowerUrl = url.toLowerCase();
-    if (lowerUrl.includes('.ico')) return 'image/x-icon';
-    if (lowerUrl.includes('.png')) return 'image/png';
-    if (lowerUrl.includes('.svg')) return 'image/svg+xml';
-    if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg')) return 'image/jpeg';
-    if (lowerUrl.includes('.webp')) return 'image/webp';
-    if (lowerUrl.includes('.gif')) return 'image/gif';
-    return 'image/png';
+  const applyFaviconLinks = (href: string): void => {
+    document.querySelectorAll("link[rel*='icon']").forEach(el => {
+      const h = el.getAttribute('href') || '';
+      if (!h.startsWith('data:')) el.remove();
+    });
+
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.type = 'image/png';
+    link.setAttribute('sizes', '64x64');
+    link.href = href;
+    const firstLink = document.head.querySelector('link');
+    firstLink ? document.head.insertBefore(link, firstLink) : document.head.appendChild(link);
+
+    const shortcut = document.createElement('link');
+    shortcut.rel = 'shortcut icon';
+    shortcut.type = 'image/png';
+    shortcut.href = href;
+    document.head.appendChild(shortcut);
+
+    const appleIcon = document.querySelector("link[rel='apple-touch-icon']");
+    if (appleIcon) {
+      appleIcon.setAttribute('href', href);
+    } else {
+      const appleLink = document.createElement('link');
+      appleLink.rel = 'apple-touch-icon';
+      appleLink.setAttribute('sizes', '180x180');
+      appleLink.href = href;
+      document.head.appendChild(appleLink);
+    }
   };
 
-  const existingFavicons = document.querySelectorAll("link[rel*='icon']");
-  existingFavicons.forEach(link => {
-    const href = link.getAttribute('href') || '';
-    if (!href.startsWith('data:')) link.remove();
-  });
-
-  const link = document.createElement('link');
-  link.rel = 'icon';
-  link.type = getFaviconType(faviconUrl);
-  link.href = faviconUrl;
-  const firstLink = document.head.querySelector('link');
-  if (firstLink) {
-    document.head.insertBefore(link, firstLink);
-  } else {
-    document.head.appendChild(link);
-  }
-
-  const shortcutLink = document.createElement('link');
-  shortcutLink.rel = 'shortcut icon';
-  shortcutLink.type = getFaviconType(faviconUrl);
-  shortcutLink.href = faviconUrl;
-  document.head.appendChild(shortcutLink);
-
-  const appleIcon = document.querySelector("link[rel='apple-touch-icon']");
-  if (appleIcon) {
-    appleIcon.setAttribute('href', faviconUrl);
-  } else {
-    const appleLink = document.createElement('link');
-    appleLink.rel = 'apple-touch-icon';
-    appleLink.href = faviconUrl;
-    document.head.appendChild(appleLink);
-  }
+  // Renderiza num canvas 64x64 em modo "cover" para preencher toda a área do tab
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    try {
+      const SIZE = 64;
+      const canvas = document.createElement('canvas');
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext('2d')!;
+      const scale = Math.max(SIZE / img.width, SIZE / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
+      applyFaviconLinks(canvas.toDataURL('image/png'));
+    } catch {
+      // CORS bloqueou toDataURL — usar URL directamente
+      applyFaviconLinks(faviconUrl);
+    }
+  };
+  img.onerror = () => applyFaviconLinks(faviconUrl);
+  img.src = faviconUrl;
 };
 
 export const updatePageTitle = (title: string): void => {
