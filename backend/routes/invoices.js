@@ -148,13 +148,16 @@ router.get('/', authMiddleware, async (req, res) => {
     );
 
     res.json({
-      invoices:        data.rows.map(mapInvoice),
-      total:           Number(countRow.rows[0].count),
-      totalInvoiced:   Number(totals.rows[0]?.total_invoiced || 0),
-      totalPaid:       Number(totals.rows[0]?.total_paid     || 0),
-      totalOutstanding: Number(totals.rows[0]?.total_outstanding || 0),
+      invoices:         data.rows.map(mapInvoice),
+      total:            Number(countRow.rows[0]?.count || 0),
+      totalInvoiced:    Number(totals[0]?.total_invoiced    || 0),
+      totalPaid:        Number(totals[0]?.total_paid        || 0),
+      totalOutstanding: Number(totals[0]?.total_outstanding || 0),
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('[invoices] GET /:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/invoices/:id
