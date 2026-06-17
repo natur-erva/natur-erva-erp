@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, ShoppingCart, Package, LogOut, Award, TrendingUp, Warehouse, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, Egg, UserCheck, Repeat, Truck, FileText, BarChart3, ArrowLeftRight, Wallet, Download, Activity, ArrowRight, Upload, Globe, CreditCard, Megaphone, Target, Share2, Eye, MapPin, Store, Image, Tv, List, Layers, Ruler, Tag, ClipboardCheck, Scale, AlertTriangle, Shield, Boxes, BookOpen, Building2 } from 'lucide-react';
+import { LayoutDashboard, Users, ShoppingCart, Package, LogOut, Award, TrendingUp, Warehouse, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, Egg, UserCheck, Repeat, Truck, FileText, BarChart3, ArrowLeftRight, Wallet, Download, Activity, ArrowRight, Upload, Globe, CreditCard, Megaphone, Target, Share2, Eye, MapPin, Store, Image, Tv, List, Layers, Ruler, Tag, ClipboardCheck, Scale, AlertTriangle, Shield, Boxes, BookOpen, Building2, UserCog, FolderKanban, Headphones, Clock, MessageSquare, RefreshCw, FolderOpen } from 'lucide-react';
 import { User, UserRole } from '../../../core/types/types';
 import { useLanguage } from '../../../core/contexts/LanguageContext';
 
@@ -137,7 +137,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
  'purchases': 'purchases',
  'products': 'products',
  'stock-management': 'stock-management',
- 'media': 'media',
  'users': 'users',
  'tracking': 'dashboard', // Linked to dashboard
  };
@@ -175,6 +174,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
  { id: 'stock-management', children: [{ path: '/admin/stock' }, { path: '/admin/stock/alertas' }, { path: '/admin/stock/movimentos' }, { path: '/admin/stock/lotes' }, { path: '/admin/stock/auditoria' }, { path: '/admin/stock/ajustes' }] },
  { id: 'users', children: [{ path: '/admin/usuarios' }, { path: '/admin/usuarios/roles' }] },
  { id: 'financas', children: [{ path: '/admin/financas' }, { path: '/admin/faturas' }, { path: '/admin/contas-pagar' }, { path: '/admin/razao-geral' }] },
+ { id: 'hr', children: [{ path: '/admin/rh' }] },
+ { id: 'projects', children: [{ path: '/admin/projectos' }] },
+ { id: 'helpdesk', children: [{ path: '/admin/helpdesk' }] },
+ { id: 'timesheets', children: [{ path: '/admin/timesheets' }] },
+ { id: 'messaging', children: [{ path: '/admin/mensagens' }] },
+ { id: 'subscriptions', children: [{ path: '/admin/assinaturas' }] },
+ { id: 'documents', children: [{ path: '/admin/documentos' }] },
  ];
 
  // Auto-expandir apenas o menu que contém a rota atual
@@ -284,7 +290,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
  { id: 'stock-adjustments', label: 'Ajustes', icon: Scale, path: '/admin/stock/ajustes' },
  ]
  },
- { id: 'media', label: t.nav.gallery, icon: Image, permission: 'media.view' },
  {
  id: 'users',
  label: t.nav.users,
@@ -309,6 +314,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
  { id: 'marketing', label: 'Marketing', icon: Megaphone, permission: 'users.view' },
  { id: 'blog', label: 'Blog', icon: FileText, permission: 'media.view' },
  { id: 'delivery-zones', label: 'Zonas de Entrega', icon: MapPin, permission: 'users.view' },
+ // Novos módulos
+ { id: 'hr', label: 'Recursos Humanos', icon: UserCog, permission: 'users.view', path: '/admin/rh' },
+ { id: 'projects', label: 'Projectos', icon: FolderKanban, permission: 'users.view', path: '/admin/projectos' },
+ { id: 'helpdesk', label: 'Central de Ajuda', icon: Headphones, permission: 'users.view', path: '/admin/helpdesk' },
+ { id: 'timesheets', label: 'Planilhas de Horas', icon: Clock, permission: 'users.view', path: '/admin/timesheets' },
+ { id: 'messaging', label: 'Mensagens', icon: MessageSquare, permission: 'users.view', path: '/admin/mensagens' },
+ { id: 'subscriptions', label: 'Assinaturas', icon: RefreshCw, permission: 'users.view', path: '/admin/assinaturas' },
+ { id: 'documents', label: 'Documentos', icon: FolderOpen, permission: 'users.view', path: '/admin/documentos' },
  ];
 
  // Filtrar itens baseado apenas nas permisséµes (sistema simplificado)
@@ -330,7 +343,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
  fontWeight: 600,
  };
  // Separadores visuais antes destes grupos (apenas CSS)
- const GROUP_STARTERS = new Set(['sales', 'media', 'logistics']);
+ const GROUP_STARTERS = new Set(['sales', 'logistics']);
 
  return (
  <>

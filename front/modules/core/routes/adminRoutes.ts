@@ -77,6 +77,20 @@ export const ADMIN_ROUTE_MAP: Record<string, string> = {
   'ap': '/admin/contas-pagar',
   // Razão Geral / Ledger
   'ledger': '/admin/razao-geral',
+  // RH
+  'hr': '/admin/rh',
+  // Projectos
+  'projects': '/admin/projectos',
+  // Helpdesk
+  'helpdesk': '/admin/helpdesk',
+  // Planilhas de Horas
+  'timesheets': '/admin/timesheets',
+  // Mensagens
+  'messaging': '/admin/mensagens',
+  // Assinaturas
+  'subscriptions': '/admin/assinaturas',
+  // Documentos
+  'documents': '/admin/documentos',
   // Perfil
   'profile': '/admin/perfis'
 };

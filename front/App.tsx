@@ -72,6 +72,14 @@ const ResetPasswordPage = lazy(() => import('./modules/shop/pages/ResetPasswordP
 const SobreNos = lazy(() => import('./modules/shop/pages/SobreNos'));
 const Politica = lazy(() => import('./modules/shop/pages/Politica'));
 const Contactos = lazy(() => import('./modules/shop/pages/Contactos'));
+// Novos módulos
+const HR            = lazy(() => import('./modules/hr/pages/HR').then(m => ({ default: m.HR })));
+const Projects      = lazy(() => import('./modules/projects/pages/Projects').then(m => ({ default: m.Projects })));
+const Helpdesk      = lazy(() => import('./modules/helpdesk/pages/Helpdesk').then(m => ({ default: m.Helpdesk })));
+const Timesheets    = lazy(() => import('./modules/timesheets/pages/Timesheets').then(m => ({ default: m.Timesheets })));
+const Messaging     = lazy(() => import('./modules/messaging/pages/Messaging').then(m => ({ default: m.Messaging })));
+const Subscriptions = lazy(() => import('./modules/subscriptions/pages/Subscriptions').then(m => ({ default: m.Subscriptions })));
+const Documents     = lazy(() => import('./modules/documents/pages/Documents').then(m => ({ default: m.Documents })));
 
 // Services & Utils
 import { Lock, User as UserIcon, Loader2, Info, Eye, EyeOff } from 'lucide-react';
@@ -615,6 +623,56 @@ const App = () => {
                 <ProtectedRoute user={currentUser} permission="users.view">
                   <TrackedPage pagePath="/admin/razao-geral" pageTitle="Razão Geral">
                     <LedgerPage showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              {/* ── Novos módulos ───────────────────────────────────────── */}
+              <Route path="rh" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/rh" pageTitle="Recursos Humanos">
+                    <HR showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="projectos" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/projectos" pageTitle="Projectos">
+                    <Projects showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="helpdesk" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/helpdesk" pageTitle="Central de Ajuda">
+                    <Helpdesk showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="timesheets" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/timesheets" pageTitle="Planilhas de Horas">
+                    <Timesheets showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="mensagens" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/mensagens" pageTitle="Mensagens">
+                    <Messaging showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="assinaturas" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/assinaturas" pageTitle="Assinaturas">
+                    <Subscriptions showToast={showToast} />
+                  </TrackedPage>
+                </ProtectedRoute>
+              } />
+              <Route path="documentos" element={
+                <ProtectedRoute user={currentUser} permission="users.view">
+                  <TrackedPage pagePath="/admin/documentos" pageTitle="Documentos">
+                    <Documents showToast={showToast} />
                   </TrackedPage>
                 </ProtectedRoute>
               } />

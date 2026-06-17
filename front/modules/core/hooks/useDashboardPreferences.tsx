@@ -28,6 +28,9 @@ interface DashboardPreferencesContextType {
 }
 
 const DEFAULT_CARDS: DashboardCard[] = [
+ // Banner KPI topo
+ { id: 'kpi-banner', label: 'Cards de Topo (Receita / POS / A Receber / Encomendas)', visible: false, order: -1, category: 'financeiro' },
+
  // Financeiro
  { id: 'total-purchases', label: 'Compras do Período', visible: false, order: 0, category: 'financeiro', essential: true },
 

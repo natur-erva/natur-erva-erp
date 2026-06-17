@@ -1017,8 +1017,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, customers, sales, 
  </div>
  </div>
 
- {/* KPIs avançados (servidor) */}
-         <AdvancedKPIBanner />
+ {/* KPIs avançados (servidor) — visível apenas se activado nas preferências */}
+         {isCardVisible('kpi-banner') && <AdvancedKPIBanner />}
 
          {/* Grelha única de KPI cards — preenche o espaço pela ordem das preferências */}
  {kpiCardsInOrder.length > 0 && (

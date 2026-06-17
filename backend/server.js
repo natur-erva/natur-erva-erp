@@ -45,6 +45,12 @@ import loyaltyRoutes from './routes/loyalty.js';
 import invoicesRoutes from './routes/invoices.js';
 import apRoutes     from './routes/ap.js';
 import ledgerRoutes from './routes/ledger.js';
+import hrRoutes          from './routes/hr.js';
+import projectsRoutes    from './routes/projects.js';
+import helpdeskRoutes    from './routes/helpdesk.js';
+import messagesRoutes    from './routes/messages.js';
+import subscriptionsRoutes from './routes/subscriptions.js';
+import docmanagerRoutes  from './routes/docmanager.js';
 
 const app = express();
 const PORT = process.env.PORT || 3060;
@@ -152,6 +158,12 @@ app.use('/api/loyalty',  loyaltyRoutes);
 app.use('/api/invoices', invoicesRoutes);
 app.use('/api/ap',      apRoutes);
 app.use('/api/ledger',  ledgerRoutes);
+app.use('/api/hr',            hrRoutes);
+app.use('/api/projects',      projectsRoutes);
+app.use('/api/helpdesk',      helpdeskRoutes);
+app.use('/api/messages',      messagesRoutes);
+app.use('/api/subscriptions', subscriptionsRoutes);
+app.use('/api/docs',          docmanagerRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
