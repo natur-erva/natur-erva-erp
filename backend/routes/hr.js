@@ -4,37 +4,64 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Auto-migrate
-(async () => {
-  await pool.query(`CREATE TABLE IF NOT EXISTS departments (
-    id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, description TEXT,
-    manager_id INT REFERENCES profiles(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-  await pool.query(`CREATE TABLE IF NOT EXISTS employees (
-    id SERIAL PRIMARY KEY, profile_id INT REFERENCES profiles(id) ON DELETE SET NULL,
-    department_id INT REFERENCES departments(id) ON DELETE SET NULL,
-    full_name VARCHAR(150) NOT NULL, job_title VARCHAR(100), hire_date DATE,
-    contract_type VARCHAR(30) DEFAULT 'full_time', salary DECIMAL(12,2) DEFAULT 0,
-    phone VARCHAR(30), email VARCHAR(150), nuit VARCHAR(20),
-    emergency_contact VARCHAR(150), status VARCHAR(20) DEFAULT 'active',
-    avatar_url TEXT, notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-  await pool.query(`CREATE TABLE IF NOT EXISTS contracts (
-    id SERIAL PRIMARY KEY, employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    type VARCHAR(30) DEFAULT 'full_time', start_date DATE NOT NULL, end_date DATE,
-    salary DECIMAL(12,2) DEFAULT 0, status VARCHAR(20) DEFAULT 'active', notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-  await pool.query(`CREATE TABLE IF NOT EXISTS leave_requests (
-    id SERIAL PRIMARY KEY, employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    type VARCHAR(30) DEFAULT 'annual', start_date DATE NOT NULL, end_date DATE NOT NULL,
-    days INT NOT NULL DEFAULT 1, reason TEXT, status VARCHAR(20) DEFAULT 'pending',
-    approved_by INT REFERENCES profiles(id) ON DELETE SET NULL, approved_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-})();
+// ── Migrate on startup ─────────────────────────────────────────────────────────
+async function migrate() {
+  const run = async (sql, label) => {
+    try { await pool.query(sql); }
+    catch (e) { console.error(`[hr] migrate ${label}:`, e.message); }
+  };
+  await run(`CREATE TABLE IF NOT EXISTS departments (
+    id         SERIAL PRIMARY KEY,
+    name       VARCHAR(100) NOT NULL,
+    description TEXT,
+    manager_id  UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+  )`, 'departments');
+  await run(`CREATE TABLE IF NOT EXISTS employees (
+    id                SERIAL PRIMARY KEY,
+    profile_id        UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    department_id     INT REFERENCES departments(id) ON DELETE SET NULL,
+    full_name         VARCHAR(150) NOT NULL,
+    job_title         VARCHAR(100),
+    hire_date         DATE,
+    contract_type     VARCHAR(30) DEFAULT 'full_time',
+    salary            DECIMAL(12,2) DEFAULT 0,
+    phone             VARCHAR(30),
+    email             VARCHAR(150),
+    nuit              VARCHAR(20),
+    emergency_contact VARCHAR(150),
+    status            VARCHAR(20) DEFAULT 'active',
+    avatar_url        TEXT,
+    notes             TEXT,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW()
+  )`, 'employees');
+  await run(`CREATE TABLE IF NOT EXISTS contracts (
+    id          SERIAL PRIMARY KEY,
+    employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    type        VARCHAR(30) DEFAULT 'full_time',
+    start_date  DATE NOT NULL,
+    end_date    DATE,
+    salary      DECIMAL(12,2) DEFAULT 0,
+    status      VARCHAR(20) DEFAULT 'active',
+    notes       TEXT,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+  )`, 'contracts');
+  await run(`CREATE TABLE IF NOT EXISTS leave_requests (
+    id          SERIAL PRIMARY KEY,
+    employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    type        VARCHAR(30) DEFAULT 'annual',
+    start_date  DATE NOT NULL,
+    end_date    DATE NOT NULL,
+    days        INT NOT NULL DEFAULT 1,
+    reason      TEXT,
+    status      VARCHAR(20) DEFAULT 'pending',
+    approved_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    approved_at TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+  )`, 'leave_requests');
+}
+migrate();
 
 // ── DEPARTMENTS ───────────────────────────────────────────────────────────────
 router.get('/departments', authMiddleware, async (req, res) => {
@@ -125,7 +152,8 @@ router.post('/employees', authMiddleware, async (req, res) => {
          phone, email, nuit, emergency_contact, notes, avatar_url, profile_id)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *
     `, [full_name, job_title, department_id||null, hire_date||null, contract_type||'full_time',
-        salary||0, phone, email, nuit, emergency_contact, notes, avatar_url, profile_id||null]);
+        salary||0, phone||null, email||null, nuit||null, emergency_contact||null,
+        notes||null, avatar_url||null, profile_id||null]);
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -141,7 +169,8 @@ router.put('/employees/:id', authMiddleware, async (req, res) => {
         avatar_url=$12, status=$13, updated_at=NOW()
       WHERE id=$14 RETURNING *
     `, [full_name, job_title, department_id||null, hire_date||null, contract_type||'full_time',
-        salary||0, phone, email, nuit, emergency_contact, notes, avatar_url, status||'active', req.params.id]);
+        salary||0, phone||null, email||null, nuit||null, emergency_contact||null,
+        notes||null, avatar_url||null, status||'active', req.params.id]);
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -158,9 +187,8 @@ router.post('/contracts', authMiddleware, async (req, res) => {
   const { employee_id, type, start_date, end_date, salary, notes } = req.body;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO contracts (employee_id,type,start_date,end_date,salary,notes)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [employee_id, type||'full_time', start_date, end_date||null, salary||0, notes]
+      `INSERT INTO contracts (employee_id,type,start_date,end_date,salary,notes) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [employee_id, type||'full_time', start_date, end_date||null, salary||0, notes||null]
     );
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -171,7 +199,7 @@ router.put('/contracts/:id', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `UPDATE contracts SET type=$1,start_date=$2,end_date=$3,salary=$4,notes=$5,status=$6 WHERE id=$7 RETURNING *`,
-      [type, start_date, end_date||null, salary||0, notes, status||'active', req.params.id]
+      [type, start_date, end_date||null, salary||0, notes||null, status||'active', req.params.id]
     );
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -199,9 +227,8 @@ router.post('/leaves', authMiddleware, async (req, res) => {
   const { employee_id, type, start_date, end_date, days, reason } = req.body;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO leave_requests (employee_id,type,start_date,end_date,days,reason)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [employee_id, type||'annual', start_date, end_date, days||1, reason]
+      `INSERT INTO leave_requests (employee_id,type,start_date,end_date,days,reason) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [employee_id, type||'annual', start_date, end_date, days||1, reason||null]
     );
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -209,8 +236,8 @@ router.post('/leaves', authMiddleware, async (req, res) => {
 
 router.put('/leaves/:id/status', authMiddleware, async (req, res) => {
   const { status } = req.body;
-  const approved_at = status === 'approved' ? new Date() : null;
   const approved_by = status === 'approved' ? (req.user?.id || null) : null;
+  const approved_at = status === 'approved' ? new Date() : null;
   try {
     const { rows } = await pool.query(
       `UPDATE leave_requests SET status=$1, approved_at=$2, approved_by=$3 WHERE id=$4 RETURNING *`,
@@ -231,10 +258,8 @@ router.get('/stats', authMiddleware, async (req, res) => {
       pool.query(`SELECT COUNT(*)::int AS n FROM leave_requests WHERE status='pending'`),
     ]);
     res.json({
-      total: total.rows[0].n,
-      active: active.rows[0].n,
-      on_leave: onLeave.rows[0].n,
-      departments: depts.rows[0].n,
+      total: total.rows[0].n, active: active.rows[0].n,
+      on_leave: onLeave.rows[0].n, departments: depts.rows[0].n,
       pending_leaves: pendingLeaves.rows[0].n,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

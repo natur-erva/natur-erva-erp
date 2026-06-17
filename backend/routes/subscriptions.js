@@ -4,35 +4,60 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-(async () => {
-  await pool.query(`CREATE TABLE IF NOT EXISTS subscription_plans (
-    id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, description TEXT,
-    price DECIMAL(12,2) NOT NULL DEFAULT 0, billing_cycle VARCHAR(20) DEFAULT 'monthly',
-    features JSONB DEFAULT '[]', status VARCHAR(20) DEFAULT 'active',
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-  await pool.query(`CREATE TABLE IF NOT EXISTS subscriptions (
-    id SERIAL PRIMARY KEY, customer_id INT REFERENCES customers(id) ON DELETE CASCADE,
-    plan_id INT REFERENCES subscription_plans(id) ON DELETE RESTRICT,
-    status VARCHAR(20) DEFAULT 'active', start_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    end_date DATE, next_billing_date DATE, notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-  await pool.query(`CREATE TABLE IF NOT EXISTS subscription_invoices (
-    id SERIAL PRIMARY KEY, subscription_id INT NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
-    amount DECIMAL(12,2) NOT NULL DEFAULT 0, status VARCHAR(20) DEFAULT 'pending',
-    due_date DATE, paid_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-})();
+async function migrate() {
+  const run = async (sql, label) => {
+    try { await pool.query(sql); }
+    catch (e) { console.error(`[subscriptions] migrate ${label}:`, e.message); }
+  };
+  await run(`CREATE TABLE IF NOT EXISTS subscription_plans (
+    id            SERIAL PRIMARY KEY,
+    name          VARCHAR(100) NOT NULL,
+    description   TEXT,
+    price         DECIMAL(10,2) DEFAULT 0,
+    billing_cycle VARCHAR(20) DEFAULT 'monthly',
+    features      JSONB DEFAULT '[]',
+    is_active     BOOLEAN DEFAULT true,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+  )`, 'subscription_plans');
+  await run(`CREATE TABLE IF NOT EXISTS subscriptions (
+    id             SERIAL PRIMARY KEY,
+    customer_id    UUID REFERENCES customers(id) ON DELETE CASCADE,
+    plan_id        INT REFERENCES subscription_plans(id) ON DELETE SET NULL,
+    status         VARCHAR(20) DEFAULT 'active',
+    start_date     DATE NOT NULL,
+    end_date       DATE,
+    next_billing   DATE,
+    amount         DECIMAL(10,2) DEFAULT 0,
+    auto_renew     BOOLEAN DEFAULT true,
+    notes          TEXT,
+    cancelled_at   TIMESTAMPTZ,
+    cancel_reason  TEXT,
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ DEFAULT NOW()
+  )`, 'subscriptions');
+  await run(`CREATE TABLE IF NOT EXISTS subscription_payments (
+    id              SERIAL PRIMARY KEY,
+    subscription_id INT NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+    amount          DECIMAL(10,2) NOT NULL,
+    status          VARCHAR(20) DEFAULT 'pending',
+    payment_date    DATE,
+    method          VARCHAR(50),
+    reference       VARCHAR(100),
+    notes           TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+  )`, 'subscription_payments');
+}
+migrate();
 
 // ── PLANS ─────────────────────────────────────────────────────────────────────
 router.get('/plans', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT p.*, COUNT(s.id)::int AS subscriber_count
+      SELECT p.*,
+             (SELECT COUNT(*)::int FROM subscriptions s WHERE s.plan_id=p.id AND s.status='active') AS subscriber_count
       FROM subscription_plans p
-      LEFT JOIN subscriptions s ON s.plan_id=p.id AND s.status='active'
-      GROUP BY p.id ORDER BY p.price
+      ORDER BY p.price
     `);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -44,19 +69,20 @@ router.post('/plans', authMiddleware, async (req, res) => {
     const { rows } = await pool.query(`
       INSERT INTO subscription_plans (name, description, price, billing_cycle, features)
       VALUES ($1,$2,$3,$4,$5) RETURNING *
-    `, [name, description, price||0, billing_cycle||'monthly', JSON.stringify(features||[])]);
+    `, [name, description||null, price||0, billing_cycle||'monthly', JSON.stringify(features||[])]);
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.put('/plans/:id', authMiddleware, async (req, res) => {
-  const { name, description, price, billing_cycle, features, status } = req.body;
+  const { name, description, price, billing_cycle, features, is_active } = req.body;
   try {
     const { rows } = await pool.query(`
-      UPDATE subscription_plans SET name=$1,description=$2,price=$3,
-        billing_cycle=$4,features=$5,status=$6 WHERE id=$7 RETURNING *
-    `, [name, description, price||0, billing_cycle||'monthly',
-        JSON.stringify(features||[]), status||'active', req.params.id]);
+      UPDATE subscription_plans SET name=$1, description=$2, price=$3, billing_cycle=$4,
+        features=$5, is_active=$6, updated_at=NOW()
+      WHERE id=$7 RETURNING *
+    `, [name, description||null, price||0, billing_cycle||'monthly',
+        JSON.stringify(features||[]), is_active ?? true, req.params.id]);
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -70,19 +96,20 @@ router.delete('/plans/:id', authMiddleware, async (req, res) => {
 
 // ── SUBSCRIPTIONS ─────────────────────────────────────────────────────────────
 router.get('/', authMiddleware, async (req, res) => {
-  const { status, plan_id } = req.query;
+  const { status, plan_id, q } = req.query;
   const filters = []; const params = [];
   if (status)  { params.push(status);  filters.push(`s.status=$${params.length}`); }
   if (plan_id) { params.push(plan_id); filters.push(`s.plan_id=$${params.length}`); }
+  if (q)       { params.push(`%${q}%`); filters.push(`c.name ILIKE $${params.length}`); }
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
   try {
     const { rows } = await pool.query(`
-      SELECT s.*, c.name AS customer_name, c.email AS customer_email,
-             sp.name AS plan_name, sp.price, sp.billing_cycle
+      SELECT s.*, c.name AS customer_name, c.email AS customer_email, p.name AS plan_name
       FROM subscriptions s
       LEFT JOIN customers c ON c.id = s.customer_id
-      LEFT JOIN subscription_plans sp ON sp.id = s.plan_id
-      ${where} ORDER BY s.created_at DESC
+      LEFT JOIN subscription_plans p ON p.id = s.plan_id
+      ${where}
+      ORDER BY s.updated_at DESC
     `, params);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -90,71 +117,78 @@ router.get('/', authMiddleware, async (req, res) => {
 
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
+    const [active, total, mrr, expiring] = await Promise.all([
+      pool.query(`SELECT COUNT(*)::int AS n FROM subscriptions WHERE status='active'`),
+      pool.query(`SELECT COUNT(*)::int AS n FROM subscriptions`),
+      pool.query(`SELECT COALESCE(SUM(amount),0) AS n FROM subscriptions WHERE status='active'`),
+      pool.query(`SELECT COUNT(*)::int AS n FROM subscriptions WHERE status='active' AND next_billing <= NOW() + INTERVAL '7 days'`),
+    ]);
+    res.json({ active: active.rows[0].n, total: total.rows[0].n, mrr: mrr.rows[0].n, expiring: expiring.rows[0].n });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/:id', authMiddleware, async (req, res) => {
+  try {
     const { rows } = await pool.query(`
-      SELECT
-        COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE s.status='active')::int AS active,
-        COUNT(*) FILTER (WHERE s.status='cancelled')::int AS cancelled,
-        COALESCE(SUM(sp.price) FILTER (WHERE s.status='active'),0) AS mrr
+      SELECT s.*, c.name AS customer_name, c.email AS customer_email, p.name AS plan_name
       FROM subscriptions s
-      LEFT JOIN subscription_plans sp ON sp.id=s.plan_id
-    `);
-    res.json(rows[0]);
+      LEFT JOIN customers c ON c.id = s.customer_id
+      LEFT JOIN subscription_plans p ON p.id = s.plan_id
+      WHERE s.id=$1
+    `, [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Não encontrado' });
+    const payments = await pool.query(
+      `SELECT * FROM subscription_payments WHERE subscription_id=$1 ORDER BY created_at DESC`,
+      [req.params.id]
+    );
+    res.json({ ...rows[0], payments: payments.rows });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/', authMiddleware, async (req, res) => {
-  const { customer_id, plan_id, start_date, end_date, next_billing_date, notes } = req.body;
+  const { customer_id, plan_id, start_date, end_date, next_billing, amount, auto_renew, notes } = req.body;
   try {
     const { rows } = await pool.query(`
-      INSERT INTO subscriptions (customer_id, plan_id, start_date, end_date, next_billing_date, notes)
-      VALUES ($1,$2,$3,$4,$5,$6) RETURNING *
-    `, [customer_id, plan_id, start_date||new Date().toISOString().slice(0,10),
-        end_date||null, next_billing_date||null, notes]);
+      INSERT INTO subscriptions (customer_id, plan_id, start_date, end_date, next_billing, amount, auto_renew, notes)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *
+    `, [customer_id, plan_id||null, start_date, end_date||null, next_billing||null,
+        amount||0, auto_renew ?? true, notes||null]);
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.put('/:id', authMiddleware, async (req, res) => {
-  const { status, end_date, next_billing_date, notes } = req.body;
+  const { status, plan_id, start_date, end_date, next_billing, amount, auto_renew, notes, cancel_reason } = req.body;
   try {
     const { rows } = await pool.query(`
-      UPDATE subscriptions SET status=$1, end_date=$2, next_billing_date=$3, notes=$4, updated_at=NOW()
-      WHERE id=$5 RETURNING *
-    `, [status||'active', end_date||null, next_billing_date||null, notes, req.params.id]);
+      UPDATE subscriptions SET status=$1, plan_id=$2, start_date=$3, end_date=$4,
+        next_billing=$5, amount=$6, auto_renew=$7, notes=$8,
+        cancelled_at=CASE WHEN $1='cancelled' THEN NOW() ELSE cancelled_at END,
+        cancel_reason=COALESCE($9, cancel_reason),
+        updated_at=NOW()
+      WHERE id=$10 RETURNING *
+    `, [status||'active', plan_id||null, start_date, end_date||null, next_billing||null,
+        amount||0, auto_renew ?? true, notes||null, cancel_reason||null, req.params.id]);
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── INVOICES ──────────────────────────────────────────────────────────────────
-router.get('/:id/invoices', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT * FROM subscription_invoices WHERE subscription_id=$1 ORDER BY created_at DESC`,
-      [req.params.id]
-    );
-    res.json(rows);
+    await pool.query(`DELETE FROM subscriptions WHERE id=$1`, [req.params.id]);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/:id/invoices', authMiddleware, async (req, res) => {
-  const { amount, due_date } = req.body;
+// ── PAYMENTS ──────────────────────────────────────────────────────────────────
+router.post('/:id/payments', authMiddleware, async (req, res) => {
+  const { amount, status, payment_date, method, reference, notes } = req.body;
   try {
     const { rows } = await pool.query(`
-      INSERT INTO subscription_invoices (subscription_id, amount, due_date)
-      VALUES ($1,$2,$3) RETURNING *
-    `, [req.params.id, amount, due_date||null]);
+      INSERT INTO subscription_payments (subscription_id, amount, status, payment_date, method, reference, notes)
+      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *
+    `, [req.params.id, amount, status||'paid', payment_date||null, method||null, reference||null, notes||null]);
     res.status(201).json(rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.put('/invoices/:id/pay', authMiddleware, async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      `UPDATE subscription_invoices SET status='paid', paid_at=NOW() WHERE id=$1 RETURNING *`,
-      [req.params.id]
-    );
-    res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

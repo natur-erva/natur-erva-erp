@@ -4,32 +4,63 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-(async () => {
-  await pool.query(`CREATE TABLE IF NOT EXISTS projects (
-    id SERIAL PRIMARY KEY, name VARCHAR(150) NOT NULL, description TEXT,
-    status VARCHAR(20) DEFAULT 'active', priority VARCHAR(20) DEFAULT 'medium',
-    start_date DATE, end_date DATE, manager_id INT REFERENCES profiles(id) ON DELETE SET NULL,
-    color VARCHAR(7) DEFAULT '#635BFF',
-    created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-  await pool.query(`CREATE TABLE IF NOT EXISTS tasks (
-    id SERIAL PRIMARY KEY, project_id INT REFERENCES projects(id) ON DELETE CASCADE,
-    title VARCHAR(200) NOT NULL, description TEXT, status VARCHAR(30) DEFAULT 'todo',
-    priority VARCHAR(20) DEFAULT 'medium', assigned_to INT REFERENCES profiles(id) ON DELETE SET NULL,
-    due_date DATE, completed_at TIMESTAMPTZ, position INT DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-  await pool.query(`CREATE TABLE IF NOT EXISTS task_comments (
-    id SERIAL PRIMARY KEY, task_id INT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    user_id INT REFERENCES profiles(id) ON DELETE SET NULL, content TEXT NOT NULL,
+async function migrate() {
+  const run = async (sql, label) => {
+    try { await pool.query(sql); }
+    catch (e) { console.error(`[projects] migrate ${label}:`, e.message); }
+  };
+  await run(`CREATE TABLE IF NOT EXISTS projects (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(150) NOT NULL,
+    description TEXT,
+    status      VARCHAR(20) DEFAULT 'active',
+    priority    VARCHAR(20) DEFAULT 'medium',
+    start_date  DATE,
+    end_date    DATE,
+    manager_id  UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    color       VARCHAR(7) DEFAULT '#635BFF',
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+  )`, 'projects');
+  await run(`CREATE TABLE IF NOT EXISTS tasks (
+    id           SERIAL PRIMARY KEY,
+    project_id   INT REFERENCES projects(id) ON DELETE CASCADE,
+    title        VARCHAR(200) NOT NULL,
+    description  TEXT,
+    status       VARCHAR(30) DEFAULT 'todo',
+    priority     VARCHAR(20) DEFAULT 'medium',
+    assigned_to  UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    due_date     DATE,
+    completed_at TIMESTAMPTZ,
+    position     INT DEFAULT 0,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ DEFAULT NOW()
+  )`, 'tasks');
+  await run(`CREATE TABLE IF NOT EXISTS task_comments (
+    id         SERIAL PRIMARY KEY,
+    task_id    INT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id    UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    content    TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
-  )`).catch(() => {});
-})();
+  )`, 'task_comments');
+  await run(`CREATE TABLE IF NOT EXISTS timesheet_entries (
+    id          SERIAL PRIMARY KEY,
+    employee_id INT REFERENCES employees(id) ON DELETE CASCADE,
+    project_id  INT REFERENCES projects(id) ON DELETE SET NULL,
+    task_id     INT REFERENCES tasks(id) ON DELETE SET NULL,
+    date        DATE NOT NULL,
+    hours       DECIMAL(4,2) NOT NULL DEFAULT 0,
+    description TEXT,
+    billable    BOOLEAN DEFAULT false,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+  )`, 'timesheet_entries');
+}
+migrate();
 
 // ── PROJECTS ──────────────────────────────────────────────────────────────────
 router.get('/', authMiddleware, async (req, res) => {
   const { status } = req.query;
-  const where = status ? `WHERE p.status = $1` : '';
+  const where  = status ? `WHERE p.status = $1` : '';
   const params = status ? [status] : [];
   try {
     const { rows } = await pool.query(`
@@ -70,7 +101,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const { rows } = await pool.query(`
       INSERT INTO projects (name, description, status, priority, start_date, end_date, manager_id, color)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *
-    `, [name, description, status||'active', priority||'medium',
+    `, [name, description||null, status||'active', priority||'medium',
         start_date||null, end_date||null, manager_id||null, color||'#635BFF']);
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -83,7 +114,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
       UPDATE projects SET name=$1, description=$2, status=$3, priority=$4,
         start_date=$5, end_date=$6, manager_id=$7, color=$8, updated_at=NOW()
       WHERE id=$9 RETURNING *
-    `, [name, description, status||'active', priority||'medium',
+    `, [name, description||null, status||'active', priority||'medium',
         start_date||null, end_date||null, manager_id||null, color||'#635BFF', req.params.id]);
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -111,11 +142,13 @@ router.get('/:id/tasks', authMiddleware, async (req, res) => {
 router.post('/:id/tasks', authMiddleware, async (req, res) => {
   const { title, description, status, priority, assigned_to, due_date } = req.body;
   try {
-    const pos = await pool.query(`SELECT COALESCE(MAX(position),0)+1 AS p FROM tasks WHERE project_id=$1`, [req.params.id]);
+    const pos = await pool.query(
+      `SELECT COALESCE(MAX(position),0)+1 AS p FROM tasks WHERE project_id=$1`, [req.params.id]
+    );
     const { rows } = await pool.query(`
       INSERT INTO tasks (project_id, title, description, status, priority, assigned_to, due_date, position)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *
-    `, [req.params.id, title, description, status||'todo', priority||'medium',
+    `, [req.params.id, title, description||null, status||'todo', priority||'medium',
         assigned_to||null, due_date||null, pos.rows[0].p]);
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -123,14 +156,15 @@ router.post('/:id/tasks', authMiddleware, async (req, res) => {
 
 router.put('/tasks/:taskId', authMiddleware, async (req, res) => {
   const { title, description, status, priority, assigned_to, due_date, position } = req.body;
-  const completed_at = status === 'done' ? new Date() : null;
   try {
     const { rows } = await pool.query(`
       UPDATE tasks SET title=$1, description=$2, status=$3, priority=$4,
-        assigned_to=$5, due_date=$6, position=COALESCE($7,position),
-        completed_at=CASE WHEN $3='done' THEN NOW() ELSE NULL END, updated_at=NOW()
+        assigned_to=$5, due_date=$6,
+        position=COALESCE($7, position),
+        completed_at=CASE WHEN $3='done' THEN NOW() ELSE NULL END,
+        updated_at=NOW()
       WHERE id=$8 RETURNING *
-    `, [title, description, status||'todo', priority||'medium',
+    `, [title, description||null, status||'todo', priority||'medium',
         assigned_to||null, due_date||null, position||null, req.params.taskId]);
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -177,8 +211,7 @@ router.get('/timesheets', authMiddleware, async (req, res) => {
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
   try {
     const { rows } = await pool.query(`
-      SELECT t.*, e.full_name AS employee_name, p.name AS project_name,
-             tk.title AS task_title
+      SELECT t.*, e.full_name AS employee_name, p.name AS project_name, tk.title AS task_title
       FROM timesheet_entries t
       LEFT JOIN employees e ON e.id = t.employee_id
       LEFT JOIN projects p ON p.id = t.project_id
@@ -192,17 +225,10 @@ router.get('/timesheets', authMiddleware, async (req, res) => {
 router.post('/timesheets', authMiddleware, async (req, res) => {
   const { employee_id, project_id, task_id, date, hours, description, billable } = req.body;
   try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS timesheet_entries (
-      id SERIAL PRIMARY KEY, employee_id INT REFERENCES employees(id) ON DELETE CASCADE,
-      project_id INT REFERENCES projects(id) ON DELETE SET NULL,
-      task_id INT REFERENCES tasks(id) ON DELETE SET NULL,
-      date DATE NOT NULL, hours DECIMAL(4,2) NOT NULL DEFAULT 0,
-      description TEXT, billable BOOLEAN DEFAULT false, created_at TIMESTAMPTZ DEFAULT NOW()
-    )`).catch(() => {});
     const { rows } = await pool.query(`
       INSERT INTO timesheet_entries (employee_id, project_id, task_id, date, hours, description, billable)
       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *
-    `, [employee_id, project_id||null, task_id||null, date, hours, description, billable||false]);
+    `, [employee_id||null, project_id||null, task_id||null, date, hours, description||null, billable||false]);
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
