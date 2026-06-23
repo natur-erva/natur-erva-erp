@@ -9,6 +9,8 @@ type Plan = { id: number; name: string; description: string; price: number; bill
 type Subscription = { id: number; customer_name: string; plan_name: string; price: number; billing_cycle: string; status: string; start_date: string; next_billing_date: string; };
 type Stats = { total: number; active: number; cancelled: number; mrr: number; };
 
+type Customer = { id: string; name: string; };
+
 const TAB = { SUBS: 'subs', PLANS: 'plans' } as const;
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -25,23 +27,25 @@ export function Subscriptions({ showToast }: Props) {
   const [tab, setTab] = useState<typeof TAB[keyof typeof TAB]>(TAB.SUBS);
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<'plan' | 'sub' | null>(null);
   const [editing, setEditing] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [planForm, setPlanForm] = useState({ name: '', description: '', price: '', billing_cycle: 'monthly', features: '', status: 'active' });
-  const [subForm, setSubForm] = useState({ customer_id: '', plan_id: '', start_date: new Date().toISOString().slice(0,10), notes: '' });
+  const [subForm, setSubForm] = useState({ customer_id: '', plan_id: '', amount: '', start_date: new Date().toISOString().slice(0,10), auto_renew: true, notes: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, p, st] = await Promise.all([
+      const [s, p, st, cu] = await Promise.all([
         api.get<Subscription[]>('/subscriptions'),
         api.get<Plan[]>('/subscriptions/plans'),
         api.get<Stats>('/subscriptions/stats'),
+        api.get<Customer[]>('/customers?limit=500'),
       ]);
-      setSubs(s); setPlans(p); setStats(st);
+      setSubs(s); setPlans(p); setStats(st); setCustomers(cu);
     } catch { showToast?.('Erro ao carregar', 'error'); }
     finally { setLoading(false); }
   }, []);
@@ -59,6 +63,43 @@ export function Subscriptions({ showToast }: Props) {
     finally { setSaving(false); }
   };
 
+  const saveSub = async () => {
+    if (!subForm.customer_id || !subForm.start_date) {
+      showToast?.('Cliente e data de início são obrigatórios', 'error'); return;
+    }
+    setSaving(true);
+    try {
+      // Calcular próxima cobrança baseado no ciclo do plano
+      const plan = plans.find(p => String(p.id) === String(subForm.plan_id));
+      const start = new Date(subForm.start_date);
+      let nextBilling: Date | null = null;
+      if (plan) {
+        nextBilling = new Date(start);
+        if (plan.billing_cycle === 'monthly')    nextBilling.setMonth(nextBilling.getMonth() + 1);
+        else if (plan.billing_cycle === 'quarterly') nextBilling.setMonth(nextBilling.getMonth() + 3);
+        else if (plan.billing_cycle === 'yearly')    nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+      }
+      const payload = {
+        customer_id: subForm.customer_id,
+        plan_id: subForm.plan_id || null,
+        start_date: subForm.start_date,
+        amount: subForm.amount ? Number(subForm.amount) : (plan?.price || 0),
+        next_billing: nextBilling ? nextBilling.toISOString().slice(0,10) : null,
+        auto_renew: subForm.auto_renew,
+        notes: subForm.notes || null,
+      };
+      await api.post('/subscriptions', payload);
+      showToast?.('Assinatura criada', 'success'); setModal(null); load();
+    } catch (e: any) { showToast?.(e.message || 'Erro', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  // Auto-preenche o valor quando o plano é selecionado
+  const onPlanChange = (planId: string) => {
+    const plan = plans.find(p => String(p.id) === planId);
+    setSubForm(prev => ({ ...prev, plan_id: planId, amount: plan ? String(plan.price) : prev.amount }));
+  };
+
   const deletePlan = async (id: number) => {
     if (!confirm('Eliminar plano?')) return;
     try { await api.delete(`/subscriptions/plans/${id}`); showToast?.('Eliminado', 'success'); load(); }
@@ -73,7 +114,7 @@ export function Subscriptions({ showToast }: Props) {
   return (
     <PageShell title="Assinaturas" description="Gestão de planos e assinaturas recorrentes"
       actions={
-        <button onClick={() => { setEditing(null); setPlanForm({ name:'', description:'', price:'', billing_cycle:'monthly', features:'', status:'active' }); setModal(tab === TAB.PLANS ? 'plan' : 'sub'); }}
+        <button onClick={() => { setEditing(null); setPlanForm({ name:'', description:'', price:'', billing_cycle:'monthly', features:'', status:'active' }); setSubForm({ customer_id:'', plan_id:'', amount:'', start_date: new Date().toISOString().slice(0,10), auto_renew:true, notes:'' }); setModal(tab === TAB.PLANS ? 'plan' : 'sub'); }}
           className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-medium">
           <Plus className="w-4 h-4" /> {tab === TAB.PLANS ? 'Novo Plano' : 'Nova Assinatura'}
         </button>
@@ -168,6 +209,61 @@ export function Subscriptions({ showToast }: Props) {
           )}
         </div>
       </div>
+
+      {/* Modal Nova Assinatura */}
+      {modal === 'sub' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+          <div className="bg-surface-raised rounded-2xl shadow-xl w-full max-w-md animate-modal-enter">
+            <div className="flex items-center justify-between p-5 border-b border-border-default">
+              <h3 className="font-semibold text-content-primary">Nova Assinatura</h3>
+              <button onClick={() => setModal(null)} className="p-1.5 rounded-lg hover:bg-surface-overlay text-content-muted"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className={labelCls}>Cliente *</label>
+                <select value={subForm.customer_id} onChange={e => setSubForm(p=>({...p,customer_id:e.target.value}))} className={inputCls}>
+                  <option value="">Seleccionar cliente…</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Plano</label>
+                <select value={subForm.plan_id} onChange={e => onPlanChange(e.target.value)} className={inputCls}>
+                  <option value="">Sem plano</option>
+                  {plans.filter(p => p.status !== 'inactive').map(p => (
+                    <option key={p.id} value={p.id}>{p.name} — {fmt(p.price)}/{CYCLE_LABELS[p.billing_cycle]?.toLowerCase()}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Data de Início *</label>
+                  <input type="date" value={subForm.start_date} onChange={e => setSubForm(p=>({...p,start_date:e.target.value}))} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Valor (MT)</label>
+                  <input type="number" step="0.01" placeholder="Auto do plano" value={subForm.amount} onChange={e => setSubForm(p=>({...p,amount:e.target.value}))} className={inputCls} />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
+                <input type="checkbox" checked={subForm.auto_renew} onChange={e => setSubForm(p=>({...p,auto_renew:e.target.checked}))} className="rounded" />
+                Renovação automática
+              </label>
+              <div>
+                <label className={labelCls}>Notas</label>
+                <textarea value={subForm.notes} onChange={e => setSubForm(p=>({...p,notes:e.target.value}))} rows={2} className={inputCls} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setModal(null)} className="px-4 py-2 text-sm border border-border-default rounded-lg text-content-secondary hover:bg-surface-overlay">Cancelar</button>
+                <button onClick={saveSub} disabled={saving || !subForm.customer_id || !subForm.start_date}
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg disabled:opacity-50">
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />} Criar Assinatura
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modal === 'plan' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">

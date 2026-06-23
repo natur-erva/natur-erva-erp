@@ -60,6 +60,34 @@ async function migrate() {
     approved_at TIMESTAMPTZ,
     created_at  TIMESTAMPTZ DEFAULT NOW()
   )`, 'leave_requests');
+  await run(`CREATE TABLE IF NOT EXISTS payroll_periods (
+    id          SERIAL PRIMARY KEY,
+    period_name VARCHAR(50) NOT NULL,
+    start_date  DATE NOT NULL,
+    end_date    DATE NOT NULL,
+    status      VARCHAR(20) DEFAULT 'draft',
+    notes       TEXT,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+  )`, 'payroll_periods');
+  await run(`CREATE TABLE IF NOT EXISTS payslips (
+    id                SERIAL PRIMARY KEY,
+    period_id         INT NOT NULL REFERENCES payroll_periods(id) ON DELETE CASCADE,
+    employee_id       INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    gross_salary      DECIMAL(12,2) DEFAULT 0,
+    inss_employee     DECIMAL(12,2) DEFAULT 0,
+    inss_employer     DECIMAL(12,2) DEFAULT 0,
+    irps              DECIMAL(12,2) DEFAULT 0,
+    other_deductions  DECIMAL(12,2) DEFAULT 0,
+    other_additions   DECIMAL(12,2) DEFAULT 0,
+    net_salary        DECIMAL(12,2) DEFAULT 0,
+    status            VARCHAR(20) DEFAULT 'pending',
+    notes             TEXT,
+    paid_at           TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (period_id, employee_id)
+  )`, 'payslips');
 }
 migrate();
 
@@ -262,6 +290,137 @@ router.get('/stats', authMiddleware, async (req, res) => {
       on_leave: onLeave.rows[0].n, departments: depts.rows[0].n,
       pending_leaves: pendingLeaves.rows[0].n,
     });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── PAYROLL PERIODS ───────────────────────────────────────────────────────────
+router.get('/payroll', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT pp.*,
+             COUNT(ps.id)::int AS slip_count,
+             COALESCE(SUM(ps.gross_salary), 0) AS total_gross,
+             COALESCE(SUM(ps.net_salary), 0)   AS total_net
+      FROM payroll_periods pp
+      LEFT JOIN payslips ps ON ps.period_id = pp.id
+      GROUP BY pp.id
+      ORDER BY pp.start_date DESC
+    `);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/payroll', authMiddleware, async (req, res) => {
+  const { period_name, start_date, end_date, notes } = req.body;
+  try {
+    const { rows } = await pool.query(`
+      INSERT INTO payroll_periods (period_name, start_date, end_date, notes)
+      VALUES ($1,$2,$3,$4) RETURNING *
+    `, [period_name, start_date, end_date, notes||null]);
+    res.status(201).json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Calcular IRPS Moçambique (tabela progressiva simplificada) ────────────────
+function calcIRPS(taxableIncome) {
+  // Valores em MZN — tabela IRPS 2024 (annual → monthly divide by 12)
+  const annual = taxableIncome * 12;
+  let irpsAnnual = 0;
+  if (annual <= 42000)       irpsAnnual = 0;
+  else if (annual <= 168000) irpsAnnual = (annual - 42000) * 0.10;
+  else if (annual <= 504000) irpsAnnual = 12600 + (annual - 168000) * 0.15;
+  else if (annual <= 1512000) irpsAnnual = 63000 + (annual - 504000) * 0.20;
+  else if (annual <= 3024000) irpsAnnual = 264600 + (annual - 1512000) * 0.25;
+  else                        irpsAnnual = 642600 + (annual - 3024000) * 0.32;
+  return Math.round(irpsAnnual / 12 * 100) / 100;
+}
+
+// Processar: gerar payslips para todos os funcionários activos
+router.post('/payroll/:id/process', authMiddleware, async (req, res) => {
+  try {
+    const period = await pool.query(`SELECT * FROM payroll_periods WHERE id=$1`, [req.params.id]);
+    if (!period.rows.length) return res.status(404).json({ error: 'Período não encontrado' });
+    if (period.rows[0].status === 'closed') return res.status(400).json({ error: 'Período já fechado' });
+
+    const emps = await pool.query(`SELECT * FROM employees WHERE status='active'`);
+    const slips = [];
+    for (const emp of emps.rows) {
+      const gross = parseFloat(emp.salary) || 0;
+      const inssEmp  = Math.round(gross * 0.03 * 100) / 100;   // INSS funcionário 3%
+      const inssEmpr = Math.round(gross * 0.04 * 100) / 100;   // INSS entidade 4%
+      const taxable  = gross - inssEmp;
+      const irps     = calcIRPS(taxable);
+      const net      = Math.round((gross - inssEmp - irps) * 100) / 100;
+
+      await pool.query(`
+        INSERT INTO payslips (period_id, employee_id, gross_salary, inss_employee, inss_employer, irps, net_salary)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)
+        ON CONFLICT (period_id, employee_id) DO UPDATE
+          SET gross_salary=$3, inss_employee=$4, inss_employer=$5, irps=$6, net_salary=$7, updated_at=NOW()
+        RETURNING *
+      `, [req.params.id, emp.id, gross, inssEmp, inssEmpr, irps, net]);
+      slips.push({ employee: emp.full_name, gross, inssEmp, irps, net });
+    }
+    await pool.query(`UPDATE payroll_periods SET status='processing', updated_at=NOW() WHERE id=$1`, [req.params.id]);
+    res.json({ processed: slips.length, slips });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Obter payslips de um período
+router.get('/payroll/:id/payslips', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT ps.*, e.full_name, e.job_title, e.nuit,
+             d.name AS department_name
+      FROM payslips ps
+      JOIN employees e ON e.id = ps.employee_id
+      LEFT JOIN departments d ON d.id = e.department_id
+      WHERE ps.period_id = $1
+      ORDER BY e.full_name
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Ajuste manual de um payslip
+router.put('/payroll/payslips/:slipId', authMiddleware, async (req, res) => {
+  const { gross_salary, inss_employee, inss_employer, irps, other_deductions, other_additions, notes } = req.body;
+  try {
+    const gross  = parseFloat(gross_salary) || 0;
+    const inssE  = parseFloat(inss_employee) || 0;
+    const irpsV  = parseFloat(irps) || 0;
+    const dedOth = parseFloat(other_deductions) || 0;
+    const addOth = parseFloat(other_additions) || 0;
+    const net    = Math.round((gross - inssE - irpsV - dedOth + addOth) * 100) / 100;
+    const { rows } = await pool.query(`
+      UPDATE payslips SET
+        gross_salary=$1, inss_employee=$2, inss_employer=$3, irps=$4,
+        other_deductions=$5, other_additions=$6, net_salary=$7, notes=$8, updated_at=NOW()
+      WHERE id=$9 RETURNING *
+    `, [gross, inssE, parseFloat(inss_employer)||0, irpsV, dedOth, addOth, net, notes||null, req.params.slipId]);
+    res.json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Marcar payslip como pago
+router.put('/payroll/payslips/:slipId/pay', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE payslips SET status='paid', paid_at=NOW(), updated_at=NOW() WHERE id=$1 RETURNING *`,
+      [req.params.slipId]
+    );
+    res.json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Fechar período
+router.put('/payroll/:id/close', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE payroll_periods SET status='closed', updated_at=NOW() WHERE id=$1 RETURNING *`,
+      [req.params.id]
+    );
+    res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -4,6 +4,7 @@ import api from '../../core/services/apiClient';
 import {
   Users, Building2, FileText, Calendar, Plus, Pencil, Trash2,
   Loader2, Search, X, ChevronDown, Check, UserCheck, UserX, Clock,
+  DollarSign, Play, CheckCheck, ChevronRight, AlertCircle,
 } from 'lucide-react';
 import type { Toast } from '../../core/components/ui/Toast';
 
@@ -21,8 +22,19 @@ type Leave = {
 };
 type Stats = { total: number; active: number; on_leave: number; departments: number; pending_leaves: number; };
 
-const TAB = { EMPLOYEES: 'employees', DEPARTMENTS: 'departments', LEAVES: 'leaves' } as const;
+const TAB = { EMPLOYEES: 'employees', DEPARTMENTS: 'departments', LEAVES: 'leaves', PAYROLL: 'payroll' } as const;
 type Tab = typeof TAB[keyof typeof TAB];
+
+type PayrollPeriod = {
+  id: number; period_name: string; start_date: string; end_date: string;
+  status: string; notes: string; slip_count: number; total_gross: number; total_net: number;
+};
+type Payslip = {
+  id: number; employee_id: number; full_name: string; job_title: string;
+  department_name: string; gross_salary: number; inss_employee: number;
+  inss_employer: number; irps: number; other_deductions: number; other_additions: number;
+  net_salary: number; status: string; notes: string;
+};
 
 const CONTRACT_LABELS: Record<string, string> = {
   full_time: 'Tempo Inteiro', part_time: 'Meio Período',
@@ -73,19 +85,105 @@ export function HR({ showToast }: Props) {
   const [deptForm, setDeptForm] = useState({ name: '', description: '' });
   const [leaveForm, setLeaveForm] = useState({ employee_id: '', type: 'annual', start_date: '', end_date: '', days: '1', reason: '' });
 
+  // Payroll state
+  const [periods, setPeriods] = useState<PayrollPeriod[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState<PayrollPeriod | null>(null);
+  const [payslips, setPayslips] = useState<Payslip[]>([]);
+  const [loadingPayslips, setLoadingPayslips] = useState(false);
+  const [processingPayroll, setProcessingPayroll] = useState(false);
+  const [periodModal, setPeriodModal] = useState(false);
+  const [editingSlip, setEditingSlip] = useState<Payslip | null>(null);
+  const [slipModal, setSlipModal] = useState(false);
+  const [periodForm, setPeriodForm] = useState({ period_name: '', start_date: '', end_date: '', notes: '' });
+  const [slipForm, setSlipForm] = useState({ gross_salary: '', inss_employee: '', inss_employer: '', irps: '', other_deductions: '0', other_additions: '0', notes: '' });
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [e, d, l, s] = await Promise.all([
+      const [e, d, l, s, pp] = await Promise.all([
         api.get<Employee[]>('/hr/employees'),
         api.get<Department[]>('/hr/departments'),
         api.get<Leave[]>('/hr/leaves'),
         api.get<Stats>('/hr/stats'),
+        api.get<PayrollPeriod[]>('/hr/payroll'),
       ]);
-      setEmployees(e); setDepartments(d); setLeaves(l); setStats(s);
+      setEmployees(e); setDepartments(d); setLeaves(l); setStats(s); setPeriods(pp);
     } catch { showToast?.('Erro ao carregar dados', 'error'); }
     finally { setLoading(false); }
   }, []);
+
+  const loadPayslips = useCallback(async (periodId: number) => {
+    setLoadingPayslips(true);
+    try {
+      const data = await api.get<Payslip[]>(`/hr/payroll/${periodId}/payslips`);
+      setPayslips(data);
+    } catch { showToast?.('Erro ao carregar recibos', 'error'); }
+    finally { setLoadingPayslips(false); }
+  }, []);
+
+  const createPeriod = async () => {
+    setSaving(true);
+    try {
+      await api.post('/hr/payroll', periodForm);
+      showToast?.('Período criado', 'success'); setPeriodModal(false); load();
+    } catch (e: any) { showToast?.(e.message || 'Erro', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const processPeriod = async (id: number) => {
+    if (!confirm('Processar folha de salários? Os valores serão calculados automaticamente para todos os funcionários activos.')) return;
+    setProcessingPayroll(true);
+    try {
+      const res = await api.post<{ processed: number }>(`/hr/payroll/${id}/process`, {});
+      showToast?.(`${res.processed} recibos gerados`, 'success');
+      await loadPayslips(id);
+      load();
+    } catch (e: any) { showToast?.(e.message || 'Erro', 'error'); }
+    finally { setProcessingPayroll(false); }
+  };
+
+  const closePeriod = async (id: number) => {
+    if (!confirm('Fechar período? Esta ação não pode ser revertida.')) return;
+    try {
+      await api.put(`/hr/payroll/${id}/close`, {});
+      showToast?.('Período fechado', 'success'); load();
+      if (selectedPeriod?.id === id) setSelectedPeriod(prev => prev ? { ...prev, status: 'closed' } : null);
+    } catch { showToast?.('Erro', 'error'); }
+  };
+
+  const openSlipEdit = (slip: Payslip) => {
+    setEditingSlip(slip);
+    setSlipForm({
+      gross_salary: String(slip.gross_salary),
+      inss_employee: String(slip.inss_employee),
+      inss_employer: String(slip.inss_employer),
+      irps: String(slip.irps),
+      other_deductions: String(slip.other_deductions || 0),
+      other_additions: String(slip.other_additions || 0),
+      notes: slip.notes || '',
+    });
+    setSlipModal(true);
+  };
+
+  const saveSlip = async () => {
+    if (!editingSlip) return;
+    setSaving(true);
+    try {
+      await api.put(`/hr/payroll/payslips/${editingSlip.id}`, slipForm);
+      showToast?.('Recibo actualizado', 'success');
+      setSlipModal(false); setEditingSlip(null);
+      if (selectedPeriod) loadPayslips(selectedPeriod.id);
+    } catch (e: any) { showToast?.(e.message || 'Erro', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const markPaid = async (slipId: number) => {
+    try {
+      await api.put(`/hr/payroll/payslips/${slipId}/pay`, {});
+      showToast?.('Marcado como pago', 'success');
+      if (selectedPeriod) loadPayslips(selectedPeriod.id);
+    } catch { showToast?.('Erro', 'error'); }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -147,16 +245,24 @@ export function HR({ showToast }: Props) {
     { id: TAB.EMPLOYEES, label: 'Funcionários', icon: Users },
     { id: TAB.DEPARTMENTS, label: 'Departamentos', icon: Building2 },
     { id: TAB.LEAVES, label: 'Ausências', icon: Calendar },
+    { id: TAB.PAYROLL, label: 'Salários', icon: DollarSign },
   ];
 
   return (
-    <PageShell title="Recursos Humanos" description="Gestão de funcionários, departamentos e ausências"
+    <PageShell title="Recursos Humanos" description="Gestão de funcionários, departamentos, ausências e salários"
       actions={
-        <button onClick={() => { setEditing(null); setEmpForm({ full_name:'', job_title:'', department_id:'', hire_date:'', contract_type:'full_time', salary:'', phone:'', email:'', status:'active', notes:'' }); setModal(tab === TAB.DEPARTMENTS ? 'department' : tab === TAB.LEAVES ? 'leave' : 'employee'); }}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-medium transition-colors">
-          <Plus className="w-4 h-4" />
-          {tab === TAB.DEPARTMENTS ? 'Novo Departamento' : tab === TAB.LEAVES ? 'Pedir Ausência' : 'Novo Funcionário'}
-        </button>
+        tab === TAB.PAYROLL ? (
+          <button onClick={() => { setPeriodForm({ period_name: '', start_date: '', end_date: '', notes: '' }); setPeriodModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-medium transition-colors">
+            <Plus className="w-4 h-4" /> Novo Período
+          </button>
+        ) : (
+          <button onClick={() => { setEditing(null); setEmpForm({ full_name:'', job_title:'', department_id:'', hire_date:'', contract_type:'full_time', salary:'', phone:'', email:'', status:'active', notes:'' }); setModal(tab === TAB.DEPARTMENTS ? 'department' : tab === TAB.LEAVES ? 'leave' : 'employee'); }}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-medium transition-colors">
+            <Plus className="w-4 h-4" />
+            {tab === TAB.DEPARTMENTS ? 'Novo Departamento' : tab === TAB.LEAVES ? 'Pedir Ausência' : 'Novo Funcionário'}
+          </button>
+        )
       }>
 
       {/* Stats */}
@@ -271,6 +377,135 @@ export function HR({ showToast }: Props) {
                 <p className="col-span-3 text-center py-12 text-content-muted">Nenhum departamento criado</p>
               )}
             </div>
+          ) : tab === TAB.PAYROLL ? (
+            /* ── PAYROLL ──────────────────────────────────────────────────── */
+            selectedPeriod ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => { setSelectedPeriod(null); setPayslips([]); }} className="p-1.5 rounded-lg hover:bg-surface-overlay text-content-muted">
+                    <ChevronRight className="w-4 h-4 rotate-180" />
+                  </button>
+                  <div>
+                    <h3 className="font-semibold text-content-primary">{selectedPeriod.period_name}</h3>
+                    <p className="text-xs text-content-muted">{selectedPeriod.start_date?.slice(0,10)} → {selectedPeriod.end_date?.slice(0,10)}</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    {selectedPeriod.status !== 'closed' && (
+                      <>
+                        <button onClick={() => processPeriod(selectedPeriod.id)} disabled={processingPayroll}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-medium disabled:opacity-50">
+                          {processingPayroll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                          Processar
+                        </button>
+                        <button onClick={() => closePeriod(selectedPeriod.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 border border-border-default text-content-secondary hover:bg-surface-overlay rounded-lg text-xs font-medium">
+                          <CheckCheck className="w-3.5 h-3.5" /> Fechar
+                        </button>
+                      </>
+                    )}
+                    {selectedPeriod.status === 'closed' && (
+                      <span className="text-xs px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full font-medium">Fechado</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Resumo */}
+                {payslips.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Total Bruto', value: payslips.reduce((s,p) => s + Number(p.gross_salary), 0) },
+                      { label: 'Total INSS (Entidade)', value: payslips.reduce((s,p) => s + Number(p.inss_employer), 0) },
+                      { label: 'Total Líquido', value: payslips.reduce((s,p) => s + Number(p.net_salary), 0) },
+                    ].map(s => (
+                      <div key={s.label} className="bg-surface-overlay rounded-xl p-3 text-center">
+                        <p className="text-lg font-bold text-content-primary">MT {Number(s.value).toLocaleString('pt-MZ', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-content-muted">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {loadingPayslips ? (
+                  <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-content-muted" /></div>
+                ) : payslips.length === 0 ? (
+                  <div className="text-center py-10 text-content-muted">
+                    <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">Clique em "Processar" para gerar os recibos de salário</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-border-default">
+                        {['Funcionário', 'Cargo', 'Bruto', 'INSS Func.', 'IRPS', 'Out. Deduções', 'Líquido', 'Estado', ''].map(h => (
+                          <th key={h} className="text-left py-3 px-2 text-xs font-medium text-content-muted">{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody>
+                        {payslips.map(slip => (
+                          <tr key={slip.id} className="border-b border-border-default/50 hover:bg-surface-overlay/50">
+                            <td className="py-2.5 px-2 font-medium text-content-primary">{slip.full_name}</td>
+                            <td className="py-2.5 px-2 text-content-secondary text-xs">{slip.job_title || '—'}</td>
+                            <td className="py-2.5 px-2 text-content-secondary">MT {Number(slip.gross_salary).toFixed(2)}</td>
+                            <td className="py-2.5 px-2 text-red-600 text-xs">-MT {Number(slip.inss_employee).toFixed(2)}</td>
+                            <td className="py-2.5 px-2 text-red-600 text-xs">-MT {Number(slip.irps).toFixed(2)}</td>
+                            <td className="py-2.5 px-2 text-red-600 text-xs">-MT {Number(slip.other_deductions || 0).toFixed(2)}</td>
+                            <td className="py-2.5 px-2 font-semibold text-green-700 dark:text-green-400">MT {Number(slip.net_salary).toFixed(2)}</td>
+                            <td className="py-2.5 px-2">
+                              <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${slip.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>
+                                {slip.status === 'paid' ? 'Pago' : 'Pendente'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-2">
+                              <div className="flex gap-1">
+                                <button onClick={() => openSlipEdit(slip)} className="p-1 rounded hover:bg-surface-overlay text-content-muted" title="Editar">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                {slip.status !== 'paid' && selectedPeriod.status !== 'closed' && (
+                                  <button onClick={() => markPaid(slip.id)} className="p-1 rounded hover:bg-green-50 dark:hover:bg-green-900/20 text-content-muted hover:text-green-600" title="Marcar como pago">
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Lista de períodos */
+              <div className="space-y-3">
+                {periods.length === 0 && (
+                  <p className="text-center py-12 text-content-muted">Nenhum período criado. Clique em "Novo Período" para começar.</p>
+                )}
+                {periods.map(pp => (
+                  <div key={pp.id} className="flex items-center gap-4 border border-border-default rounded-xl p-4 hover:bg-surface-overlay/30 transition-colors cursor-pointer"
+                    onClick={() => { setSelectedPeriod(pp); loadPayslips(pp.id); }}>
+                    <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
+                      <DollarSign className="w-5 h-5 text-brand-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-content-primary">{pp.period_name}</p>
+                      <p className="text-xs text-content-muted">{pp.start_date?.slice(0,10)} → {pp.end_date?.slice(0,10)} · {pp.slip_count} recibos</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold text-content-primary">MT {Number(pp.total_net || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 })}</p>
+                      <p className="text-xs text-content-muted">líquido total</p>
+                    </div>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${
+                      pp.status === 'closed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      : pp.status === 'processing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                    }`}>
+                      {pp.status === 'closed' ? 'Fechado' : pp.status === 'processing' ? 'Processado' : 'Rascunho'}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-content-muted shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )
           ) : (
             <div className="space-y-3">
               {leaves.map(l => (
@@ -431,6 +666,89 @@ export function HR({ showToast }: Props) {
               <button onClick={saveLeave} disabled={saving || !leaveForm.employee_id || !leaveForm.start_date}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg disabled:opacity-50">
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />} Enviar Pedido
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {/* Modal Novo Período */}
+      {periodModal && (
+        <Modal title="Novo Período de Salários" onClose={() => setPeriodModal(false)}>
+          <div className="space-y-4">
+            <div>
+              <label className={labelCls}>Nome do Período *</label>
+              <input placeholder="Ex: Junho 2026" value={periodForm.period_name} onChange={e => setPeriodForm(p=>({...p,period_name:e.target.value}))} className={inputCls} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Data Início *</label>
+                <input type="date" value={periodForm.start_date} onChange={e => setPeriodForm(p=>({...p,start_date:e.target.value}))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Data Fim *</label>
+                <input type="date" value={periodForm.end_date} onChange={e => setPeriodForm(p=>({...p,end_date:e.target.value}))} className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Notas</label>
+              <textarea value={periodForm.notes} onChange={e => setPeriodForm(p=>({...p,notes:e.target.value}))} rows={2} className={inputCls} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setPeriodModal(false)} className="px-4 py-2 text-sm border border-border-default rounded-lg text-content-secondary hover:bg-surface-overlay">Cancelar</button>
+              <button onClick={createPeriod} disabled={saving || !periodForm.period_name || !periodForm.start_date}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg disabled:opacity-50">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Criar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Editar Recibo */}
+      {slipModal && editingSlip && (
+        <Modal title={`Editar Recibo — ${editingSlip.full_name}`} onClose={() => { setSlipModal(false); setEditingSlip(null); }}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Salário Bruto (MT)</label>
+                <input type="number" step="0.01" value={slipForm.gross_salary} onChange={e => setSlipForm(p=>({...p,gross_salary:e.target.value}))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>INSS Funcionário (3%)</label>
+                <input type="number" step="0.01" value={slipForm.inss_employee} onChange={e => setSlipForm(p=>({...p,inss_employee:e.target.value}))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>INSS Entidade (4%)</label>
+                <input type="number" step="0.01" value={slipForm.inss_employer} onChange={e => setSlipForm(p=>({...p,inss_employer:e.target.value}))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>IRPS</label>
+                <input type="number" step="0.01" value={slipForm.irps} onChange={e => setSlipForm(p=>({...p,irps:e.target.value}))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Outras Deduções</label>
+                <input type="number" step="0.01" value={slipForm.other_deductions} onChange={e => setSlipForm(p=>({...p,other_deductions:e.target.value}))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Outros Adicionais</label>
+                <input type="number" step="0.01" value={slipForm.other_additions} onChange={e => setSlipForm(p=>({...p,other_additions:e.target.value}))} className={inputCls} />
+              </div>
+            </div>
+            <div className="bg-surface-overlay rounded-lg p-3 text-sm">
+              <span className="text-content-muted">Salário Líquido estimado: </span>
+              <span className="font-bold text-green-700 dark:text-green-400">
+                MT {Math.max(0, (parseFloat(slipForm.gross_salary)||0) - (parseFloat(slipForm.inss_employee)||0) - (parseFloat(slipForm.irps)||0) - (parseFloat(slipForm.other_deductions)||0) + (parseFloat(slipForm.other_additions)||0)).toFixed(2)}
+              </span>
+            </div>
+            <div>
+              <label className={labelCls}>Notas</label>
+              <textarea value={slipForm.notes} onChange={e => setSlipForm(p=>({...p,notes:e.target.value}))} rows={2} className={inputCls} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setSlipModal(false); setEditingSlip(null); }} className="px-4 py-2 text-sm border border-border-default rounded-lg text-content-secondary hover:bg-surface-overlay">Cancelar</button>
+              <button onClick={saveSlip} disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg disabled:opacity-50">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Guardar
               </button>
             </div>
           </div>

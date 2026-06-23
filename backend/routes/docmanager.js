@@ -53,14 +53,26 @@ migrate();
 
 // ── FOLDERS ───────────────────────────────────────────────────────────────────
 router.get('/folders', authMiddleware, async (req, res) => {
+  const { folder_id } = req.query;
+  const params = [];
+  let where = '';
+  if (folder_id) {
+    params.push(folder_id);
+    where = `WHERE f.parent_id=$1`;
+  } else {
+    where = `WHERE f.parent_id IS NULL`;
+  }
   try {
     const { rows } = await pool.query(`
-      SELECT f.*, p.name AS creator_name,
-             (SELECT COUNT(*)::int FROM documents d WHERE d.folder_id = f.id) AS doc_count
+      SELECT f.*,
+             p.name AS created_by_name,
+             (SELECT COUNT(*)::int FROM documents d WHERE d.folder_id = f.id)     AS doc_count,
+             (SELECT COUNT(*)::int FROM doc_folders sf WHERE sf.parent_id = f.id) AS subfolder_count
       FROM doc_folders f
       LEFT JOIN profiles p ON p.id = f.created_by
-      ORDER BY f.parent_id NULLS FIRST, f.name
-    `);
+      ${where}
+      ORDER BY f.name
+    `, params);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -108,13 +120,31 @@ router.get('/', authMiddleware, async (req, res) => {
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
   try {
     const { rows } = await pool.query(`
-      SELECT d.*, p.name AS creator_name, f.name AS folder_name
+      SELECT d.*, p.name AS created_by_name, f.name AS folder_name
       FROM documents d
       LEFT JOIN profiles p ON p.id = d.created_by
       LEFT JOIN doc_folders f ON f.id = d.folder_id
       ${where}
       ORDER BY d.updated_at DESC
     `, params);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── SEARCH — antes de /:id ────────────────────────────────────────────────────
+router.get('/search', authMiddleware, async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+  try {
+    const { rows } = await pool.query(`
+      SELECT d.*, p.name AS created_by_name, f.name AS folder_name
+      FROM documents d
+      LEFT JOIN profiles p ON p.id = d.created_by
+      LEFT JOIN doc_folders f ON f.id = d.folder_id
+      WHERE d.name ILIKE $1 OR d.description ILIKE $1
+      ORDER BY d.updated_at DESC
+      LIMIT 50
+    `, [`%${q}%`]);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -134,7 +164,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT d.*, p.name AS creator_name, f.name AS folder_name
+      SELECT d.*, p.name AS created_by_name, f.name AS folder_name
       FROM documents d
       LEFT JOIN profiles p ON p.id = d.created_by
       LEFT JOIN doc_folders f ON f.id = d.folder_id

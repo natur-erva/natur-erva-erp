@@ -104,7 +104,13 @@ router.get('/', authMiddleware, async (req, res) => {
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
   try {
     const { rows } = await pool.query(`
-      SELECT s.*, c.name AS customer_name, c.email AS customer_email, p.name AS plan_name
+      SELECT s.*,
+             s.amount            AS price,
+             s.next_billing      AS next_billing_date,
+             p.billing_cycle,
+             c.name              AS customer_name,
+             c.email             AS customer_email,
+             p.name              AS plan_name
       FROM subscriptions s
       LEFT JOIN customers c ON c.id = s.customer_id
       LEFT JOIN subscription_plans p ON p.id = s.plan_id
@@ -117,13 +123,17 @@ router.get('/', authMiddleware, async (req, res) => {
 
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
-    const [active, total, mrr, expiring] = await Promise.all([
+    const [active, total, cancelled, mrr, expiring] = await Promise.all([
       pool.query(`SELECT COUNT(*)::int AS n FROM subscriptions WHERE status='active'`),
       pool.query(`SELECT COUNT(*)::int AS n FROM subscriptions`),
+      pool.query(`SELECT COUNT(*)::int AS n FROM subscriptions WHERE status='cancelled'`),
       pool.query(`SELECT COALESCE(SUM(amount),0) AS n FROM subscriptions WHERE status='active'`),
       pool.query(`SELECT COUNT(*)::int AS n FROM subscriptions WHERE status='active' AND next_billing <= NOW() + INTERVAL '7 days'`),
     ]);
-    res.json({ active: active.rows[0].n, total: total.rows[0].n, mrr: mrr.rows[0].n, expiring: expiring.rows[0].n });
+    res.json({
+      active: active.rows[0].n, total: total.rows[0].n,
+      cancelled: cancelled.rows[0].n, mrr: mrr.rows[0].n, expiring: expiring.rows[0].n,
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -160,15 +170,25 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   const { status, plan_id, start_date, end_date, next_billing, amount, auto_renew, notes, cancel_reason } = req.body;
   try {
+    // Usa COALESCE para que campos omitidos mantenham o valor actual da BD
     const { rows } = await pool.query(`
-      UPDATE subscriptions SET status=$1, plan_id=$2, start_date=$3, end_date=$4,
-        next_billing=$5, amount=$6, auto_renew=$7, notes=$8,
-        cancelled_at=CASE WHEN $1='cancelled' THEN NOW() ELSE cancelled_at END,
-        cancel_reason=COALESCE($9, cancel_reason),
-        updated_at=NOW()
+      UPDATE subscriptions SET
+        status      = COALESCE($1, status),
+        plan_id     = COALESCE($2::int, plan_id),
+        start_date  = COALESCE($3::date, start_date),
+        end_date    = COALESCE($4::date, end_date),
+        next_billing= COALESCE($5::date, next_billing),
+        amount      = COALESCE($6::numeric, amount),
+        auto_renew  = COALESCE($7::boolean, auto_renew),
+        notes       = COALESCE($8, notes),
+        cancelled_at= CASE WHEN $1='cancelled' THEN NOW() ELSE cancelled_at END,
+        cancel_reason= COALESCE($9, cancel_reason),
+        updated_at  = NOW()
       WHERE id=$10 RETURNING *
-    `, [status||'active', plan_id||null, start_date, end_date||null, next_billing||null,
-        amount||0, auto_renew ?? true, notes||null, cancel_reason||null, req.params.id]);
+    `, [status||null, plan_id||null, start_date||null, end_date||null,
+        next_billing||null, amount != null ? amount : null,
+        auto_renew != null ? auto_renew : null,
+        notes||null, cancel_reason||null, req.params.id]);
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
