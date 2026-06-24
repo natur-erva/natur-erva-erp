@@ -5,9 +5,9 @@ import { MessageSquare, Plus, Loader2, X, Send, Users } from 'lucide-react';
 import type { Toast } from '../../core/components/ui/Toast';
 
 interface Props { showToast?: (msg: string, type: Toast['type']) => void; }
-type Conversation = { id: number; type: string; name: string; last_message: string; last_message_at: string; unread_count: number; members: { id: number; name: string; avatar_url: string }[]; };
-type Message = { id: number; content: string; sender_name: string; sender_avatar: string; created_at: string; sender_id: number; };
-type User = { id: number; name: string; avatar_url: string; };
+type Conversation = { id: number; type: string; name: string; last_message: string; last_message_at: string; unread_count: number; members: { id: string; name: string; avatar_url: string }[]; };
+type Message = { id: number; content: string; sender_name: string; sender_avatar: string; created_at: string; sender_id: string; };
+type User = { id: string; name: string; avatar_url: string; };
 
 export function Messaging({ showToast }: Props) {
   const [convs, setConvs] = useState<Conversation[]>([]);
@@ -19,7 +19,7 @@ export function Messaging({ showToast }: Props) {
   const [newMsg, setNewMsg] = useState('');
   const [sending, setSending] = useState(false);
   const [newConvModal, setNewConvModal] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

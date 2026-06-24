@@ -9,6 +9,28 @@ async function migrate() {
     try { await pool.query(sql); }
     catch (e) { console.error(`[messages] migrate ${label}:`, e.message); }
   };
+
+  // Detecta se as tabelas existem com schema errado (FK INT em vez de UUID).
+  // Se created_by em message_channels for integer, as tabelas são da versão antiga.
+  let needRebuild = false;
+  try {
+    const { rows } = await pool.query(`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_name = 'message_channels' AND column_name = 'created_by'
+    `);
+    if (rows.length > 0 && rows[0].data_type === 'integer') {
+      needRebuild = true;
+      console.log('[messages] Schema antigo detectado (INT FK) — a recriar tabelas…');
+    }
+  } catch (_) {}
+
+  if (needRebuild) {
+    // Remove tabelas antigas com schema errado (sem dados úteis)
+    for (const t of ['message_reads', 'messages', 'channel_members', 'message_channels']) {
+      await run(`DROP TABLE IF EXISTS ${t} CASCADE`, `drop ${t}`);
+    }
+  }
+
   await run(`CREATE TABLE IF NOT EXISTS message_channels (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(100),
@@ -18,14 +40,14 @@ async function migrate() {
     created_at  TIMESTAMPTZ DEFAULT NOW()
   )`, 'message_channels');
   await run(`CREATE TABLE IF NOT EXISTS channel_members (
-    channel_id INT NOT NULL REFERENCES message_channels(id) ON DELETE CASCADE,
-    user_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    channel_id INT  NOT NULL REFERENCES message_channels(id) ON DELETE CASCADE,
+    user_id    UUID NOT NULL REFERENCES profiles(id)          ON DELETE CASCADE,
     joined_at  TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (channel_id, user_id)
   )`, 'channel_members');
   await run(`CREATE TABLE IF NOT EXISTS messages (
     id         SERIAL PRIMARY KEY,
-    channel_id INT NOT NULL REFERENCES message_channels(id) ON DELETE CASCADE,
+    channel_id INT  NOT NULL REFERENCES message_channels(id) ON DELETE CASCADE,
     sender_id  UUID REFERENCES profiles(id) ON DELETE SET NULL,
     content    TEXT NOT NULL,
     edited_at  TIMESTAMPTZ,
@@ -43,6 +65,7 @@ async function migrate() {
     const { rows } = await pool.query(`SELECT id FROM message_channels WHERE name='Geral' LIMIT 1`);
     if (!rows.length) {
       await pool.query(`INSERT INTO message_channels (name, type) VALUES ('Geral', 'group')`);
+      console.log('[messages] Canal "Geral" criado.');
     }
   } catch (_) {}
 }
