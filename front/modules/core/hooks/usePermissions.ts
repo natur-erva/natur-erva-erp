@@ -33,6 +33,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
   'GESTOR_BLOG': [
     'admin.access', 'dashboard.view',
     'media.view', 'media.upload', 'media.delete',
+    'messaging.view',
   ],
   'GESTOR_VENDAS': [
     'admin.access', 'dashboard.view',
@@ -40,36 +41,72 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'sales.discount', 'sales.reports',
     'customers.view', 'customers.create', 'customers.edit',
     'orders.view', 'orders.create', 'orders.edit', 'orders.update_status',
+    'helpdesk.view', 'subscriptions.view',
+    'messaging.view', 'documents.view',
   ],
   'VENDEDOR': [
     'admin.access', 'dashboard.view',
     'sales.view', 'sales.view.own', 'sales.create',
     'orders.view', 'orders.create',
     'customers.view',
+    'timesheets.view',
+    'messaging.view',
   ],
   'LOGISTICA': [
     'admin.access', 'dashboard.view',
     'logistics.manage',
     'orders.view', 'orders.edit', 'orders.update_status',
+    'messaging.view',
   ],
   'AFILIADO': [
     'admin.access', 'dashboard.view',
+    'messaging.view',
   ],
   'GERENTE': [
     'admin.access', 'dashboard.view', 'analytics.view',
     'sales.view', 'sales.view.all', 'sales.create', 'sales.edit',
     'products.view', 'products.create', 'products.edit',
+    'purchases.view', 'purchases.create',
     'stock.view', 'stock.movements.view',
     'orders.view', 'orders.edit', 'orders.update_status',
     'customers.view', 'customers.create', 'customers.edit',
     'media.view', 'media.upload',
     'users.view',
+    'finance.view',
+    'hr.view', 'projects.view', 'helpdesk.view',
+    'timesheets.view', 'messaging.view',
+    'subscriptions.view', 'documents.view',
+  ],
+  'CONTABILISTA': [
+    'admin.access', 'dashboard.view', 'analytics.view',
+    'finance.view', 'finance.manage',
+    'purchases.view',
+    'orders.view',
+    'messaging.view', 'documents.view',
+  ],
+  'FINANCEIRO': [
+    'admin.access', 'dashboard.view', 'analytics.view',
+    'finance.view', 'finance.manage',
+    'purchases.view',
+    'messaging.view', 'documents.view',
+  ],
+  'GESTOR_STOCK': [
+    'admin.access', 'dashboard.view',
+    'products.view', 'products.create', 'products.edit',
+    'purchases.view', 'purchases.create',
+    'stock.view', 'stock.adjust', 'stock.audit', 'stock.movements.view',
+    'messaging.view',
   ],
   'STAFF': [
     'admin.access', 'dashboard.view',
     'sales.view', 'sales.view.own',
     'orders.view',
     'customers.view',
+    'projects.view',
+    'helpdesk.view',
+    'timesheets.view',
+    'messaging.view',
+    'documents.view',
   ],
 };
 
@@ -138,7 +175,17 @@ const getAllPermissionsList = (): string[] => {
     'orders.view', 'orders.create', 'orders.edit', 'orders.delete', 'orders.update_status',
 
     // Shop (2)
-    'shop.view', 'shop.order'
+    'shop.view', 'shop.order',
+
+    // Novos módulos (8)
+    'hr.view', 'hr.manage',
+    'projects.view', 'projects.manage',
+    'helpdesk.view', 'helpdesk.manage',
+    'timesheets.view',
+    'messaging.view',
+    'subscriptions.view', 'subscriptions.manage',
+    'documents.view', 'documents.manage',
+    'finance.view', 'finance.manage',
   ];
 };
 

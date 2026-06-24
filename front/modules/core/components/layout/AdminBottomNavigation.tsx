@@ -64,6 +64,7 @@ export const AdminBottomNavigation: React.FC<AdminBottomNavigationProps> = ({
  icon: React.ComponentType<{ className?: string }>;
  permission: string;
  skipModuleCheck?: boolean;
+ isMenuButton?: boolean;
  }
 
  // Itens prioritários para o bottom navigation (máx 4 + Menu)

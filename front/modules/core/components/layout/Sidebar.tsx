@@ -56,6 +56,7 @@ interface MenuItem {
  label: string;
  icon: any;
  permission: string;
+ path?: string;
  children?: SubMenuItem[];
 }
 
@@ -300,28 +301,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
  { id: 'users-roles', label: 'Gerir Roles', icon: Shield, path: '/admin/usuarios/roles' },
  ]
  },
- { id: 'financas', label: 'Finanças', icon: Wallet, permission: 'users.view', children: [
+ { id: 'financas', label: 'Finanças', icon: Wallet, permission: 'finance.view', children: [
   { id: 'financas-iva', label: 'IVA / Configuração', icon: Wallet, path: '/admin/financas' },
   { id: 'invoices', label: 'Faturas', icon: ClipboardCheck, path: '/admin/faturas' },
   { id: 'ap', label: 'Contas a Pagar', icon: Building2, path: '/admin/contas-pagar' },
   { id: 'ledger', label: 'Razão Geral', icon: BookOpen, path: '/admin/razao-geral' },
  ] },
- { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'users.view' },
+ { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'analytics.view' },
  { id: 'logistics', label: 'Logística', icon: Truck, permission: 'logistics.manage' },
  { id: 'coupons', label: 'Cupões', icon: Tag, permission: 'sales.discount' },
  { id: 'refunds', label: 'Reembolsos', icon: Repeat, permission: 'orders.view' },
  { id: 'affiliates', label: 'Afiliados', icon: Share2, permission: 'users.view' },
- { id: 'marketing', label: 'Marketing', icon: Megaphone, permission: 'users.view' },
+ { id: 'marketing', label: 'Marketing', icon: Megaphone, permission: 'sales.view' },
  { id: 'blog', label: 'Blog', icon: FileText, permission: 'media.view' },
- { id: 'delivery-zones', label: 'Zonas de Entrega', icon: MapPin, permission: 'users.view' },
+ { id: 'delivery-zones', label: 'Zonas de Entrega', icon: MapPin, permission: 'logistics.manage' },
  // Novos módulos
- { id: 'hr', label: 'Recursos Humanos', icon: UserCog, permission: 'users.view', path: '/admin/rh' },
- { id: 'projects', label: 'Projectos', icon: FolderKanban, permission: 'users.view', path: '/admin/projectos' },
- { id: 'helpdesk', label: 'Central de Ajuda', icon: Headphones, permission: 'users.view', path: '/admin/helpdesk' },
- { id: 'timesheets', label: 'Planilhas de Horas', icon: Clock, permission: 'users.view', path: '/admin/timesheets' },
- { id: 'messaging', label: 'Mensagens', icon: MessageSquare, permission: 'users.view', path: '/admin/mensagens' },
- { id: 'subscriptions', label: 'Assinaturas', icon: RefreshCw, permission: 'users.view', path: '/admin/assinaturas' },
- { id: 'documents', label: 'Documentos', icon: FolderOpen, permission: 'users.view', path: '/admin/documentos' },
+ { id: 'hr', label: 'Recursos Humanos', icon: UserCog, permission: 'hr.view', path: '/admin/rh' },
+ { id: 'projects', label: 'Projectos', icon: FolderKanban, permission: 'projects.view', path: '/admin/projectos' },
+ { id: 'helpdesk', label: 'Central de Ajuda', icon: Headphones, permission: 'helpdesk.view', path: '/admin/helpdesk' },
+ { id: 'timesheets', label: 'Planilhas de Horas', icon: Clock, permission: 'timesheets.view', path: '/admin/timesheets' },
+ { id: 'messaging', label: 'Mensagens', icon: MessageSquare, permission: 'messaging.view', path: '/admin/mensagens' },
+ { id: 'subscriptions', label: 'Assinaturas', icon: RefreshCw, permission: 'subscriptions.view', path: '/admin/assinaturas' },
+ { id: 'documents', label: 'Documentos', icon: FolderOpen, permission: 'documents.view', path: '/admin/documentos' },
  ];
 
  // Filtrar itens baseado apenas nas permisséµes (sistema simplificado)

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 
 import { User, UserRole } from '../../../core/types/types';
-import { Menu, X, LogOut, Moon, Sun, ChevronDown, User as UserIcon, Globe, LayoutDashboard, ShoppingCart, TrendingUp, Truck, Users, Package, ShoppingBag, BarChart3, Activity, Warehouse, Egg, ArrowRight, FileText, ArrowLeftRight, Wallet, Download, Upload, Repeat, UserCheck, Award, Share2, Target, Megaphone, Eye, Image, Tv, Tag, Ruler, Layers, List, ClipboardCheck, AlertTriangle, Scale, Shield, Boxes, Store, MapPin, CreditCard } from 'lucide-react';
+import { Menu, X, LogOut, ChevronDown, User as UserIcon, Globe, LayoutDashboard, ShoppingCart, TrendingUp, Truck, Users, Package, ShoppingBag, BarChart3, Activity, FileText, ArrowLeftRight, Wallet, Repeat, Share2, Megaphone, Image, Tag, Ruler, List, ClipboardCheck, AlertTriangle, Scale, Shield, Boxes, Store, MapPin, CreditCard, BookOpen, Building2, UserCog, FolderKanban, Headphones, Clock, MessageSquare, RefreshCw, FolderOpen } from 'lucide-react';
 import { useLanguage } from '../../../core/contexts/LanguageContext';
 import { Logo } from '../ui/Logo';
 import { Avatar } from '../ui/Avatar';
@@ -62,10 +62,11 @@ export const Layout: React.FC<LayoutProps> = ({
  // Estrutura simplificada para verificação de rotas (definida antes do useEffect)
  const menuItemsWithChildren = [
  { id: 'sales', children: [{ path: '/admin/pos' }, { path: '/admin/caixa' }, { path: '/admin/cotacoes' }, { path: '/admin/vendas/pedidos' }, { path: '/admin/vendas/clientes' }, { path: '/admin/vendas' }, { path: '/admin/vendas/por-produto' }] },
- { id: 'purchases', children: [{ path: '/admin/compras' }, { path: '/admin/compras/por-produto' }, { path: '/admin/compras/fornecedores' }] },
+ { id: 'purchases', children: [{ path: '/admin/compras' }, { path: '/admin/compras/por-produto' }, { path: '/admin/compras/fornecedores' }, { path: '/admin/compras-flow' }] },
  { id: 'products', children: [{ path: '/admin/produtos' }, { path: '/admin/produtos/categorias' }, { path: '/admin/produtos/unidades' }, { path: '/admin/produtos/etiquetas' }] },
  { id: 'stock-management', children: [{ path: '/admin/stock' }, { path: '/admin/stock/alertas' }, { path: '/admin/stock/movimentos' }, { path: '/admin/stock/lotes' }, { path: '/admin/stock/auditoria' }, { path: '/admin/stock/ajustes' }] },
  { id: 'users', children: [{ path: '/admin/usuarios' }, { path: '/admin/usuarios/roles' }] },
+ { id: 'financas', children: [{ path: '/admin/financas' }, { path: '/admin/faturas' }, { path: '/admin/contas-pagar' }, { path: '/admin/razao-geral' }] },
  ];
 
  // Estado para controlar quais submenus estão expandidos no mobile
@@ -203,15 +204,28 @@ export const Layout: React.FC<LayoutProps> = ({
  { id: 'users-roles', label: 'Gerir Roles', icon: Shield, path: '/admin/usuarios/roles' },
  ]
  },
- { id: 'financas', label: 'Finanças / IVA', icon: Wallet, permission: 'users.view' },
- { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'users.view' },
+ { id: 'financas', label: 'Finanças', icon: Wallet, permission: 'finance.view', children: [
+  { id: 'financas-iva', label: 'IVA / Configuração', icon: Wallet, path: '/admin/financas' },
+  { id: 'invoices', label: 'Faturas', icon: ClipboardCheck, path: '/admin/faturas' },
+  { id: 'ap', label: 'Contas a Pagar', icon: Building2, path: '/admin/contas-pagar' },
+  { id: 'ledger', label: 'Razão Geral', icon: BookOpen, path: '/admin/razao-geral' },
+ ] },
+ { id: 'tracking', label: t.nav.statistics, icon: Activity, permission: 'analytics.view' },
  { id: 'logistics', label: 'Logística', icon: Truck, permission: 'logistics.manage' },
  { id: 'coupons', label: 'Cupões', icon: Tag, permission: 'sales.discount' },
  { id: 'refunds', label: 'Reembolsos', icon: Repeat, permission: 'orders.view' },
  { id: 'affiliates', label: 'Afiliados', icon: Share2, permission: 'users.view' },
- { id: 'marketing', label: 'Marketing', icon: Megaphone, permission: 'users.view' },
+ { id: 'marketing', label: 'Marketing', icon: Megaphone, permission: 'sales.view' },
  { id: 'blog', label: 'Blog', icon: FileText, permission: 'media.view' },
- { id: 'delivery-zones', label: 'Zonas de Entrega', icon: MapPin, permission: 'users.view' },
+ { id: 'delivery-zones', label: 'Zonas de Entrega', icon: MapPin, permission: 'logistics.manage' },
+ // Novos módulos
+ { id: 'hr', label: 'Recursos Humanos', icon: UserCog, permission: 'hr.view' },
+ { id: 'projects', label: 'Projectos', icon: FolderKanban, permission: 'projects.view' },
+ { id: 'helpdesk', label: 'Central de Ajuda', icon: Headphones, permission: 'helpdesk.view' },
+ { id: 'timesheets', label: 'Planilhas de Horas', icon: Clock, permission: 'timesheets.view' },
+ { id: 'messaging', label: 'Mensagens', icon: MessageSquare, permission: 'messaging.view' },
+ { id: 'subscriptions', label: 'Assinaturas', icon: RefreshCw, permission: 'subscriptions.view' },
+ { id: 'documents', label: 'Documentos', icon: FolderOpen, permission: 'documents.view' },
  ];
 
  // State for enabled modules - using generic record logic like Sidebar
@@ -262,6 +276,14 @@ export const Layout: React.FC<LayoutProps> = ({
  'marketing': 'marketing',
  'blog': 'media',
  'delivery-zones': 'logistics',
+ // Novos módulos sempre activados se não houver config
+ 'hr': 'hr',
+ 'projects': 'projects',
+ 'helpdesk': 'helpdesk',
+ 'timesheets': 'timesheets',
+ 'messaging': 'messaging',
+ 'subscriptions': 'subscriptions',
+ 'documents': 'documents',
  };
 
  const configId = moduleMap[moduleId];
